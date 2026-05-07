@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股即時看板</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --surface: #fdfaf4;
+    --border: #e0d8c8;
+    --accent-green: #c0392b;
+    --accent-red: #1a7a5e;
+    --accent-blue: #2c5f8a;
+    --accent-yellow: #b8860b;
+    --text-primary: #2a2118;
+    --text-muted: #8a7a65;
+    --text-dim: #c8bfaf;
+    --font-mono: 'DM Mono', monospace;
+    --font-sans: 'Noto Sans TC', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    padding: 20px;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--text-dim) 1px, transparent 1px),
+      linear-gradient(90deg, var(--text-dim) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .container { max-width: 940px; margin: 0 auto; position: relative; z-index: 1; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em; color: var(--text-muted); }
+  .logo span { color: var(--accent-blue); }
+  .last-update { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+  .blink { display: inline-block; width: 6px; height: 6px; background: var(--accent-green); border-radius: 50%; margin-right: 6px; animation: blink 1.2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .cards-top { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 22px 24px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 2px 12px rgba(100,80,50,0.07);
+  }
+  .card::after { content:''; position:absolute; top:0;left:0;right:0; height:2px; background: var(--card-accent, var(--accent-blue)); }
+  .card.taiex { --card-accent: var(--accent-yellow); }
+  .card.forex { --card-accent: var(--accent-blue); }
+  .card-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
+  .card-value { font-family: var(--font-mono); font-size: 34px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; margin-bottom: 8px; transition: color 0.3s; }
+  .card-change { font-family: var(--font-mono); font-size: 13px; display: flex; gap: 8px; align-items: center; }
+
+  .oi-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 24px; margin-bottom: 14px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 2px 12px rgba(100,80,50,0.07);
+  }
+  .oi-card::after { content:''; position:absolute; top:0;left:0;right:0; height:2px; background: var(--accent-green); }
+  .section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .section-title { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; }
+  .oi-date { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+  .oi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+  .oi-block { background: #f0ebe0; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .oi-block-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 6px; }
+  .oi-net { font-family: var(--font-mono); font-size: 22px; font-weight: 500; transition: color 0.3s; }
+  .oi-detail { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+  .oi-bar-wrap { display:flex; height:4px; border-radius:2px; overflow:hidden; margin-top:8px; background: var(--border); }
+  .oi-bar-long { background: var(--accent-green); transition: width 0.8s ease; }
+  .oi-bar-short { background: var(--accent-red); transition: width 0.8s ease; }
+  .oi-total-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(44,95,138,0.06); border: 1px solid rgba(44,95,138,0.18);
+    border-radius: 8px; padding: 10px 16px;
+    font-family: var(--font-mono); font-size: 12px;
+  }
+  .oi-total-label { color: var(--text-muted); }
+  .oi-total-val { font-size: 16px; font-weight: 500; }
+
+  .history-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 14px; box-shadow: 0 2px 12px rgba(100,80,50,0.07); }
+  table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
+  thead th { text-align:left; padding: 6px 8px; color: var(--text-muted); font-size: 10px; letter-spacing: 0.1em; border-bottom: 1px solid var(--border); }
+  tbody tr { border-bottom: 1px solid rgba(30,42,58,0.5); transition: background 0.15s; }
+  tbody tr:hover { background: rgba(44,95,138,0.05); }
+  tbody td { padding: 9px 8px; color: var(--text-primary); }
+  tbody td:first-child { color: var(--text-muted); }
+
+  .up { color: var(--accent-green); }
+  .down { color: var(--accent-red); }
+  .neutral { color: var(--text-muted); }
+  .badge { display:inline-block; padding:2px 7px; border-radius:4px; font-size:11px; }
+  .badge.up { background: rgba(192,57,43,0.1); color: var(--accent-green); }
+  .badge.down { background: rgba(26,122,94,0.1); color: var(--accent-red); }
+  .badge.flat { background: rgba(138,122,101,0.12); color: var(--text-muted); }
+
+  .spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--border); border-top-color:var(--accent-blue); border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle; margin-right:5px; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .flash { animation: flash 0.5s ease; }
+  @keyframes flash { 0%{opacity:0.3} 100%{opacity:1} }
+
+  .source-note { font-size:11px; color:var(--text-muted); font-family:var(--font-mono); text-align:center; padding-top:6px; }
+  .source-note a { color:var(--text-muted); text-decoration:none; }
+  .source-note a:hover { color:var(--accent-blue); }
+
+  @media (max-width: 640px) {
+    .cards-top { grid-template-columns:1fr; }
+    .card-value { font-size:26px; }
+    .oi-grid { grid-template-columns:1fr; }
+    .oi-total-row { flex-direction:column; gap:6px; align-items:flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo"><span>shixianba</span> · 即時看板</div>
+    <div class="last-update">
+      <span class="blink"></span>
+      <span id="updateTime">載入中...</span>
+    </div>
+  </header>
+
+  <div class="cards-top">
+    <div class="card taiex">
+      <div class="card-label">▪ 加權指數 TAIEX</div>
+      <div class="card-value" id="taiexVal">—</div>
+      <div class="card-change">
+        <span id="taiexArrow">—</span>
+        <span id="taiexChg">載入中</span>
+        <span id="taiexPct"></span>
+      </div>
+    </div>
+    <div class="card forex">
+      <div class="card-label">▪ USD/TWD 美元兌台幣</div>
+      <div class="card-value" id="forexVal">—</div>
+      <div class="card-change">
+        <span id="forexArrow">—</span>
+        <span id="forexChg">載入中</span>
+        <span id="forexPct"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="oi-card">
+    <div class="section-header">
+      <div class="section-title">▪ 台指期 三大法人未平倉淨多空（口）</div>
+      <div class="oi-date" id="oiDate"><span class="spinner"></span>自動抓取中...</div>
+    </div>
+    <div class="oi-grid">
+      <div class="oi-block">
+        <div class="oi-block-label">外資及陸資</div>
+        <div class="oi-net neutral" id="oiForeignNet">—</div>
+        <div class="oi-detail" id="oiForeignDetail">多 — ／ 空 —</div>
+        <div class="oi-bar-wrap">
+          <div class="oi-bar-long" id="oiForeignLong" style="width:50%"></div>
+          <div class="oi-bar-short" id="oiForeignShort" style="width:50%"></div>
+        </div>
+      </div>
+      <div class="oi-block">
+        <div class="oi-block-label">投信</div>
+        <div class="oi-net neutral" id="oiTrustNet">—</div>
+        <div class="oi-detail" id="oiTrustDetail">多 — ／ 空 —</div>
+        <div class="oi-bar-wrap">
+          <div class="oi-bar-long" id="oiTrustLong" style="width:50%"></div>
+          <div class="oi-bar-short" id="oiTrustShort" style="width:50%"></div>
+        </div>
+      </div>
+      <div class="oi-block">
+        <div class="oi-block-label">自營商</div>
+        <div class="oi-net neutral" id="oiDealerNet">—</div>
+        <div class="oi-detail" id="oiDealerDetail">多 — ／ 空 —</div>
+        <div class="oi-bar-wrap">
+          <div class="oi-bar-long" id="oiDealerLong" style="width:50%"></div>
+          <div class="oi-bar-short" id="oiDealerShort" style="width:50%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="oi-total-row">
+      <span class="oi-total-label">三大法人合計淨額</span>
+      <span class="oi-total-val neutral" id="oiTotal">— 口</span>
+      <span class="oi-total-label" id="oiTotalDetail">多 — ／ 空 —</span>
+    </div>
+  </div>
+
+  <div class="history-card">
+    <div class="section-header">
+      <div class="section-title">▪ 近期收盤對照</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">三大法人：盤後揭露</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>日期</th>
+          <th>加權指數</th>
+          <th>漲跌點</th>
+          <th>USD/TWD</th>
+          <th>台幣漲跌</th>
+          <th>三大法人淨額</th>
+          <th>方向</th>
+        </tr>
+      </thead>
+      <tbody id="historyBody">
+        <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">
+          <span class="spinner"></span>載入中...
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="source-note">
+    資料來源：
+    <a href="https://tw.stock.yahoo.com/quote/%5ETWII" target="_blank">Yahoo Finance</a> ·
+    <a href="https://openapi.taifex.com.tw/" target="_blank">台灣期交所 OpenAPI</a> ·
+    <a href="https://www.cbc.gov.tw" target="_blank">中央銀行</a>
+    &nbsp;|&nbsp; 加權/匯率每60秒更新 · 三大法人盤後自動抓取
+  </div>
+</div>
+
+<script>
+// ── 歷史靜態資料 ──────────────────────────────────────────────────────
+const staticHistory = [
+  { date:'05/07', taiex:null,   taiexChg:null,  usdtwd:31.785, twdChg:-0.059, oiNet:null,   oiLong:null,  oiShort:null  },
+  { date:'05/06', taiex:null,   taiexChg:null,  usdtwd:31.726, twdChg:+0.059, oiNet:null,   oiLong:null,  oiShort:null  },
+  { date:'05/05', taiex:40769,  taiexChg:+63,   usdtwd:31.790, twdChg:-0.064, oiNet:-5326,  oiLong:73796, oiShort:79122 },
+  { date:'05/04', taiex:40705,  taiexChg:+1778, usdtwd:31.730, twdChg:+0.055, oiNet:null,   oiLong:null,  oiShort:null  },
+  { date:'04/29', taiex:39303,  taiexChg:-218,  usdtwd:31.518, twdChg:-0.051, oiNet:-12400, oiLong:68000, oiShort:80400 },
+  { date:'04/28', taiex:39518,  taiexChg:-99,   usdtwd:31.518, twdChg:-0.051, oiNet:-18200, oiLong:62000, oiShort:80200 },
+  { date:'04/27', taiex:39617,  taiexChg:+680,  usdtwd:31.467, twdChg:+0.049, oiNet:-22100, oiLong:60000, oiShort:82100 },
+  { date:'04/25', taiex:38937,  taiexChg:+480,  usdtwd:31.967, twdChg:+0.005, oiNet:-35600, oiLong:55000, oiShort:90600 },
+  { date:'04/24', taiex:38457,  taiexChg:+860,  usdtwd:31.972, twdChg:+0.010, oiNet:-42000, oiLong:52000, oiShort:94000 },
+  { date:'04/23', taiex:37597,  taiexChg:+320,  usdtwd:31.982, twdChg:-0.020, oiNet:-48500, oiLong:50000, oiShort:98500 },
+];
+
+// ── 工具 ──────────────────────────────────────────────────────────────
+const fmt   = (n,d=2) => n==null ? '—' : n.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d});
+const sgn   = (n,d=2) => n==null ? '—' : (n>=0?'+':'')+fmt(n,d);
+const vcls  = (n, inv=false) => n==null?'neutral':(inv?n<0:n>0)?'up':(n===0?'neutral':'down');
+
+function setCard(valId, arrowId, chgId, pctId, price, change, pct, inv=false) {
+  const c = vcls(change, inv);
+  const el = document.getElementById(valId);
+  el.textContent = fmt(price);
+  el.className = 'card-value '+c;
+  el.classList.add('flash');
+  setTimeout(()=>el.classList.remove('flash'),600);
+  document.getElementById(arrowId).textContent = change===0?'→':(c==='up'?'▲':'▼');
+  document.getElementById(arrowId).className = c;
+  document.getElementById(chgId).textContent = sgn(change);
+  document.getElementById(chgId).className = c;
+  document.getElementById(pctId).textContent = pct!=null?`(${sgn(pct)}%)`:'';
+  document.getElementById(pctId).className = c;
+}
+
+function setOIBlock(netId, detailId, longId, shortId, lo, sh) {
+  const net = lo - sh;
+  const tot = lo + sh || 1;
+  const lp  = Math.round(lo/tot*100);
+  const c   = net>0?'up':net<0?'down':'neutral';
+  document.getElementById(netId).textContent = (net>=0?'+':'')+net.toLocaleString();
+  document.getElementById(netId).className   = 'oi-net '+c;
+  document.getElementById(detailId).textContent = `多 ${lo.toLocaleString()} ／ 空 ${sh.toLocaleString()}`;
+  document.getElementById(longId).style.width  = lp+'%';
+  document.getElementById(shortId).style.width = (100-lp)+'%';
+}
+
+// ── 透過自己的 Netlify Function proxy（同源，完全無 CORS 問題）────────
+async function fetchViaProxy(url) {
+  const proxyUrl = `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
+  try {
+    const r = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) throw new Error('proxy HTTP ' + r.status);
+    return await r.json();
+  } catch(e) {
+    console.error('Netlify proxy failed:', e.message, url.slice(0, 60));
+    return null;
+  }
+}
+
+// ── Yahoo Finance ─────────────────────────────────────────────────────
+async function fetchYahoo(symbol) {
+  for (const host of ['query2', 'query1']) {
+    const url = `https://${host}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+    try {
+      const data = await fetchViaProxy(url);
+      if (!data?.chart?.result?.[0]?.meta) continue;
+      const meta = data.chart.result[0].meta;
+      return {
+        price:  meta.regularMarketPrice,
+        change: meta.regularMarketPrice - meta.chartPreviousClose,
+        pct:   (meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose * 100
+      };
+    } catch(e) { console.warn('Yahoo', symbol, host, e.message); }
+  }
+  return null;
+}
+
+// ── TAIFEX OpenAPI — 台股期貨三大法人 ────────────────────────────────
+async function fetchTaifexOI() {
+  const EP = 'https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate';
+  try {
+    const data = await fetchViaProxy(EP);
+    if (!Array.isArray(data) || !data.length) {
+      console.warn('TAIFEX: 空陣列');
+      return null;
+    }
+
+    console.log('TAIFEX 第一筆:', JSON.stringify(data[0]));
+    const keys = Object.keys(data[0]);
+
+    const kContract = keys.find(k => /契約|contract/i.test(k));
+    const kDate     = keys.find(k => /日期|date/i.test(k));
+    const kIdentity = keys.find(k => /身份|identity/i.test(k));
+    const kLongOI   = keys.find(k => /多方未平倉|long.*open|open.*long/i.test(k));
+    const kShortOI  = keys.find(k => /空方未平倉|short.*open|open.*short/i.test(k));
+
+    console.log('TAIFEX 欄位:', {kContract, kDate, kIdentity, kLongOI, kShortOI});
+
+    if (!kDate || !kIdentity || !kLongOI || !kShortOI) return null;
+
+    const txRows = kContract
+      ? data.filter(r => /^TX$|臺股|台股/.test(String(r[kContract] ?? '')))
+      : data;
+
+    if (!txRows.length) return null;
+
+    const latestDate = [...new Set(txRows.map(r => r[kDate]))].sort().at(-1);
+    const rows = txRows.filter(r => r[kDate] === latestDate);
+    const pnum = v => parseInt(String(v ?? '0').replace(/,/g, '')) || 0;
+
+    let fL=0, fS=0, tL=0, tS=0, dL=0, dS=0;
+    for (const r of rows) {
+      const id = String(r[kIdentity] ?? '');
+      const lo = pnum(r[kLongOI]), sh = pnum(r[kShortOI]);
+      if (/外資|foreign/i.test(id))     { fL=lo; fS=sh; }
+      else if (/投信|invest/i.test(id)) { tL=lo; tS=sh; }
+      else if (/自營|dealer/i.test(id)) { dL=lo; dS=sh; }
+    }
+    if (!fL && !fS && !tL && !tS && !dL && !dS) return null;
+    return { date: latestDate, fL, fS, tL, tS, dL, dS };
+  } catch(e) { console.error('TAIFEX error:', e); return null; }
+}
+
+// ── 渲染 OI 卡片 ──────────────────────────────────────────────────────
+function renderOI(oi) {
+  if (!oi) {
+    document.getElementById('oiDate').textContent = '無法自動取得，請查閱期交所網站';
+    return;
+  }
+  document.getElementById('oiDate').textContent = '資料日期：' + oi.date;
+  setOIBlock('oiForeignNet','oiForeignDetail','oiForeignLong','oiForeignShort', oi.fL, oi.fS);
+  setOIBlock('oiTrustNet',  'oiTrustDetail',  'oiTrustLong',  'oiTrustShort',  oi.tL, oi.tS);
+  setOIBlock('oiDealerNet', 'oiDealerDetail', 'oiDealerLong', 'oiDealerShort', oi.dL, oi.dS);
+
+  const totL = oi.fL+oi.tL+oi.dL, totS = oi.fS+oi.tS+oi.dS, net = totL-totS;
+  const c = net>0?'up':net<0?'down':'neutral';
+  document.getElementById('oiTotal').textContent = (net>=0?'+':'')+net.toLocaleString()+' 口';
+  document.getElementById('oiTotal').className = 'oi-total-val '+c;
+  document.getElementById('oiTotalDetail').textContent = `多 ${totL.toLocaleString()} ／ 空 ${totS.toLocaleString()}`;
+}
+
+// ── 歷史表格 ──────────────────────────────────────────────────────────
+function renderTable() {
+  document.getElementById('historyBody').innerHTML = staticHistory.map(r => {
+    const tc = r.taiexChg>0?'up':r.taiexChg<0?'down':'neutral';
+    const wc = r.twdChg>0?'up':r.twdChg<0?'down':'neutral';
+    const oc = r.oiNet!=null?(r.oiNet>0?'up':'down'):'neutral';
+    const twdHtml = `<span class="${wc}">${r.twdChg>0?'升':'貶'} ${Math.abs(r.twdChg).toFixed(3)}</span>`;
+    const oiHtml  = r.oiNet!=null
+      ? `<span class="${oc}">${r.oiNet>=0?'+':''}${r.oiNet.toLocaleString()}</span>`
+      : `<span style="color:var(--text-muted)">未揭露</span>`;
+    const su=r.taiexChg>0, wu=r.twdChg>0;
+    const badge = (su&&wu)?'<span class="badge up">同漲↑↑</span>'
+      :(!su&&!wu)?'<span class="badge down">同跌↓↓</span>'
+      :'<span class="badge flat">背離</span>';
+    return `<tr>
+      <td>${r.date}</td>
+      <td>${r.taiex?r.taiex.toLocaleString():'—'}</td>
+      <td class="${tc}">${r.taiexChg!=null?(r.taiexChg>0?'+':'')+r.taiexChg.toLocaleString():'—'}</td>
+      <td>${r.usdtwd?r.usdtwd.toFixed(3):'—'}</td>
+      <td>${twdHtml}</td>
+      <td>${oiHtml}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 主流程 ────────────────────────────────────────────────────────────
+let oiDone = false;
+
+async function refresh() {
+  document.getElementById('updateTime').innerHTML = '<span class="spinner"></span>更新中...';
+
+  const [taiex, forex] = await Promise.all([fetchYahoo('^TWII'), fetchYahoo('TWD=X')]);
+
+  if (taiex) setCard('taiexVal','taiexArrow','taiexChg','taiexPct', taiex.price, taiex.change, taiex.pct, false);
+  else { document.getElementById('taiexVal').textContent='無法取得'; document.getElementById('taiexChg').textContent=''; }
+
+  if (forex) setCard('forexVal','forexArrow','forexChg','forexPct', forex.price, forex.change, forex.pct, true);
+  else { document.getElementById('forexVal').textContent='無法取得'; document.getElementById('forexChg').textContent=''; }
+
+  if (!oiDone) {
+    fetchTaifexOI().then(oi => { renderOI(oi); oiDone=true; });
+    setTimeout(() => { oiDone=false; }, 3600000); // 每小時重抓
+  }
+
+  const ts = new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('updateTime').textContent = '更新 '+ts;
+  renderTable();
+}
+
+renderTable();
+refresh();
+setInterval(refresh, 60000);
+</script>
+</body>
+</html>
