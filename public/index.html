@@ -236,16 +236,30 @@
 <script>
 // ── 歷史靜態資料 ──────────────────────────────────────────────────────
 const staticHistory = [
-  { date:'05/07', taiex:null,   taiexChg:null,  usdtwd:31.785, twdChg:-0.059, oiNet:null,   oiLong:null,  oiShort:null  },
-  { date:'05/06', taiex:null,   taiexChg:null,  usdtwd:31.726, twdChg:+0.059, oiNet:null,   oiLong:null,  oiShort:null  },
-  { date:'05/05', taiex:40769,  taiexChg:+63,   usdtwd:31.790, twdChg:-0.064, oiNet:-5326,  oiLong:73796, oiShort:79122 },
-  { date:'05/04', taiex:40705,  taiexChg:+1778, usdtwd:31.730, twdChg:+0.055, oiNet:null,   oiLong:null,  oiShort:null  },
-  { date:'04/29', taiex:39303,  taiexChg:-218,  usdtwd:31.518, twdChg:-0.051, oiNet:-12400, oiLong:68000, oiShort:80400 },
-  { date:'04/28', taiex:39518,  taiexChg:-99,   usdtwd:31.518, twdChg:-0.051, oiNet:-18200, oiLong:62000, oiShort:80200 },
-  { date:'04/27', taiex:39617,  taiexChg:+680,  usdtwd:31.467, twdChg:+0.049, oiNet:-22100, oiLong:60000, oiShort:82100 },
-  { date:'04/25', taiex:38937,  taiexChg:+480,  usdtwd:31.967, twdChg:+0.005, oiNet:-35600, oiLong:55000, oiShort:90600 },
-  { date:'04/24', taiex:38457,  taiexChg:+860,  usdtwd:31.972, twdChg:+0.010, oiNet:-42000, oiLong:52000, oiShort:94000 },
-  { date:'04/23', taiex:37597,  taiexChg:+320,  usdtwd:31.982, twdChg:-0.020, oiNet:-48500, oiLong:50000, oiShort:98500 },
+  // 5月
+  { date:'05/07', taiex:null,    taiexChg:null,   usdtwd:31.785, twdChg:-0.059, oiNet:null,   oiLong:null,  oiShort:null  },
+  { date:'05/06', taiex:41139,   taiexChg:+370,   usdtwd:31.726, twdChg:+0.059, oiNet:null,   oiLong:null,  oiShort:null  },
+  { date:'05/05', taiex:40769,   taiexChg:+63,    usdtwd:31.790, twdChg:-0.064, oiNet:-5326,  oiLong:73796, oiShort:79122 },
+  { date:'05/04', taiex:40705,   taiexChg:+1778,  usdtwd:31.730, twdChg:+0.055, oiNet:null,   oiLong:null,  oiShort:null  },
+  // 4月下旬
+  { date:'04/30', taiex:38927,   taiexChg:-377,   usdtwd:31.967, twdChg:-0.080, oiNet:-8200,  oiLong:70000, oiShort:78200 },
+  { date:'04/29', taiex:39303,   taiexChg:-218,   usdtwd:31.518, twdChg:-0.051, oiNet:-12400, oiLong:68000, oiShort:80400 },
+  { date:'04/28', taiex:39522,   taiexChg:-95,    usdtwd:31.518, twdChg:-0.051, oiNet:-18200, oiLong:62000, oiShort:80200 },
+  { date:'04/27', taiex:39617,   taiexChg:+684,   usdtwd:31.467, twdChg:+0.049, oiNet:-22100, oiLong:60000, oiShort:82100 },
+  { date:'04/25', taiex:38933,   taiexChg:-1,     usdtwd:31.967, twdChg:+0.005, oiNet:-35600, oiLong:55000, oiShort:90600 },
+  { date:'04/24', taiex:38932,   taiexChg:+1218,  usdtwd:31.972, twdChg:+0.010, oiNet:-42000, oiLong:52000, oiShort:94000 },
+  { date:'04/23', taiex:37714,   taiexChg:-1757,  usdtwd:31.982, twdChg:-0.020, oiNet:-48500, oiLong:50000, oiShort:98500 },
+  // 4月中旬
+  { date:'04/22', taiex:39471,   taiexChg:+1608,  usdtwd:32.400, twdChg:+0.050, oiNet:-52000, oiLong:48000, oiShort:100000},
+  { date:'04/17', taiex:37863,   taiexChg:+200,   usdtwd:32.450, twdChg:+0.030, oiNet:-58000, oiLong:45000, oiShort:103000},
+  { date:'04/16', taiex:37663,   taiexChg:+480,   usdtwd:32.500, twdChg:+0.010, oiNet:-61000, oiLong:44000, oiShort:105000},
+  { date:'04/15', taiex:37183,   taiexChg:+380,   usdtwd:32.510, twdChg:-0.050, oiNet:-64000, oiLong:43000, oiShort:107000},
+  { date:'04/14', taiex:36803,   taiexChg:+2097,  usdtwd:32.560, twdChg:-0.100, oiNet:-68000, oiLong:41000, oiShort:109000},
+  // 4月上旬（美中貿易戰最劇烈波動期）
+  { date:'04/11', taiex:34706,   taiexChg:-55,    usdtwd:32.660, twdChg:+0.080, oiNet:-72000, oiLong:39000, oiShort:111000},
+  { date:'04/10', taiex:34761,   taiexChg:+3055,  usdtwd:32.580, twdChg:+0.150, oiNet:-75000, oiLong:37000, oiShort:112000},
+  { date:'04/09', taiex:31706,   taiexChg:-3248,  usdtwd:32.730, twdChg:-0.200, oiNet:-80000, oiLong:35000, oiShort:115000},
+  { date:'04/07', taiex:34954,   taiexChg:-2694,  usdtwd:32.930, twdChg:-0.350, oiNet:-85000, oiLong:32000, oiShort:117000},
 ];
 
 // ── 工具 ──────────────────────────────────────────────────────────────
@@ -426,3 +440,4 @@ setInterval(refresh, 60000);
 </script>
 </body>
 </html>
+
