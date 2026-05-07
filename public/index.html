@@ -148,7 +148,7 @@
       </div>
     </div>
     <div class="card forex">
-      <div class="card-label">▪ USD/TWD 美元兌台幣</div>
+      <div class="card-label">▪ USD/TWD 美元兌台幣（↓台幣升值）</div>
       <div class="card-value" id="forexVal">—</div>
       <div class="card-change">
         <span id="forexArrow">—</span>
@@ -321,24 +321,19 @@ async function fetchTaifexOI() {
       return null;
     }
 
-    console.log('TAIFEX 第一筆:', JSON.stringify(data[0]));
-    const keys = Object.keys(data[0]);
+    // 實測欄位名稱：Date, ContractCode, Item, OpenInterest(Long), OpenInterest(Short)
+    const kDate     = 'Date';
+    const kContract = 'ContractCode';
+    const kIdentity = 'Item';
+    const kLongOI   = 'OpenInterest(Long)';
+    const kShortOI  = 'OpenInterest(Short)';
 
-    const kContract = keys.find(k => /契約|contract/i.test(k));
-    const kDate     = keys.find(k => /日期|date/i.test(k));
-    const kIdentity = keys.find(k => /身份|identity/i.test(k));
-    const kLongOI   = keys.find(k => /多方未平倉|long.*open|open.*long/i.test(k));
-    const kShortOI  = keys.find(k => /空方未平倉|short.*open|open.*short/i.test(k));
-
-    console.log('TAIFEX 欄位:', {kContract, kDate, kIdentity, kLongOI, kShortOI});
-
-    if (!kDate || !kIdentity || !kLongOI || !kShortOI) return null;
-
-    const txRows = kContract
-      ? data.filter(r => /^TX$|臺股|台股/.test(String(r[kContract] ?? '')))
-      : data;
-
-    if (!txRows.length) return null;
+    // 篩選台股期貨（ContractCode = "臺股期貨"）
+    const txRows = data.filter(r => String(r[kContract] ?? '').includes('臺股'));
+    if (!txRows.length) {
+      console.warn('TAIFEX TX 找不到，契約樣本:', [...new Set(data.map(r=>r[kContract]))].slice(0,5));
+      return null;
+    }
 
     const latestDate = [...new Set(txRows.map(r => r[kDate]))].sort().at(-1);
     const rows = txRows.filter(r => r[kDate] === latestDate);
@@ -349,7 +344,7 @@ async function fetchTaifexOI() {
       const id = String(r[kIdentity] ?? '');
       const lo = pnum(r[kLongOI]), sh = pnum(r[kShortOI]);
       if (/外資|foreign/i.test(id))     { fL=lo; fS=sh; }
-      else if (/投信|invest/i.test(id)) { tL=lo; tS=sh; }
+      else if (/投信|trust/i.test(id))  { tL=lo; tS=sh; }
       else if (/自營|dealer/i.test(id)) { dL=lo; dS=sh; }
     }
     if (!fL && !fS && !tL && !tS && !dL && !dS) return null;
