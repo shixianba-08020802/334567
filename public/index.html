@@ -199,6 +199,24 @@
     </div>
   </div>
 
+  <!-- 20日趨勢圖 -->
+  <div class="history-card" style="margin-bottom:14px;">
+    <div class="section-header">
+      <div class="section-title">▪ 20日走勢對照</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">
+        <span style="color:var(--accent-yellow)">■</span> 加權指數　
+        <span style="color:var(--accent-blue)">■</span> 三大法人淨多空
+      </div>
+    </div>
+    <div style="position:relative;width:100%;overflow:hidden;">
+      <svg id="trendChart" width="100%" height="200" viewBox="0 0 800 200" preserveAspectRatio="none" style="display:block;"></svg>
+      <!-- 標籤疊層 -->
+      <svg id="trendLabels" width="100%" height="200" viewBox="0 0 800 200" preserveAspectRatio="none" style="position:absolute;top:0;left:0;pointer-events:none;"></svg>
+    </div>
+    <!-- X 軸日期 -->
+    <div id="chartDates" style="display:flex;justify-content:space-between;padding:4px 0 0;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);"></div>
+  </div>
+
   <div class="history-card">
     <div class="section-header">
       <div class="section-title">▪ 近期收盤對照</div>
@@ -437,6 +455,91 @@ function renderOI(oi) {
   document.getElementById('oiTotalDetail').textContent = `多 ${totL.toLocaleString()} ／ 空 ${totS.toLocaleString()}`;
 }
 
+// ── 20日趨勢圖 ───────────────────────────────────────────────────────
+function renderChart() {
+  const rows = [...staticHistory].reverse(); // 舊→新
+  const W = 800, H = 200, PAD = { t:16, b:10, l:8, r:8 };
+  const innerW = W - PAD.l - PAD.r;
+  const innerH = H - PAD.t - PAD.b;
+
+  // 有效資料
+  const taiexData = rows.map((r,i) => ({ i, v: r.taiex }));
+  const oiData    = rows.map((r,i) => ({ i, v: r.oiNet }));
+
+  const validTaiex = taiexData.filter(d => d.v != null);
+  const validOI    = oiData.filter(d => d.v != null);
+  if (validTaiex.length < 2) return;
+
+  const n = rows.length;
+  const xPos = i => PAD.l + (i / (n - 1)) * innerW;
+
+  // 加權指數 scale
+  const tMin = Math.min(...validTaiex.map(d=>d.v));
+  const tMax = Math.max(...validTaiex.map(d=>d.v));
+  const tRange = tMax - tMin || 1;
+  const ty = v => PAD.t + (1 - (v - tMin) / tRange) * innerH;
+
+  // 三大法人 scale（獨立 Y 軸）
+  const oMin = Math.min(...validOI.map(d=>d.v), 0);
+  const oMax = Math.max(...validOI.map(d=>d.v), 0);
+  const oRange = Math.max(Math.abs(oMin), Math.abs(oMax)) * 2 || 1;
+  const oy = v => PAD.t + (1 - (v - (-oRange/2)) / oRange) * innerH;
+  const zeroY = oy(0);
+
+  let svg = '';
+
+  // 格線（3條）
+  for (let i = 0; i <= 2; i++) {
+    const y = PAD.t + (i / 2) * innerH;
+    svg += `<line x1="${PAD.l}" y1="${y}" x2="${W-PAD.r}" y2="${y}" stroke="#e0d8c8" stroke-width="0.5" stroke-dasharray="4,4"/>`;
+  }
+
+  // 零軸（三大法人）
+  svg += `<line x1="${PAD.l}" y1="${zeroY}" x2="${W-PAD.r}" y2="${zeroY}" stroke="#c8bfaf" stroke-width="1"/>`;
+
+  // 三大法人：面積圖（填色）
+  if (validOI.length >= 2) {
+    // 正數（多方）區域
+    let posPath = `M ${xPos(validOI[0].i)} ${zeroY}`;
+    validOI.forEach(d => { posPath += ` L ${xPos(d.i)} ${oy(d.v)}`; });
+    posPath += ` L ${xPos(validOI[validOI.length-1].i)} ${zeroY} Z`;
+    svg += `<path d="${posPath}" fill="rgba(192,57,43,0.15)" stroke="none"/>`;
+
+    // OI 折線
+    const oiLine = validOI.map((d,i) => `${i===0?'M':'L'} ${xPos(d.i)} ${oy(d.v)}`).join(' ');
+    svg += `<path d="${oiLine}" fill="none" stroke="#2c5f8a" stroke-width="1.5" stroke-linejoin="round"/>`;
+
+    // OI 端點
+    const last = validOI[validOI.length-1];
+    svg += `<circle cx="${xPos(last.i)}" cy="${oy(last.v)}" r="3" fill="#2c5f8a"/>`;
+    const oiVal = last.v >= 0 ? `+${(last.v/1000).toFixed(1)}K` : `${(last.v/1000).toFixed(1)}K`;
+    svg += `<text x="${xPos(last.i)+5}" y="${oy(last.v)+4}" font-family="DM Mono,monospace" font-size="9" fill="#2c5f8a">${oiVal}</text>`;
+  }
+
+  // 加權指數折線
+  const tLine = validTaiex.map((d,i) => `${i===0?'M':'L'} ${xPos(d.i)} ${ty(d.v)}`).join(' ');
+  svg += `<path d="${tLine}" fill="none" stroke="#b8860b" stroke-width="2" stroke-linejoin="round"/>`;
+
+  // 加權端點標籤
+  const lastT = validTaiex[validTaiex.length-1];
+  svg += `<circle cx="${xPos(lastT.i)}" cy="${ty(lastT.v)}" r="3.5" fill="#b8860b"/>`;
+  svg += `<text x="${xPos(lastT.i)+5}" y="${ty(lastT.v)+4}" font-family="DM Mono,monospace" font-size="9" fill="#b8860b">${(lastT.v/1000).toFixed(1)}K</text>`;
+
+  // 最低點標記
+  const minT = validTaiex.reduce((a,b) => b.v < a.v ? b : a);
+  svg += `<circle cx="${xPos(minT.i)}" cy="${ty(minT.v)}" r="2.5" fill="#c0392b" opacity="0.6"/>`;
+
+  document.getElementById('trendChart').innerHTML = svg;
+
+  // X 軸日期（只顯示頭、尾、中間幾個）
+  const dateEl = document.getElementById('chartDates');
+  const step = Math.floor((n-1) / 4);
+  const indices = [0, step, step*2, step*3, n-1];
+  dateEl.innerHTML = indices.map(i =>
+    `<span>${rows[i]?.date || ''}</span>`
+  ).join('');
+}
+
 // ── 歷史表格 ──────────────────────────────────────────────────────────
 function renderTable() {
   document.getElementById('historyBody').innerHTML = staticHistory.map(r => {
@@ -492,10 +595,12 @@ async function refresh() {
 }
 
 renderTable();
+renderChart();
 refresh();
 setInterval(refresh, 60000);
 </script>
 </body>
 </html>
+
 
 
