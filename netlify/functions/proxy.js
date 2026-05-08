@@ -12,6 +12,9 @@ exports.handler = async function(event) {
     'query1.finance.yahoo.com',
     'query2.finance.yahoo.com',
     'openapi.taifex.com.tw',
+    'mis.twse.com.tw',
+    'www.twse.com.tw',
+    'rate.bot.com.tw',
   ];
   const isAllowed = allowed.some(h => target.includes(h));
   if (!isAllowed) {
