@@ -388,16 +388,20 @@ function renderOI(oi) {
 function renderTable() {
   document.getElementById('historyBody').innerHTML = staticHistory.map(r => {
     const tc = r.taiexChg>0?'up':r.taiexChg<0?'down':'neutral';
-    const wc = r.twdChg>0?'up':r.twdChg<0?'down':'neutral';
+    // twdChg = USD/TWD 變化：負值 = 台幣升值(好) = 紅色(up)；正值 = 台幣貶值 = 綠色(down)
+    const wc = r.twdChg<0?'up':r.twdChg>0?'down':'neutral';
     const oc = r.oiNet!=null?(r.oiNet>0?'up':'down'):'neutral';
-    const twdHtml = `<span class="${wc}">${r.twdChg>0?'升':'貶'} ${Math.abs(r.twdChg).toFixed(3)}</span>`;
+    const twdLabel = r.twdChg<0 ? '升' : '貶';
+    const twdHtml = `<span class="${wc}">${twdLabel} ${Math.abs(r.twdChg).toFixed(3)}</span>`;
     const oiHtml  = r.oiNet!=null
       ? `<span class="${oc}">${r.oiNet>=0?'+':''}${r.oiNet.toLocaleString()}</span>`
       : `<span style="color:var(--text-muted)">未揭露</span>`;
-    const su=r.taiexChg>0, wu=r.twdChg>0;
-    const badge = (su&&wu)?'<span class="badge up">同漲↑↑</span>'
-      :(!su&&!wu)?'<span class="badge down">同跌↓↓</span>'
-      :'<span class="badge flat">背離</span>';
+    // 同向：台股漲(taiexChg>0) + 台幣升值(twdChg<0) = 同漲
+    const su = r.taiexChg > 0;
+    const twdUp = r.twdChg < 0; // 台幣升值
+    const badge = (su && twdUp)  ? '<span class="badge up">同漲↑↑</span>'
+      : (!su && !twdUp)          ? '<span class="badge down">同跌↓↓</span>'
+      : '<span class="badge flat">背離</span>';
     return `<tr>
       <td>${r.date}</td>
       <td>${r.taiex?r.taiex.toLocaleString():'—'}</td>
@@ -440,4 +444,5 @@ setInterval(refresh, 60000);
 </script>
 </body>
 </html>
+
 
