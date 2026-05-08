@@ -226,9 +226,9 @@
 
   <div class="source-note">
     資料來源：
-    <a href="https://tw.stock.yahoo.com/quote/%5ETWII" target="_blank">Yahoo Finance</a> ·
-    <a href="https://openapi.taifex.com.tw/" target="_blank">台灣期交所 OpenAPI</a> ·
-    <a href="https://www.cbc.gov.tw" target="_blank">中央銀行</a>
+    <a href="https://mis.twse.com.tw" target="_blank">臺灣證券交易所</a> ·
+    <a href="https://rate.bot.com.tw/xrt?Lang=zh-TW" target="_blank">臺灣銀行牌告匯率</a> ·
+    <a href="https://openapi.taifex.com.tw/" target="_blank">台灣期交所 OpenAPI</a>
     &nbsp;|&nbsp; 加權/匯率每60秒更新 · 三大法人盤後自動抓取
   </div>
 </div>
@@ -307,20 +307,73 @@ async function fetchViaProxy(url) {
   }
 }
 
-// ── Yahoo Finance ─────────────────────────────────────────────────────
+// ── 加權指數 — 證交所官方 JSON API ──────────────────────────────────
 async function fetchYahoo(symbol) {
-  for (const host of ['query2', 'query1']) {
-    const url = `https://${host}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+  if (symbol === '^TWII') {
+    // 證交所即時大盤資訊 API
+    const url = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&json=1&delay=0';
     try {
       const data = await fetchViaProxy(url);
-      if (!data?.chart?.result?.[0]?.meta) continue;
-      const meta = data.chart.result[0].meta;
-      return {
-        price:  meta.regularMarketPrice,
-        change: meta.regularMarketPrice - meta.chartPreviousClose,
-        pct:   (meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose * 100
-      };
-    } catch(e) { console.warn('Yahoo', symbol, host, e.message); }
+      if (data?.msgArray?.[0]) {
+        const d = data.msgArray[0];
+        const price  = parseFloat(d.z || d.y); // z=即時成交價，y=昨收
+        const prev   = parseFloat(d.y);        // y=昨收
+        const change = parseFloat(d.z) - prev;
+        return { price, change, pct: change / prev * 100 };
+      }
+    } catch(e) { console.warn('TWSE API error:', e.message); }
+
+    // 備援：證交所另一個端點
+    try {
+      const url2 = 'https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d?response=json';
+      const data2 = await fetchViaProxy(url2);
+      if (data2) console.log('TWSE backup data:', JSON.stringify(data2).slice(0,200));
+    } catch(e) {}
+
+    return null;
+  }
+
+  // 匯率：台灣銀行即期匯率（解析 HTML）
+  if (symbol === 'TWD=X') {
+    const url = 'https://rate.bot.com.tw/xrt?Lang=zh-TW';
+    try {
+      // 透過 proxy 抓 HTML，解析 USD 即期賣出價
+      const proxyUrl = `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
+      if (!res.ok) throw new Error('proxy HTTP ' + res.status);
+      const html = await res.text();
+
+      // 解析 USD 那行的即期匯率（買入+賣出 / 2 = 中間價）
+      // 格式：美金 (USD) | 現金買 | 現金賣 | 即期買 | 即期賣
+      const match = html.match(/美金[^<]*USD[^<]*<[^>]+>\s*([\d.]+)\s*<[^>]+>\s*([\d.]+)\s*<[^>]+>\s*([\d.]+)\s*<[^>]+>\s*([\d.]+)/);
+      if (match) {
+        const spotBuy  = parseFloat(match[3]);
+        const spotSell = parseFloat(match[4]);
+        const mid = (spotBuy + spotSell) / 2;
+
+        // 抓昨日匯率做比較（台銀歷史 API）
+        const histUrl = 'https://rate.bot.com.tw/xrt/USD/l6m/USD.json';
+        let prev = mid;
+        try {
+          const histData = await fetchViaProxy(histUrl);
+          if (Array.isArray(histData) && histData.length >= 2) {
+            const yesterday = histData[histData.length - 2];
+            prev = (parseFloat(yesterday.SpotBuying) + parseFloat(yesterday.SpotSelling)) / 2;
+          }
+        } catch(e) {}
+
+        const change = mid - prev;
+        return { price: mid, change, pct: change / prev * 100 };
+      }
+
+      // 備援：用 regex 直接找數字
+      const usdMatch = html.match(/31\.\d{2,3}/g);
+      if (usdMatch && usdMatch.length >= 2) {
+        const price = (parseFloat(usdMatch[0]) + parseFloat(usdMatch[1])) / 2;
+        return { price, change: 0, pct: 0 };
+      }
+    } catch(e) { console.warn('BOT forex error:', e.message); }
+    return null;
   }
   return null;
 }
