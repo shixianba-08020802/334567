@@ -602,7 +602,124 @@ function drawDualChart(dates, taiexMap, forexMap, oiMap) {
     const oPoints = dates.map((d,i) => ({ i, v: oiMap[d] ?? null })).filter(p=>p.v!=null);
     let aPath = `M ${xPos(oPoints[0].i)} ${zeroY}`;
     oPoints.forEach(p => { aPath += ` L ${xPos(p.i)} ${oy(p.v)}`; });
-    
+    aPath += ` L ${xPos(oPoints.at(-1).i)} ${zeroY} Z`;
+    svg += `<path d="${aPath}" fill="rgba(44,95,138,0.12)" stroke="none"/>`;
+    const oLine = oPoints.map((p,j) => `${j===0?'M':'L'} ${xPos(p.i)} ${oy(p.v)}`).join(' ');
+    svg += `<path d="${oLine}" fill="none" stroke="#2c5f8a" stroke-width="1" opacity="0.7" stroke-linejoin="round"/>`;
+  }
 
+  // 匯率折線（右軸，藍色）
+  if (fVals.length >= 2) {
+    const fPoints = dates.map((d,i) => ({ i, v: forexMap[d] ?? null })).filter(p=>p.v!=null);
+    const fLine = fPoints.map((p,j) => `${j===0?'M':'L'} ${xPos(p.i)} ${fy(p.v)}`).join(' ');
+    svg += `<path d="${fLine}" fill="none" stroke="#2c5f8a" stroke-width="1.8" stroke-linejoin="round"/>`;
+    const lf = fPoints.at(-1);
+    svg += `<circle cx="${xPos(lf.i)}" cy="${fy(lf.v)}" r="3" fill="#2c5f8a"/>`;
+    svg += `<text x="${W-PR+5}" y="${fy(lf.v)+4}" font-family="DM Mono,monospace" font-size="9" fill="#2c5f8a">${lf.v.toFixed(3)}</text>`;
+  }
+
+  // 加權指數折線（黃色，主軸）
+  const tPoints = dates.map((d,i) => ({ i, v: taiexMap[d] ?? null })).filter(p=>p.v!=null);
+  const tLine = tPoints.map((p,j) => `${j===0?'M':'L'} ${xPos(p.i)} ${ty(p.v)}`).join(' ');
+  svg += `<path d="${tLine}" fill="none" stroke="#b8860b" stroke-width="2.2" stroke-linejoin="round"/>`;
+  const lt = tPoints.at(-1);
+  svg += `<circle cx="${xPos(lt.i)}" cy="${ty(lt.v)}" r="3.5" fill="#b8860b"/>`;
+  svg += `<text x="${xPos(lt.i)-4}" y="${ty(lt.v)-6}" text-anchor="end" font-family="DM Mono,monospace" font-size="9" fill="#b8860b">${(lt.v/1000).toFixed(1)}K</text>`;
+
+  // 最低點標記
+  const minT = tPoints.reduce((a,b) => b.v<a.v?b:a);
+  svg += `<circle cx="${xPos(minT.i)}" cy="${ty(minT.v)}" r="4" fill="none" stroke="#c0392b" stroke-width="1.5" opacity="0.8"/>`;
+
+  document.getElementById('trendChart').innerHTML = svg;
+
+  // X 軸日期（顯示 5 個）
+  const step = Math.floor((n-1)/4);
+  document.getElementById('chartDates').innerHTML =
+    [0,step,step*2,step*3,n-1].map(i=>`<span>${dates[i]||''}</span>`).join('');
+}
+
+function renderChartStatic() {
+  const rows = [...staticHistory].reverse();
+  const taiexMap={}, forexMap={}, oiMap={};
+  rows.forEach(r => {
+    if(r.taiex) taiexMap[r.date]=r.taiex;
+    if(r.usdtwd) forexMap[r.date]=r.usdtwd;
+    if(r.oiNet!=null) oiMap[r.date]=r.oiNet;
+  });
+  drawDualChart(rows.map(r=>r.date), taiexMap, forexMap, oiMap);
+}
+
+// ── 歷史表格 ──────────────────────────────────────────────────────────
+function renderTable() {
+  document.getElementById('historyBody').innerHTML = staticHistory.map(r => {
+    const tc = r.taiexChg>0?'up':r.taiexChg<0?'down':'neutral';
+    const wc = r.twdChg<0?'up':r.twdChg>0?'down':'neutral';
+    const oc = r.oiNet!=null?(r.oiNet>0?'up':'down'):'neutral';
+    const twdLabel = r.twdChg<0 ? '升' : '貶';
+    const twdHtml = `<span class="${wc}">${twdLabel} ${Math.abs(r.twdChg).toFixed(3)}</span>`;
+    const oiHtml  = r.oiNet!=null
+      ? `<span class="${oc}">${r.oiNet>=0?'+':''}${r.oiNet.toLocaleString()}</span>`
+      : `<span style="color:var(--text-muted)">未揭露</span>`;
+    const su = r.taiexChg > 0;
+    const twdUp = r.twdChg < 0;
+    const badge = (su && twdUp)  ? '<span class="badge up">同漲↑↑</span>'
+      : (!su && !twdUp)          ? '<span class="badge down">同跌↓↓</span>'
+      : '<span class="badge flat">背離</span>';
+    return `<tr>
+      <td>${r.date}</td>
+      <td>${r.taiex?r.taiex.toLocaleString():'—'}</td>
+      <td class="${tc}">${r.taiexChg!=null?(r.taiexChg>0?'+':'')+r.taiexChg.toLocaleString():'—'}</td>
+      <td>${r.usdtwd?r.usdtwd.toFixed(3):'—'}</td>
+      <td>${twdHtml}</td>
+      <td>${oiHtml}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 主流程 ────────────────────────────────────────────────────────────
+let oiDone = false;
+
+async function refresh() {
+  document.getElementById('updateTime').innerHTML = '<span class="spinner"></span>更新中...';
+
+  const [taiex, forex] = await Promise.all([fetchTaiex(), fetchBOTForex()]);
+
+  if (taiex) setCard('taiexVal','taiexArrow','taiexChg','taiexPct', taiex.price, taiex.change, taiex.pct, false);
+  else { document.getElementById('taiexVal').textContent='無法取得'; document.getElementById('taiexChg').textContent=''; }
+
+  if (forex) {
+    // 大數字顯示中間價
+    const mid = forex.mid;
+    const prev = forex.prevMid ?? mid;
+    setCard('forexVal','forexArrow','forexChg','forexPct', mid, forex.change, forex.pct, true);
+    document.getElementById('forexBuy').textContent  = forex.buy?.toFixed(3)  ?? '—';
+    document.getElementById('forexSell').textContent = forex.sell?.toFixed(3) ?? '—';
+    document.getElementById('forexTime').textContent = forex.quoteTime?.slice(-5) ?? '—';
+  } else {
+    document.getElementById('forexVal').textContent='無法取得';
+    document.getElementById('forexChg').textContent='';
+  }
+
+  if (!oiDone) {
+    fetchTaifexOI().then(oi => { renderOI(oi); oiDone=true; });
+    setTimeout(() => { oiDone=false; }, 3600000);
+  }
+
+  const ts = new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('updateTime').textContent = '更新 '+ts;
+  renderTable();
+}
+
+// 初始化
+renderChartStatic(); // 先用靜態資料畫圖
+renderTable();
+refresh();
+renderChart60();     // 背景載入 60 日 API 資料後更新圖表
+setInterval(refresh, 60000);
+setInterval(renderChart60, 3600000); // 圖表每小時更新
+</script>
+</body>
+</html>
 
 
