@@ -52,6 +52,17 @@
   .blink { display: inline-block; width: 6px; height: 6px; background: var(--accent-green); border-radius: 50%; margin-right: 6px; animation: blink 1.2s infinite; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 
+  /* 匯率買賣價 */
+  .forex-rates { display:flex; gap:16px; margin-top:6px; }
+  .forex-rate-item { display:flex; flex-direction:column; }
+  .forex-rate-label { font-family:var(--font-mono); font-size:9px; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:2px; }
+  .forex-rate-val { font-family:var(--font-mono); font-size:18px; font-weight:500; }
+
+  /* 60日圖表 */
+  .chart-wrap { position:relative; width:100%; }
+  .chart-y-label { font-family:var(--font-mono); font-size:9px; fill: var(--text-muted); }
+  #chartDates { display:flex; justify-content:space-between; padding:4px 0 0; font-family:var(--font-mono); font-size:9px; color:var(--text-muted); }
+
   .cards-top { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
   .card {
     background: var(--surface); border: 1px solid var(--border);
@@ -148,12 +159,26 @@
       </div>
     </div>
     <div class="card forex">
-      <div class="card-label">▪ USD/TWD 美元兌台幣（↓台幣升值）</div>
+      <div class="card-label">▪ USD/TWD 臺灣銀行即期匯率</div>
       <div class="card-value" id="forexVal">—</div>
-      <div class="card-change">
+      <div class="card-change" style="margin-bottom:10px;">
         <span id="forexArrow">—</span>
         <span id="forexChg">載入中</span>
         <span id="forexPct"></span>
+      </div>
+      <div class="forex-rates">
+        <div class="forex-rate-item">
+          <div class="forex-rate-label">本行買入</div>
+          <div class="forex-rate-val" id="forexBuy">—</div>
+        </div>
+        <div class="forex-rate-item">
+          <div class="forex-rate-label">本行賣出</div>
+          <div class="forex-rate-val" id="forexSell">—</div>
+        </div>
+        <div class="forex-rate-item" style="margin-left:auto;text-align:right;">
+          <div class="forex-rate-label">報價時間</div>
+          <div class="forex-rate-val" style="font-size:11px;color:var(--text-muted)" id="forexTime">—</div>
+        </div>
       </div>
     </div>
   </div>
@@ -199,22 +224,21 @@
     </div>
   </div>
 
-  <!-- 20日趨勢圖 -->
+  <!-- 60日走勢圖：匯率 + 加權指數疊加 -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
-      <div class="section-title">▪ 20日走勢對照</div>
+      <div class="section-title">▪ 60日走勢對照</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">
-        <span style="color:var(--accent-yellow)">■</span> 加權指數　
-        <span style="color:var(--accent-blue)">■</span> 三大法人淨多空
+        <span style="color:var(--accent-yellow)">■</span> 加權指數（左軸）　
+        <span style="color:var(--accent-blue)">■</span> USD/TWD 匯率（右軸）　
+        <span style="color:#2c5f8a;opacity:0.6">■</span> 三大法人淨多空
       </div>
     </div>
-    <div style="position:relative;width:100%;overflow:hidden;">
-      <svg id="trendChart" width="100%" height="200" viewBox="0 0 800 200" preserveAspectRatio="none" style="display:block;"></svg>
-      <!-- 標籤疊層 -->
-      <svg id="trendLabels" width="100%" height="200" viewBox="0 0 800 200" preserveAspectRatio="none" style="position:absolute;top:0;left:0;pointer-events:none;"></svg>
+    <div class="chart-wrap">
+      <svg id="trendChart" width="100%" height="220" viewBox="0 0 860 220" preserveAspectRatio="none" style="display:block;"></svg>
     </div>
-    <!-- X 軸日期 -->
-    <div id="chartDates" style="display:flex;justify-content:space-between;padding:4px 0 0;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);"></div>
+    <div id="chartDates"></div>
+    <div id="chartStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);text-align:center;padding-top:4px;"></div>
   </div>
 
   <div class="history-card">
@@ -326,74 +350,114 @@ async function fetchViaProxy(url) {
 }
 
 // ── 加權指數 — 證交所官方 JSON API ──────────────────────────────────
-async function fetchYahoo(symbol) {
-  if (symbol === '^TWII') {
-    // 證交所即時大盤資訊 API
-    const url = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&json=1&delay=0';
+async function fetchTaiex() {
+  const url = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&json=1&delay=0';
+  try {
+    const data = await fetchViaProxy(url);
+    if (data?.msgArray?.[0]) {
+      const d = data.msgArray[0];
+      const price  = parseFloat(d.z && d.z !== '-' ? d.z : d.y);
+      const prev   = parseFloat(d.y);
+      const change = price - prev;
+      return { price, change, pct: change / prev * 100 };
+    }
+  } catch(e) { console.warn('TWSE error:', e.message); }
+  return null;
+}
+
+// ── 台銀匯率 — 解析 HTML，回傳買入/賣出/中間/時間 ─────────────────────
+async function fetchBOTForex() {
+  const url = 'https://rate.bot.com.tw/xrt?Lang=zh-TW';
+  try {
+    const proxyUrl = `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const html = await res.text();
+
+    // 抓報價時間
+    const timeMatch = html.match(/牌價最新掛牌時間：([\d/: ]+)/);
+    const quoteTime = timeMatch ? timeMatch[1].trim() : '';
+
+    // 解析 USD 即期買入、賣出
+    // HTML 表格順序：幣別 | 現金買 | 現金賣 | 即期買 | 即期賣 | ...
+    const rows = html.split('<tr');
+    for (const row of rows) {
+      if (!row.includes('USD') && !row.includes('美金')) continue;
+      // 找所有 td 數字
+      const nums = [...row.matchAll(/>\s*([\d]{2,2}\.[\d]{2,4})\s*</g)].map(m => parseFloat(m[1]));
+      if (nums.length >= 4) {
+        // nums[0]=現金買, nums[1]=現金賣, nums[2]=即期買, nums[3]=即期賣
+        const spotBuy  = nums[2];
+        const spotSell = nums[3];
+        const mid = (spotBuy + spotSell) / 2;
+        return { buy: spotBuy, sell: spotSell, mid, quoteTime, change: 0, pct: 0 };
+      }
+    }
+    // 備援 regex
+    const allNums = [...html.matchAll(/>(3[01]\.\d{2,3})</g)].map(m => parseFloat(m[1]));
+    if (allNums.length >= 4) {
+      const spotBuy = allNums[2], spotSell = allNums[3];
+      return { buy: spotBuy, sell: spotSell, mid: (spotBuy+spotSell)/2, quoteTime, change: 0, pct: 0 };
+    }
+  } catch(e) { console.warn('BOT forex error:', e.message); }
+  return null;
+}
+
+// ── 台銀 60 日歷史匯率 — quote/YYYY-MM/USD ───────────────────────────
+async function fetchBOTHistory60() {
+  const results = [];
+  const now = new Date();
+  // 抓最近 3 個月確保涵蓋 60 個交易日
+  for (let m = 0; m <= 2; m++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const url = `https://rate.bot.com.tw/xrt/quote/${ym}/USD`;
+    try {
+      const proxyUrl = `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+      if (!res.ok) continue;
+      const html = await res.text();
+      // 解析每列：日期 | 現金買 | 現金賣 | 即期買 | 即期賣
+      const rows = [...html.matchAll(/<tr[^>]*>[\s\S]*?<\/tr>/gi)];
+      for (const row of rows) {
+        const dateM = row[0].match(/(\d{4}\/\d{2}\/\d{2})/);
+        const nums  = [...row[0].matchAll(/>\s*([\d]{2,2}\.[\d]{2,4})\s*</g)].map(x => parseFloat(x[1]));
+        if (dateM && nums.length >= 4) {
+          const dateStr = dateM[1].replace(/\//g, '/').slice(5); // MM/DD
+          results.push({ date: dateStr, buy: nums[2], sell: nums[3], mid: (nums[2]+nums[3])/2 });
+        }
+      }
+    } catch(e) { console.warn('BOT history', ym, e.message); }
+  }
+  // 依日期排序，取最近 60 筆
+  return results.sort((a,b) => a.date > b.date ? 1 : -1).slice(-60);
+}
+
+// ── 證交所 60 日加權指數歷史 ──────────────────────────────────────────
+async function fetchTWSEHistory60() {
+  const results = [];
+  const now = new Date();
+  for (let m = 0; m <= 2; m++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+    const ym = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}01`;
+    const url = `https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST?date=${ym}&response=json`;
     try {
       const data = await fetchViaProxy(url);
-      if (data?.msgArray?.[0]) {
-        const d = data.msgArray[0];
-        const price  = parseFloat(d.z || d.y); // z=即時成交價，y=昨收
-        const prev   = parseFloat(d.y);        // y=昨收
-        const change = parseFloat(d.z) - prev;
-        return { price, change, pct: change / prev * 100 };
+      if (data?.data) {
+        for (const row of data.data) {
+          // row: [日期, 開盤, 最高, 最低, 收盤]
+          const dateRaw = row[0]; // 民國年 e.g. "115/03/01"
+          const close   = parseFloat(row[4]?.replace(/,/g,''));
+          if (!dateRaw || isNaN(close)) continue;
+          // 民國轉西元 MM/DD
+          const parts = dateRaw.split('/');
+          const mmdd = `${parts[1]}/${parts[2]}`;
+          results.push({ date: mmdd, close });
+        }
       }
-    } catch(e) { console.warn('TWSE API error:', e.message); }
-
-    // 備援：證交所另一個端點
-    try {
-      const url2 = 'https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d?response=json';
-      const data2 = await fetchViaProxy(url2);
-      if (data2) console.log('TWSE backup data:', JSON.stringify(data2).slice(0,200));
-    } catch(e) {}
-
-    return null;
+    } catch(e) { console.warn('TWSE history', ym, e.message); }
   }
-
-  // 匯率：台灣銀行即期匯率（解析 HTML）
-  if (symbol === 'TWD=X') {
-    const url = 'https://rate.bot.com.tw/xrt?Lang=zh-TW';
-    try {
-      // 透過 proxy 抓 HTML，解析 USD 即期賣出價
-      const proxyUrl = `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
-      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
-      if (!res.ok) throw new Error('proxy HTTP ' + res.status);
-      const html = await res.text();
-
-      // 解析 USD 那行的即期匯率（買入+賣出 / 2 = 中間價）
-      // 格式：美金 (USD) | 現金買 | 現金賣 | 即期買 | 即期賣
-      const match = html.match(/美金[^<]*USD[^<]*<[^>]+>\s*([\d.]+)\s*<[^>]+>\s*([\d.]+)\s*<[^>]+>\s*([\d.]+)\s*<[^>]+>\s*([\d.]+)/);
-      if (match) {
-        const spotBuy  = parseFloat(match[3]);
-        const spotSell = parseFloat(match[4]);
-        const mid = (spotBuy + spotSell) / 2;
-
-        // 抓昨日匯率做比較（台銀歷史 API）
-        const histUrl = 'https://rate.bot.com.tw/xrt/USD/l6m/USD.json';
-        let prev = mid;
-        try {
-          const histData = await fetchViaProxy(histUrl);
-          if (Array.isArray(histData) && histData.length >= 2) {
-            const yesterday = histData[histData.length - 2];
-            prev = (parseFloat(yesterday.SpotBuying) + parseFloat(yesterday.SpotSelling)) / 2;
-          }
-        } catch(e) {}
-
-        const change = mid - prev;
-        return { price: mid, change, pct: change / prev * 100 };
-      }
-
-      // 備援：用 regex 直接找數字
-      const usdMatch = html.match(/31\.\d{2,3}/g);
-      if (usdMatch && usdMatch.length >= 2) {
-        const price = (parseFloat(usdMatch[0]) + parseFloat(usdMatch[1])) / 2;
-        return { price, change: 0, pct: 0 };
-      }
-    } catch(e) { console.warn('BOT forex error:', e.message); }
-    return null;
-  }
-  return null;
+  return results.sort((a,b) => a.date > b.date ? 1 : -1).slice(-60);
 }
 
 // ── TAIFEX OpenAPI — 台股期貨三大法人 ────────────────────────────────
@@ -455,152 +519,90 @@ function renderOI(oi) {
   document.getElementById('oiTotalDetail').textContent = `多 ${totL.toLocaleString()} ／ 空 ${totS.toLocaleString()}`;
 }
 
-// ── 20日趨勢圖 ───────────────────────────────────────────────────────
-function renderChart() {
-  const rows = [...staticHistory].reverse(); // 舊→新
-  const W = 800, H = 200, PAD = { t:16, b:10, l:8, r:8 };
-  const innerW = W - PAD.l - PAD.r;
-  const innerH = H - PAD.t - PAD.b;
+// ── 60日雙軸走勢圖（加權 + 匯率 + 三大法人）────────────────────────
+async function renderChart60() {
+  document.getElementById('chartStatus').innerHTML = '<span class="spinner"></span>載入60日資料...';
 
-  // 有效資料
-  const taiexData = rows.map((r,i) => ({ i, v: r.taiex }));
-  const oiData    = rows.map((r,i) => ({ i, v: r.oiNet }));
+  const [taiexHist, forexHist] = await Promise.all([
+    fetchTWSEHistory60(),
+    fetchBOTHistory60()
+  ]);
 
-  const validTaiex = taiexData.filter(d => d.v != null);
-  const validOI    = oiData.filter(d => d.v != null);
-  if (validTaiex.length < 2) return;
+  // 合併日期
+  const allDates = [...new Set([
+    ...taiexHist.map(d=>d.date),
+    ...forexHist.map(d=>d.date),
+    ...staticHistory.filter(r=>r.taiex).map(r=>r.date)
+  ])].sort();
 
-  const n = rows.length;
-  const xPos = i => PAD.l + (i / (n - 1)) * innerW;
+  const last60 = allDates.slice(-60);
+  if (last60.length < 5) {
+    // 備援：直接用靜態資料
+    renderChartStatic();
+    document.getElementById('chartStatus').textContent = '（使用靜態資料）';
+    return;
+  }
 
-  // 加權指數 scale
-  const tMin = Math.min(...validTaiex.map(d=>d.v));
-  const tMax = Math.max(...validTaiex.map(d=>d.v));
-  const tRange = tMax - tMin || 1;
-  const ty = v => PAD.t + (1 - (v - tMin) / tRange) * innerH;
+  // 建立 lookup maps
+  const taiexMap = {};
+  taiexHist.forEach(d => taiexMap[d.date] = d.close);
+  staticHistory.filter(r=>r.taiex).forEach(r => taiexMap[r.date] = r.taiex);
 
-  // 三大法人 scale（獨立 Y 軸）
-  const oMin = Math.min(...validOI.map(d=>d.v), 0);
-  const oMax = Math.max(...validOI.map(d=>d.v), 0);
-  const oRange = Math.max(Math.abs(oMin), Math.abs(oMax)) * 2 || 1;
-  const oy = v => PAD.t + (1 - (v - (-oRange/2)) / oRange) * innerH;
-  const zeroY = oy(0);
+  const forexMap = {};
+  forexHist.forEach(d => forexMap[d.date] = d.mid);
+  staticHistory.filter(r=>r.usdtwd).forEach(r => forexMap[r.date] = r.usdtwd);
+
+  const oiMap = {};
+  staticHistory.filter(r=>r.oiNet!=null).forEach(r => oiMap[r.date] = r.oiNet);
+
+  drawDualChart(last60, taiexMap, forexMap, oiMap);
+  document.getElementById('chartStatus').textContent = '';
+}
+
+function drawDualChart(dates, taiexMap, forexMap, oiMap) {
+  const W=860, H=220, PL=46, PR=46, PT=16, PB=10;
+  const innerW = W-PL-PR, innerH = H-PT-PB;
+  const n = dates.length;
+  const xPos = i => PL + (i/(n-1))*innerW;
+
+  const tVals = dates.map(d => taiexMap[d]).filter(v=>v!=null);
+  const fVals = dates.map(d => forexMap[d]).filter(v=>v!=null);
+  const oVals = dates.map(d => oiMap[d]).filter(v=>v!=null);
+
+  if (tVals.length < 2) return;
+
+  // Scales
+  const tMin = Math.min(...tVals)*0.998, tMax = Math.max(...tVals)*1.002;
+  const ty = v => v==null ? null : PT + (1-(v-tMin)/(tMax-tMin))*innerH;
+
+  const fMin = fVals.length ? Math.min(...fVals)-0.1 : 30;
+  const fMax = fVals.length ? Math.max(...fVals)+0.1 : 34;
+  const fy = v => v==null ? null : PT + (1-(v-fMin)/(fMax-fMin))*innerH;
+
+  const oAbs = oVals.length ? Math.max(...oVals.map(Math.abs), 1) : 1;
+  const oy = v => v==null ? null : PT + (1-(v+oAbs)/(oAbs*2))*innerH;
+  const zeroY = PT + innerH/2;
 
   let svg = '';
 
-  // 格線（3條）
-  for (let i = 0; i <= 2; i++) {
-    const y = PAD.t + (i / 2) * innerH;
-    svg += `<line x1="${PAD.l}" y1="${y}" x2="${W-PAD.r}" y2="${y}" stroke="#e0d8c8" stroke-width="0.5" stroke-dasharray="4,4"/>`;
+  // 格線 + Y 軸刻度（左=加權，右=匯率）
+  for (let i=0;i<=4;i++) {
+    const y = PT + (i/4)*innerH;
+    svg += `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#e0d8c8" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+    const tv = (tMax - (tMax-tMin)*i/4);
+    svg += `<text x="${PL-4}" y="${y+3}" text-anchor="end" class="chart-y-label">${(tv/1000).toFixed(0)}K</text>`;
+    if (fVals.length) {
+      const fv = (fMax - (fMax-fMin)*i/4);
+      svg += `<text x="${W-PR+4}" y="${y+3}" text-anchor="start" class="chart-y-label" fill="#2c5f8a">${fv.toFixed(2)}</text>`;
+    }
   }
 
-  // 零軸（三大法人）
-  svg += `<line x1="${PAD.l}" y1="${zeroY}" x2="${W-PAD.r}" y2="${zeroY}" stroke="#c8bfaf" stroke-width="1"/>`;
-
-  // 三大法人：面積圖（填色）
-  if (validOI.length >= 2) {
-    // 正數（多方）區域
-    let posPath = `M ${xPos(validOI[0].i)} ${zeroY}`;
-    validOI.forEach(d => { posPath += ` L ${xPos(d.i)} ${oy(d.v)}`; });
-    posPath += ` L ${xPos(validOI[validOI.length-1].i)} ${zeroY} Z`;
-    svg += `<path d="${posPath}" fill="rgba(192,57,43,0.15)" stroke="none"/>`;
-
-    // OI 折線
-    const oiLine = validOI.map((d,i) => `${i===0?'M':'L'} ${xPos(d.i)} ${oy(d.v)}`).join(' ');
-    svg += `<path d="${oiLine}" fill="none" stroke="#2c5f8a" stroke-width="1.5" stroke-linejoin="round"/>`;
-
-    // OI 端點
-    const last = validOI[validOI.length-1];
-    svg += `<circle cx="${xPos(last.i)}" cy="${oy(last.v)}" r="3" fill="#2c5f8a"/>`;
-    const oiVal = last.v >= 0 ? `+${(last.v/1000).toFixed(1)}K` : `${(last.v/1000).toFixed(1)}K`;
-    svg += `<text x="${xPos(last.i)+5}" y="${oy(last.v)+4}" font-family="DM Mono,monospace" font-size="9" fill="#2c5f8a">${oiVal}</text>`;
-  }
-
-  // 加權指數折線
-  const tLine = validTaiex.map((d,i) => `${i===0?'M':'L'} ${xPos(d.i)} ${ty(d.v)}`).join(' ');
-  svg += `<path d="${tLine}" fill="none" stroke="#b8860b" stroke-width="2" stroke-linejoin="round"/>`;
-
-  // 加權端點標籤
-  const lastT = validTaiex[validTaiex.length-1];
-  svg += `<circle cx="${xPos(lastT.i)}" cy="${ty(lastT.v)}" r="3.5" fill="#b8860b"/>`;
-  svg += `<text x="${xPos(lastT.i)+5}" y="${ty(lastT.v)+4}" font-family="DM Mono,monospace" font-size="9" fill="#b8860b">${(lastT.v/1000).toFixed(1)}K</text>`;
-
-  // 最低點標記
-  const minT = validTaiex.reduce((a,b) => b.v < a.v ? b : a);
-  svg += `<circle cx="${xPos(minT.i)}" cy="${ty(minT.v)}" r="2.5" fill="#c0392b" opacity="0.6"/>`;
-
-  document.getElementById('trendChart').innerHTML = svg;
-
-  // X 軸日期（只顯示頭、尾、中間幾個）
-  const dateEl = document.getElementById('chartDates');
-  const step = Math.floor((n-1) / 4);
-  const indices = [0, step, step*2, step*3, n-1];
-  dateEl.innerHTML = indices.map(i =>
-    `<span>${rows[i]?.date || ''}</span>`
-  ).join('');
-}
-
-// ── 歷史表格 ──────────────────────────────────────────────────────────
-function renderTable() {
-  document.getElementById('historyBody').innerHTML = staticHistory.map(r => {
-    const tc = r.taiexChg>0?'up':r.taiexChg<0?'down':'neutral';
-    // twdChg = USD/TWD 變化：負值 = 台幣升值(好) = 紅色(up)；正值 = 台幣貶值 = 綠色(down)
-    const wc = r.twdChg<0?'up':r.twdChg>0?'down':'neutral';
-    const oc = r.oiNet!=null?(r.oiNet>0?'up':'down'):'neutral';
-    const twdLabel = r.twdChg<0 ? '升' : '貶';
-    const twdHtml = `<span class="${wc}">${twdLabel} ${Math.abs(r.twdChg).toFixed(3)}</span>`;
-    const oiHtml  = r.oiNet!=null
-      ? `<span class="${oc}">${r.oiNet>=0?'+':''}${r.oiNet.toLocaleString()}</span>`
-      : `<span style="color:var(--text-muted)">未揭露</span>`;
-    // 同向：台股漲(taiexChg>0) + 台幣升值(twdChg<0) = 同漲
-    const su = r.taiexChg > 0;
-    const twdUp = r.twdChg < 0; // 台幣升值
-    const badge = (su && twdUp)  ? '<span class="badge up">同漲↑↑</span>'
-      : (!su && !twdUp)          ? '<span class="badge down">同跌↓↓</span>'
-      : '<span class="badge flat">背離</span>';
-    return `<tr>
-      <td>${r.date}</td>
-      <td>${r.taiex?r.taiex.toLocaleString():'—'}</td>
-      <td class="${tc}">${r.taiexChg!=null?(r.taiexChg>0?'+':'')+r.taiexChg.toLocaleString():'—'}</td>
-      <td>${r.usdtwd?r.usdtwd.toFixed(3):'—'}</td>
-      <td>${twdHtml}</td>
-      <td>${oiHtml}</td>
-      <td>${badge}</td>
-    </tr>`;
-  }).join('');
-}
-
-// ── 主流程 ────────────────────────────────────────────────────────────
-let oiDone = false;
-
-async function refresh() {
-  document.getElementById('updateTime').innerHTML = '<span class="spinner"></span>更新中...';
-
-  const [taiex, forex] = await Promise.all([fetchYahoo('^TWII'), fetchYahoo('TWD=X')]);
-
-  if (taiex) setCard('taiexVal','taiexArrow','taiexChg','taiexPct', taiex.price, taiex.change, taiex.pct, false);
-  else { document.getElementById('taiexVal').textContent='無法取得'; document.getElementById('taiexChg').textContent=''; }
-
-  if (forex) setCard('forexVal','forexArrow','forexChg','forexPct', forex.price, forex.change, forex.pct, true);
-  else { document.getElementById('forexVal').textContent='無法取得'; document.getElementById('forexChg').textContent=''; }
-
-  if (!oiDone) {
-    fetchTaifexOI().then(oi => { renderOI(oi); oiDone=true; });
-    setTimeout(() => { oiDone=false; }, 3600000); // 每小時重抓
-  }
-
-  const ts = new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  document.getElementById('updateTime').textContent = '更新 '+ts;
-  renderTable();
-}
-
-renderTable();
-renderChart();
-refresh();
-setInterval(refresh, 60000);
-</script>
-</body>
-</html>
+  // 三大法人面積
+  if (oVals.length >= 2) {
+    const oPoints = dates.map((d,i) => ({ i, v: oiMap[d] ?? null })).filter(p=>p.v!=null);
+    let aPath = `M ${xPos(oPoints[0].i)} ${zeroY}`;
+    oPoints.forEach(p => { aPath += ` L ${xPos(p.i)} ${oy(p.v)}`; });
+    
 
 
 
