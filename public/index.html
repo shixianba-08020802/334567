@@ -553,119 +553,151 @@ async function renderChart60() {
 }
 
 function drawDualChart(dates, taiexMap, forexHist) {
-  const W=860, H=260, PL=50, PR=60, PT=24, PB=28;
-  const innerW = W-PL-PR, innerH = H-PT-PB;
-  const n = dates.length;
-  if (n < 2) return;
-  const xPos = i => PL + (i/(n-1))*innerW;
+  const W=860, H=300, PL=52, PR=taiexMap && Object.keys(taiexMap).length>0 ? 60 : 16, PT=48, PB=36;
+  const innerW=W-PL-PR, innerH=H-PT-PB;
+  const n=dates.length;
+  if(n<2) return;
+  const xPos = i => PL+(i/(n-1))*innerW;
 
-  // 匯率資料：建立 buy/sell map
-  const buyMap = {}, sellMap = {};
-  forexHist.forEach(d => { buyMap[d.date]=d.buy; sellMap[d.date]=d.sell; });
-  // 補靜態資料
-  staticHistory.forEach(r => {
-    if (r.usdtwd && !buyMap[r.date]) { buyMap[r.date]=r.usdtwd-0.075; sellMap[r.date]=r.usdtwd+0.075; }
-  });
+  // 建立 buy/sell map
+  const buyMap={}, sellMap={};
+  forexHist.forEach(d=>{ buyMap[d.date]=d.buy; sellMap[d.date]=d.sell; });
+  staticHistory.forEach(r=>{ if(r.usdtwd&&!buyMap[r.date]){buyMap[r.date]=r.usdtwd-0.075;sellMap[r.date]=r.usdtwd+0.075;} });
 
-  const buyVals  = dates.map(d=>buyMap[d]).filter(v=>v!=null);
-  const sellVals = dates.map(d=>sellMap[d]).filter(v=>v!=null);
-  const taiexVals = dates.map(d=>taiexMap[d]).filter(v=>v!=null);
+  const buyVals=dates.map(d=>buyMap[d]).filter(v=>v!=null);
+  const sellVals=dates.map(d=>sellMap[d]).filter(v=>v!=null);
+  const taiexVals=taiexMap?dates.map(d=>taiexMap[d]).filter(v=>v!=null):[];
+  if(buyVals.length<2) return;
 
-  if (buyVals.length < 2) return;
+  // 匯率 scale（左Y）
+  const fAll=[...buyVals,...sellVals];
+  const fRange=Math.max(...fAll)-Math.min(...fAll);
+  const fMin=Math.min(...fAll)-fRange*0.08;
+  const fMax=Math.max(...fAll)+fRange*0.08;
+  const fy=v=>v==null?null:PT+(1-(v-fMin)/(fMax-fMin))*innerH;
 
-  // 匯率 Y 軸（左）
-  const fAll = [...buyVals, ...sellVals];
-  const fMin = Math.min(...fAll) - 0.05;
-  const fMax = Math.max(...fAll) + 0.05;
-  const fy = v => v==null ? null : PT + (1-(v-fMin)/(fMax-fMin))*innerH;
+  // 加權指數 scale（右Y）
+  const tMin=taiexVals.length?Math.min(...taiexVals)*0.997:30000;
+  const tMax=taiexVals.length?Math.max(...taiexVals)*1.003:45000;
+  const ty=v=>v==null?null:PT+(1-(v-tMin)/(tMax-tMin))*innerH;
 
-  // 加權指數 Y 軸（右）
-  const tMin = taiexVals.length ? Math.min(...taiexVals)*0.998 : 30000;
-  const tMax = taiexVals.length ? Math.max(...taiexVals)*1.002 : 45000;
-  const ty = v => v==null ? null : PT + (1-(v-tMin)/(tMax-tMin))*innerH;
+  // Y 軸刻度數量（自動計算好看的間距）
+  const nTicks=6;
+  const fStep=(fMax-fMin)/nTicks;
+  const fTicks=[];
+  for(let i=0;i<=nTicks;i++) fTicks.push(+(fMin+fStep*i).toFixed(2));
 
-  let svg = `<style>.cy{font-family:'DM Mono',monospace;font-size:9px;fill:#8a7a65}</style>`;
+  let svg=`<defs>
+    <clipPath id="chartClip"><rect x="${PL}" y="${PT}" width="${innerW}" height="${innerH}"/></clipPath>
+  </defs>
+  <style>
+    .cv{font-family:'DM Mono',monospace;font-size:10px;fill:#555}
+    .ct{font-family:'Noto Sans TC',sans-serif;font-size:13px;fill:#2a2118;font-weight:600}
+    .cl{font-family:'DM Mono',monospace;font-size:10px}
+    .tt{font-family:'DM Mono',monospace;font-size:10px;fill:#2a2118}
+  </style>`;
 
-  // 背景白底
-  svg += `<rect x="${PL}" y="${PT}" width="${innerW}" height="${innerH}" fill="white" opacity="0.6"/>`;
+  // 白底繪圖區
+  svg+=`<rect x="0" y="0" width="${W}" height="${H}" fill="#fdfaf4" rx="8"/>`;
+  svg+=`<rect x="${PL}" y="${PT}" width="${innerW}" height="${innerH}" fill="white" stroke="#e8e0d0" stroke-width="0.5"/>`;
 
-  // 格線 + 左Y軸刻度（匯率）
-  for (let i=0;i<=4;i++) {
-    const y = PT + (i/4)*innerH;
-    svg += `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#ddd" stroke-width="0.8"/>`;
-    const fv = fMax - (fMax-fMin)*i/4;
-    svg += `<text x="${PL-4}" y="${y+3}" text-anchor="end" class="cy">${fv.toFixed(2)}</text>`;
-    // 右Y軸（加權）
-    if (taiexVals.length) {
-      const tv = tMax - (tMax-tMin)*i/4;
-      svg += `<text x="${W-PR+4}" y="${y+3}" text-anchor="start" class="cy" fill="#b8860b">${(tv/1000).toFixed(0)}K</text>`;
-    }
-  }
+  // 標題（置中）
+  svg+=`<text x="${W/2}" y="18" text-anchor="middle" class="ct">即期匯率</text>`;
 
-  // 左Y軸標題
-  svg += `<text x="10" y="${PT+innerH/2}" text-anchor="middle" class="cy" transform="rotate(-90,10,${PT+innerH/2})">匯率</text>`;
-  // 右Y軸標題
-  svg += `<text x="${W-10}" y="${PT+innerH/2}" text-anchor="middle" class="cy" fill="#b8860b" transform="rotate(90,${W-10},${PT+innerH/2})">加權指數</text>`;
-
-  // 加權指數折線（黃色，畫在匯率下方）
-  if (taiexVals.length >= 2) {
-    const tPts = dates.map((d,i)=>({i,v:taiexMap[d]??null})).filter(p=>p.v!=null);
-    const tLine = tPts.map((p,j)=>`${j===0?'M':'L'} ${xPos(p.i).toFixed(1)} ${ty(p.v).toFixed(1)}`).join(' ');
-    svg += `<path d="${tLine}" fill="none" stroke="#b8860b" stroke-width="1.8" stroke-linejoin="round" opacity="0.75"/>`;
-    // 端點
-    const lp = tPts.at(-1);
-    svg += `<circle cx="${xPos(lp.i)}" cy="${ty(lp.v)}" r="2.5" fill="#b8860b"/>`;
-  }
-
-  // 匯率本行買入（紅線，如台銀圖）
-  const buyPts = dates.map((d,i)=>({i,v:buyMap[d]??null})).filter(p=>p.v!=null);
-  if (buyPts.length >= 2) {
-    const line = buyPts.map((p,j)=>`${j===0?'M':'L'} ${xPos(p.i).toFixed(1)} ${fy(p.v).toFixed(1)}`).join(' ');
-    svg += `<path d="${line}" fill="none" stroke="#c0392b" stroke-width="1.8" stroke-linejoin="round"/>`;
-    const lp = buyPts.at(-1);
-    svg += `<circle cx="${xPos(lp.i)}" cy="${fy(lp.v)}" r="2.5" fill="#c0392b"/>`;
-    svg += `<text x="${W-PR+5}" y="${fy(lp.v)+3}" class="cy" fill="#c0392b">${lp.v.toFixed(3)}</text>`;
-  }
-
-  // 匯率本行賣出（藍線，如台銀圖）
-  const sellPts = dates.map((d,i)=>({i,v:sellMap[d]??null})).filter(p=>p.v!=null);
-  if (sellPts.length >= 2) {
-    const line = sellPts.map((p,j)=>`${j===0?'M':'L'} ${xPos(p.i).toFixed(1)} ${fy(p.v).toFixed(1)}`).join(' ');
-    svg += `<path d="${line}" fill="none" stroke="#2c5f8a" stroke-width="1.8" stroke-linejoin="round"/>`;
-    const lp = sellPts.at(-1);
-    svg += `<circle cx="${xPos(lp.i)}" cy="${fy(lp.v)}" r="2.5" fill="#2c5f8a"/>`;
-    svg += `<text x="${W-PR+5}" y="${fy(lp.v)-4}" class="cy" fill="#2c5f8a">${lp.v.toFixed(3)}</text>`;
-  }
-
-  // X 軸底線
-  svg += `<line x1="${PL}" y1="${PT+innerH}" x2="${W-PR}" y2="${PT+innerH}" stroke="#ccc" stroke-width="1"/>`;
-
-  // X 軸日期標籤（7個等距）
-  const step = Math.floor((n-1)/6);
-  for (let k=0;k<=6;k++) {
-    const i = Math.min(k*step, n-1);
-    const x = xPos(i);
-    svg += `<line x1="${x}" y1="${PT+innerH}" x2="${x}" y2="${PT+innerH+4}" stroke="#ccc" stroke-width="1"/>`;
-    svg += `<text x="${x}" y="${PT+innerH+13}" text-anchor="middle" class="cy">${dates[i]}</text>`;
-  }
-
-  // 圖例
-  const legends = [
-    {color:'#2c5f8a', label:'本行賣出'},
-    {color:'#c0392b', label:'本行買入'},
-    {color:'#b8860b', label:'加權指數'},
+  // 圖例（標題下方）
+  const legItems=[
+    {c:'#2c5f8a',l:'本行賣出'},
+    {c:'#c0392b',l:'本行買入'},
+    ...(taiexVals.length?[{c:'#b8860b',l:'加權指數'}]:[])
   ];
-  let lx = PL;
-  for (const l of legends) {
-    svg += `<line x1="${lx}" y1="${PT-8}" x2="${lx+20}" y2="${PT-8}" stroke="${l.color}" stroke-width="2"/>`;
-    svg += `<text x="${lx+24}" y="${PT-5}" class="cy" fill="${l.color}">${l.label}</text>`;
-    lx += 80;
+  let legX=W/2-(legItems.length*90)/2;
+  for(const li of legItems){
+    svg+=`<line x1="${legX}" y1="32" x2="${legX+22}" y2="32" stroke="${li.c}" stroke-width="2.5"/>`;
+    svg+=`<circle cx="${legX+11}" cy="32" r="3" fill="${li.c}"/>`;
+    svg+=`<text x="${legX+28}" y="36" class="cl" fill="${li.c}">${li.l}</text>`;
+    legX+=90;
   }
 
-  document.getElementById('trendChart').setAttribute('viewBox', `0 0 ${W} ${H}`);
-  document.getElementById('trendChart').setAttribute('height', H);
-  document.getElementById('trendChart').innerHTML = svg;
-  document.getElementById('chartDates').innerHTML = ''; // X軸已內嵌在SVG
+  // 格線 + Y軸刻度
+  for(const fv of fTicks){
+    const y=fy(fv);
+    svg+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#e8e0d0" stroke-width="0.8"/>`;
+    svg+=`<text x="${PL-6}" y="${y+3.5}" text-anchor="end" class="cv">${fv.toFixed(2)}</text>`;
+  }
+  // 左Y軸標題
+  svg+=`<text x="12" y="${PT+innerH/2+3}" text-anchor="middle" class="cv" transform="rotate(-90,12,${PT+innerH/2})">匯率</text>`;
+
+  // 右Y軸（加權指數）
+  if(taiexVals.length){
+    for(let i=0;i<=nTicks;i++){
+      const tv=tMin+(tMax-tMin)*i/nTicks;
+      const y=PT+innerH-(i/nTicks)*innerH;
+      svg+=`<text x="${W-PR+6}" y="${y+3.5}" text-anchor="start" class="cv" fill="#b8860b">${(tv/1000).toFixed(0)}K</text>`;
+    }
+    svg+=`<text x="${W-12}" y="${PT+innerH/2+3}" text-anchor="middle" class="cv" fill="#b8860b" transform="rotate(90,${W-12},${PT+innerH/2})">加權指數</text>`;
+  }
+
+  // X軸
+  svg+=`<line x1="${PL}" y1="${PT+innerH}" x2="${W-PR}" y2="${PT+innerH}" stroke="#ccc" stroke-width="1"/>`;
+  const xStep=Math.floor((n-1)/6);
+  for(let k=0;k<=6;k++){
+    const i=Math.min(k*xStep,n-1);
+    const x=xPos(i);
+    svg+=`<line x1="${x}" y1="${PT+innerH}" x2="${x}" y2="${PT+innerH+5}" stroke="#bbb" stroke-width="1"/>`;
+    svg+=`<text x="${x}" y="${PT+innerH+17}" text-anchor="middle" class="cv">${dates[i]}</text>`;
+  }
+  svg+=`<text x="${W/2}" y="${H-4}" text-anchor="middle" class="cv">日期</text>`;
+
+  // 加權指數線（先畫，在匯率線下方）
+  if(taiexVals.length>=2){
+    const tPts=dates.map((d,i)=>({i,v:taiexMap[d]??null,d})).filter(p=>p.v!=null);
+    const tLine=tPts.map((p,j)=>`${j===0?'M':'L'}${xPos(p.i).toFixed(1)},${ty(p.v).toFixed(1)}`).join(' ');
+    svg+=`<path d="${tLine}" fill="none" stroke="#b8860b" stroke-width="1.8" stroke-linejoin="round" opacity="0.7" clip-path="url(#chartClip)"/>`;
+  }
+
+  // 買入線（紅）
+  const buyPts=dates.map((d,i)=>({i,v:buyMap[d]??null,d})).filter(p=>p.v!=null);
+  if(buyPts.length>=2){
+    const line=buyPts.map((p,j)=>`${j===0?'M':'L'}${xPos(p.i).toFixed(1)},${fy(p.v).toFixed(1)}`).join(' ');
+    svg+=`<path d="${line}" fill="none" stroke="#c0392b" stroke-width="2" stroke-linejoin="round" clip-path="url(#chartClip)"/>`;
+  }
+
+  // 賣出線（藍）
+  const sellPts=dates.map((d,i)=>({i,v:sellMap[d]??null,d})).filter(p=>p.v!=null);
+  if(sellPts.length>=2){
+    const line=sellPts.map((p,j)=>`${j===0?'M':'L'}${xPos(p.i).toFixed(1)},${fy(p.v).toFixed(1)}`).join(' ');
+    svg+=`<path d="${line}" fill="none" stroke="#2c5f8a" stroke-width="2" stroke-linejoin="round" clip-path="url(#chartClip)"/>`;
+  }
+
+  // 最後端點大圓點
+  if(sellPts.length){
+    const lp=sellPts.at(-1);
+    svg+=`<circle cx="${xPos(lp.i)}" cy="${fy(lp.v)}" r="5" fill="#2c5f8a"/>`;
+  }
+  if(buyPts.length){
+    const lp=buyPts.at(-1);
+    svg+=`<circle cx="${xPos(lp.i)}" cy="${fy(lp.v)}" r="5" fill="#c0392b"/>`;
+  }
+
+  // Tooltip 框（最後一筆資料，右上角浮動卡片）
+  const lastDate=dates.at(-1);
+  const lastSell=sellMap[lastDate], lastBuy=buyMap[lastDate];
+  if(lastSell&&lastBuy){
+    const tx=W-PR-4, ty2=PT+8;
+    const bw=110, bh=54;
+    svg+=`<rect x="${tx-bw}" y="${ty2}" width="${bw}" height="${bh}" fill="white" stroke="#ccc" stroke-width="1" rx="4" opacity="0.95"/>`;
+    svg+=`<text x="${tx-bw+8}" y="${ty2+14}" class="tt" font-weight="600">${lastDate.replace(/(\d+)\/(\d+)/,'2026/$1/$2')}</text>`;
+    svg+=`<circle cx="${tx-bw+10}" cy="${ty2+26}" r="4" fill="#2c5f8a"/>`;
+    svg+=`<text x="${tx-bw+18}" y="${ty2+30}" class="tt"> 本行賣出: <tspan font-weight="600">${lastSell.toFixed(3)}</tspan></text>`;
+    svg+=`<circle cx="${tx-bw+10}" cy="${ty2+40}" r="4" fill="#c0392b"/>`;
+    svg+=`<text x="${tx-bw+18}" y="${ty2+44}" class="tt"> 本行買入: <tspan font-weight="600">${lastBuy.toFixed(3)}</tspan></text>`;
+  }
+
+  const el=document.getElementById('trendChart');
+  el.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  el.setAttribute('height',H);
+  el.innerHTML=svg;
+  document.getElementById('chartDates').innerHTML='';
 }
 
 function renderChartStatic() {
@@ -835,50 +867,5 @@ function drawOIChart(dates, taiexMap, oiMap) {
 let oiDone = false;
 
 async function refresh() {
-  document.getElementById('updateTime').innerHTML = '<span class="spinner"></span>更新中...';
-
-  const [taiex, forex] = await Promise.all([fetchTaiex(), fetchBOTForex()]);
-
-  if (taiex) setCard('taiexVal','taiexArrow','taiexChg','taiexPct', taiex.price, taiex.change, taiex.pct, false);
-  else { document.getElementById('taiexVal').textContent='無法取得'; document.getElementById('taiexChg').textContent=''; }
-
-  if (forex) {
-    // 大數字顯示中間價
-    const mid = forex.mid;
-    const prev = forex.prevMid ?? mid;
-    setCard('forexVal','forexArrow','forexChg','forexPct', mid, forex.change, forex.pct, true);
-    document.getElementById('forexBuy').textContent  = forex.buy?.toFixed(3)  ?? '—';
-    document.getElementById('forexSell').textContent = forex.sell?.toFixed(3) ?? '—';
-    document.getElementById('forexTime').textContent = forex.quoteTime?.slice(-5) ?? '—';
-  } else {
-    document.getElementById('forexVal').textContent='無法取得';
-    document.getElementById('forexChg').textContent='';
-  }
-
-  if (!oiDone) {
-    fetchTaifexOI().then(oi => { renderOI(oi); oiDone=true; });
-    setTimeout(() => { oiDone=false; }, 3600000);
-  }
-
-  const ts = new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  document.getElementById('updateTime').textContent = '更新 '+ts;
-  renderTable();
-}
-
-// 初始化
-renderChartStatic();
-refresh();
-renderChart60();
-renderOIChart();
-setInterval(refresh, 60000);
-setInterval(() => { renderChart60(); renderOIChart(); }, 3600000);
-</script>
-</body>
-</html>
-
-
-</script>
-</body>
-</html>
-
+  document.getElementById('updateTime').innerHTML = '<span class="spinner"><
 
