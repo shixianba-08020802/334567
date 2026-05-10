@@ -224,46 +224,37 @@
     </div>
   </div>
 
-  <!-- 60日走勢圖：匯率 + 加權指數疊加 -->
+  <!-- 圖1：30日匯率走勢 + 加權指數 -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
-      <div class="section-title">▪ 60日走勢對照</div>
+      <div class="section-title">▪ 30日走勢對照</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">
-        <span style="color:var(--accent-yellow)">■</span> 加權指數（左軸）　
-        <span style="color:var(--accent-blue)">■</span> USD/TWD 匯率（右軸）　
-        <span style="color:#2c5f8a;opacity:0.6">■</span> 三大法人淨多空
+        <span style="color:#2c5f8a">─</span> 本行賣出　
+        <span style="color:#c0392b">─</span> 本行買入　
+        <span style="color:#b8860b">─</span> 加權指數（右軸）
       </div>
     </div>
     <div class="chart-wrap">
-      <svg id="trendChart" width="100%" height="220" viewBox="0 0 860 220" preserveAspectRatio="none" style="display:block;"></svg>
+      <svg id="trendChart" width="100%" height="240" viewBox="0 0 860 240" preserveAspectRatio="none" style="display:block;"></svg>
     </div>
     <div id="chartDates"></div>
     <div id="chartStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);text-align:center;padding-top:4px;"></div>
   </div>
 
-  <div class="history-card">
+  <!-- 圖2：加權指數 vs 三大法人未平倉淨多空 -->
+  <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
-      <div class="section-title">▪ 近期收盤對照</div>
-      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">三大法人：盤後揭露</div>
+      <div class="section-title">▪ 加權指數 vs 三大法人未平倉淨多空</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">
+        <span style="color:#b8860b">─</span> 加權指數（左軸）　
+        <span style="color:#2c5f8a">■</span> 三大法人淨多空（右軸，口）
+      </div>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th>日期</th>
-          <th>加權指數</th>
-          <th>漲跌點</th>
-          <th>USD/TWD</th>
-          <th>台幣漲跌</th>
-          <th>三大法人淨額</th>
-          <th>方向</th>
-        </tr>
-      </thead>
-      <tbody id="historyBody">
-        <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">
-          <span class="spinner"></span>載入中...
-        </td></tr>
-      </tbody>
-    </table>
+    <div class="chart-wrap">
+      <svg id="oiChart" width="100%" height="240" viewBox="0 0 860 240" preserveAspectRatio="none" style="display:block;"></svg>
+    </div>
+    <div id="oiChartDates"></div>
+    <div id="oiChartStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);text-align:center;padding-top:4px;"></div>
   </div>
 
   <div class="source-note">
@@ -689,14 +680,14 @@ function renderChartStatic() {
 
 // ── 60日走勢圖主函式 ─────────────────────────────────────────────────
 async function renderChart60() {
-  document.getElementById('chartStatus').innerHTML = '<span class="spinner"></span>載入60日資料...';
+  document.getElementById('chartStatus').innerHTML = '<span class="spinner"></span>載入30日資料...';
   const [taiexHist, forexHist] = await Promise.all([fetchTWSEHistory60(), fetchBOTHistory60()]);
 
   const allDates = [...new Set([
     ...taiexHist.map(d=>d.date),
     ...forexHist.map(d=>d.date),
     ...staticHistory.filter(r=>r.taiex||r.usdtwd).map(r=>r.date)
-  ])].sort().slice(-60);
+  ])].sort().slice(-30);  // 改為30日
 
   if (allDates.length < 5) {
     renderChartStatic();
@@ -712,32 +703,132 @@ async function renderChart60() {
   document.getElementById('chartStatus').textContent = '';
 }
 
-// ── 歷史表格 ──────────────────────────────────────────────────────────
-function renderTable() {
-  document.getElementById('historyBody').innerHTML = staticHistory.map(r => {
-    const tc = r.taiexChg>0?'up':r.taiexChg<0?'down':'neutral';
-    const wc = r.twdChg<0?'up':r.twdChg>0?'down':'neutral';
-    const oc = r.oiNet!=null?(r.oiNet>0?'up':'down'):'neutral';
-    const twdLabel = r.twdChg<0 ? '升' : '貶';
-    const twdHtml = `<span class="${wc}">${twdLabel} ${Math.abs(r.twdChg).toFixed(3)}</span>`;
-    const oiHtml  = r.oiNet!=null
-      ? `<span class="${oc}">${r.oiNet>=0?'+':''}${r.oiNet.toLocaleString()}</span>`
-      : `<span style="color:var(--text-muted)">未揭露</span>`;
-    const su = r.taiexChg > 0;
-    const twdUp = r.twdChg < 0;
-    const badge = (su && twdUp)  ? '<span class="badge up">同漲↑↑</span>'
-      : (!su && !twdUp)          ? '<span class="badge down">同跌↓↓</span>'
-      : '<span class="badge flat">背離</span>';
-    return `<tr>
-      <td>${r.date}</td>
-      <td>${r.taiex?r.taiex.toLocaleString():'—'}</td>
-      <td class="${tc}">${r.taiexChg!=null?(r.taiexChg>0?'+':'')+r.taiexChg.toLocaleString():'—'}</td>
-      <td>${r.usdtwd?r.usdtwd.toFixed(3):'—'}</td>
-      <td>${twdHtml}</td>
-      <td>${oiHtml}</td>
-      <td>${badge}</td>
-    </tr>`;
-  }).join('');
+// ── 加權指數 vs 三大法人淨多空 30日圖 ────────────────────────────────
+async function renderOIChart() {
+  document.getElementById('oiChartStatus').innerHTML = '<span class="spinner"></span>載入資料...';
+
+  // 從 TAIFEX OpenAPI 抓近期歷史（只有最新一天，需搭配靜態資料）
+  // 主要用靜態資料 + 最新一筆 API 資料組成30日
+  const taiexHist = await fetchTWSEHistory60();
+
+  // 建立加權指數 map
+  const taiexMap = {};
+  taiexHist.forEach(d => taiexMap[d.date] = d.close);
+  staticHistory.filter(r=>r.taiex).forEach(r => { if(!taiexMap[r.date]) taiexMap[r.date]=r.taiex; });
+
+  // OI map（從靜態資料）
+  const oiMap = {};
+  staticHistory.filter(r=>r.oiNet!=null).forEach(r => oiMap[r.date]=r.oiNet);
+
+  // 合併日期取30日
+  const allDates = [...new Set([
+    ...Object.keys(taiexMap),
+    ...Object.keys(oiMap)
+  ])].sort().slice(-30);
+
+  if (allDates.length < 3) {
+    document.getElementById('oiChartStatus').textContent = '資料不足';
+    return;
+  }
+
+  drawOIChart(allDates, taiexMap, oiMap);
+  document.getElementById('oiChartStatus').textContent = '';
+}
+
+function drawOIChart(dates, taiexMap, oiMap) {
+  const W=860, H=240, PL=52, PR=62, PT=24, PB=28;
+  const innerW=W-PL-PR, innerH=H-PT-PB;
+  const n=dates.length;
+  if(n<2) return;
+  const xPos = i => PL + (i/(n-1))*innerW;
+
+  const tVals = dates.map(d=>taiexMap[d]).filter(v=>v!=null);
+  const oVals = dates.map(d=>oiMap[d]).filter(v=>v!=null);
+
+  if(tVals.length<2) return;
+
+  // 加權指數 Y（左）
+  const tMin=Math.min(...tVals)*0.997, tMax=Math.max(...tVals)*1.003;
+  const ty = v => v==null?null: PT+(1-(v-tMin)/(tMax-tMin))*innerH;
+
+  // OI Y（右，以0為中心）
+  const oAbs = oVals.length ? Math.max(...oVals.map(Math.abs),1)*1.1 : 100000;
+  const oy = v => v==null?null: PT+(1-(v+oAbs)/(oAbs*2))*innerH;
+  const zeroY = oy(0);
+
+  let svg=`<style>.cy2{font-family:'DM Mono',monospace;font-size:9px;fill:#8a7a65}</style>`;
+  svg+=`<rect x="${PL}" y="${PT}" width="${innerW}" height="${innerH}" fill="white" opacity="0.55"/>`;
+
+  // 格線
+  for(let i=0;i<=4;i++){
+    const y=PT+(i/4)*innerH;
+    svg+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#ddd" stroke-width="0.8"/>`;
+    const tv=tMax-(tMax-tMin)*i/4;
+    svg+=`<text x="${PL-4}" y="${y+3}" text-anchor="end" class="cy2" fill="#b8860b">${(tv/1000).toFixed(1)}K</text>`;
+    const ov=(oAbs-(oAbs*2)*i/4);
+    svg+=`<text x="${W-PR+4}" y="${y+3}" text-anchor="start" class="cy2" fill="#2c5f8a">${(ov/1000).toFixed(0)}K</text>`;
+  }
+
+  // Y軸標題
+  svg+=`<text x="11" y="${PT+innerH/2}" text-anchor="middle" class="cy2" fill="#b8860b" transform="rotate(-90,11,${PT+innerH/2})">加權指數</text>`;
+  svg+=`<text x="${W-11}" y="${PT+innerH/2}" text-anchor="middle" class="cy2" fill="#2c5f8a" transform="rotate(90,${W-11},${PT+innerH/2})">淨多空（口）</text>`;
+
+  // 零軸
+  svg+=`<line x1="${PL}" y1="${zeroY}" x2="${W-PR}" y2="${zeroY}" stroke="#c8bfaf" stroke-width="1" stroke-dasharray="4,3"/>`;
+
+  // OI 面積圖（多方淡紅，空方淡綠）
+  if(oVals.length>=2){
+    const oPts=dates.map((d,i)=>({i,v:oiMap[d]??null})).filter(p=>p.v!=null);
+    // 多方區域（正值）
+    let posPath=`M ${xPos(oPts[0].i).toFixed(1)} ${zeroY}`;
+    oPts.forEach(p=>{ posPath+=` L ${xPos(p.i).toFixed(1)} ${oy(p.v).toFixed(1)}`; });
+    posPath+=` L ${xPos(oPts.at(-1).i).toFixed(1)} ${zeroY} Z`;
+    svg+=`<path d="${posPath}" fill="rgba(192,57,43,0.12)" stroke="none"/>`;
+    // OI 折線
+    const oLine=oPts.map((p,j)=>`${j===0?'M':'L'} ${xPos(p.i).toFixed(1)} ${oy(p.v).toFixed(1)}`).join(' ');
+    svg+=`<path d="${oLine}" fill="none" stroke="#2c5f8a" stroke-width="1.8" stroke-linejoin="round"/>`;
+    // 端點
+    const lp=oPts.at(-1);
+    svg+=`<circle cx="${xPos(lp.i)}" cy="${oy(lp.v)}" r="3" fill="#2c5f8a"/>`;
+    const oval=(lp.v>=0?'+':'')+(lp.v/1000).toFixed(1)+'K';
+    svg+=`<text x="${W-PR+5}" y="${oy(lp.v)+3}" class="cy2" fill="#2c5f8a">${oval}</text>`;
+  }
+
+  // 加權指數折線
+  const tPts=dates.map((d,i)=>({i,v:taiexMap[d]??null})).filter(p=>p.v!=null);
+  const tLine=tPts.map((p,j)=>`${j===0?'M':'L'} ${xPos(p.i).toFixed(1)} ${ty(p.v).toFixed(1)}`).join(' ');
+  svg+=`<path d="${tLine}" fill="none" stroke="#b8860b" stroke-width="2" stroke-linejoin="round"/>`;
+  const lt=tPts.at(-1);
+  svg+=`<circle cx="${xPos(lt.i)}" cy="${ty(lt.v)}" r="3" fill="#b8860b"/>`;
+  svg+=`<text x="${PL+4}" y="${ty(lt.v)-5}" class="cy2" fill="#b8860b">${(lt.v/1000).toFixed(1)}K</text>`;
+
+  // 最低點圓圈標記
+  const minT=tPts.reduce((a,b)=>b.v<a.v?b:a);
+  svg+=`<circle cx="${xPos(minT.i)}" cy="${ty(minT.v)}" r="5" fill="none" stroke="#c0392b" stroke-width="1.5" opacity="0.7"/>`;
+
+  // X軸
+  svg+=`<line x1="${PL}" y1="${PT+innerH}" x2="${W-PR}" y2="${PT+innerH}" stroke="#ccc" stroke-width="1"/>`;
+  const step=Math.floor((n-1)/6);
+  for(let k=0;k<=6;k++){
+    const i=Math.min(k*step,n-1);
+    const x=xPos(i);
+    svg+=`<line x1="${x}" y1="${PT+innerH}" x2="${x}" y2="${PT+innerH+4}" stroke="#ccc" stroke-width="1"/>`;
+    svg+=`<text x="${x}" y="${PT+innerH+13}" text-anchor="middle" class="cy2">${dates[i]}</text>`;
+  }
+
+  // 圖例
+  const legs=[{c:'#b8860b',l:'加權指數（左軸）'},{c:'#2c5f8a',l:'三大法人淨多空（右軸）'}];
+  let lx=PL;
+  for(const l of legs){
+    svg+=`<line x1="${lx}" y1="${PT-8}" x2="${lx+18}" y2="${PT-8}" stroke="${l.c}" stroke-width="2"/>`;
+    svg+=`<text x="${lx+22}" y="${PT-5}" class="cy2" fill="${l.c}">${l.l}</text>`;
+    lx+=150;
+  }
+
+  document.getElementById('oiChart').setAttribute('viewBox',`0 0 ${W} ${H}`);
+  document.getElementById('oiChart').setAttribute('height',H);
+  document.getElementById('oiChart').innerHTML=svg;
+  document.getElementById('oiChartDates').innerHTML='';
 }
 
 // ── 主流程 ────────────────────────────────────────────────────────────
@@ -775,15 +866,16 @@ async function refresh() {
 }
 
 // 初始化
-renderChartStatic(); // 先用靜態資料畫圖
-renderTable();
+renderChartStatic();
 refresh();
-renderChart60();     // 背景載入 60 日 API 資料後更新圖表
+renderChart60();
+renderOIChart();
 setInterval(refresh, 60000);
-setInterval(renderChart60, 3600000); // 圖表每小時更新
+setInterval(() => { renderChart60(); renderOIChart(); }, 3600000);
 </script>
 </body>
 </html>
+
 
 </script>
 </body>
