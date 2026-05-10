@@ -7,178 +7,84 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f5f0e8;
-    --surface: #fdfaf4;
-    --border: #e0d8c8;
-    --accent-green: #c0392b;
-    --accent-red: #1a7a5e;
-    --accent-blue: #2c5f8a;
-    --accent-yellow: #b8860b;
-    --text-primary: #2a2118;
-    --text-muted: #8a7a65;
-    --text-dim: #c8bfaf;
-    --font-mono: 'DM Mono', monospace;
-    --font-sans: 'Noto Sans TC', sans-serif;
+    --bg:#f5f0e8;--surface:#fdfaf4;--border:#e0d8c8;
+    --accent-green:#c0392b;--accent-red:#1a7a5e;--accent-blue:#2c5f8a;--accent-yellow:#b8860b;
+    --text-primary:#2a2118;--text-muted:#8a7a65;--text-dim:#c8bfaf;
+    --font-mono:'DM Mono',monospace;--font-sans:'Noto Sans TC',sans-serif;
   }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: var(--bg);
-    color: var(--text-primary);
-    font-family: var(--font-sans);
-    min-height: 100vh;
-    padding: 20px;
-  }
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image:
-      linear-gradient(var(--text-dim) 1px, transparent 1px),
-      linear-gradient(90deg, var(--text-dim) 1px, transparent 1px);
-    background-size: 40px 40px;
-    opacity: 0.35;
-    pointer-events: none;
-    z-index: 0;
-  }
-  .container { max-width: 940px; margin: 0 auto; position: relative; z-index: 1; }
-
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 24px; padding-bottom: 14px;
-    border-bottom: 1px solid var(--border);
-  }
-  .logo { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em; color: var(--text-muted); }
-  .logo span { color: var(--accent-blue); }
-  .last-update { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
-  .blink { display: inline-block; width: 6px; height: 6px; background: var(--accent-green); border-radius: 50%; margin-right: 6px; animation: blink 1.2s infinite; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-
-  /* 匯率買賣價 */
-  .forex-rates { display:flex; gap:16px; margin-top:6px; }
-  .forex-rate-item { display:flex; flex-direction:column; }
-  .forex-rate-label { font-family:var(--font-mono); font-size:9px; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:2px; }
-  .forex-rate-val { font-family:var(--font-mono); font-size:18px; font-weight:500; }
-
-  /* 60日圖表 */
-  .chart-wrap { position:relative; width:100%; }
-  .chart-y-label { font-family:var(--font-mono); font-size:9px; fill: var(--text-muted); }
-  #chartDates { display:flex; justify-content:space-between; padding:4px 0 0; font-family:var(--font-mono); font-size:9px; color:var(--text-muted); }
-
-  .cards-top { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-  .card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 22px 24px;
-    position: relative; overflow: hidden;
-    box-shadow: 0 2px 12px rgba(100,80,50,0.07);
-  }
-  .card::after { content:''; position:absolute; top:0;left:0;right:0; height:2px; background: var(--card-accent, var(--accent-blue)); }
-  .card.taiex { --card-accent: var(--accent-yellow); }
-  .card.forex { --card-accent: var(--accent-blue); }
-  .card-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
-  .card-value { font-family: var(--font-mono); font-size: 34px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; margin-bottom: 8px; transition: color 0.3s; }
-  .card-change { font-family: var(--font-mono); font-size: 13px; display: flex; gap: 8px; align-items: center; }
-
-  .oi-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 20px 24px; margin-bottom: 14px;
-    position: relative; overflow: hidden;
-    box-shadow: 0 2px 12px rgba(100,80,50,0.07);
-  }
-  .oi-card::after { content:''; position:absolute; top:0;left:0;right:0; height:2px; background: var(--accent-green); }
-  .section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-  .section-title { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; }
-  .oi-date { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
-  .oi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
-  .oi-block { background: #f0ebe0; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
-  .oi-block-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 6px; }
-  .oi-net { font-family: var(--font-mono); font-size: 22px; font-weight: 500; transition: color 0.3s; }
-  .oi-detail { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
-  .oi-bar-wrap { display:flex; height:4px; border-radius:2px; overflow:hidden; margin-top:8px; background: var(--border); }
-  .oi-bar-long { background: var(--accent-green); transition: width 0.8s ease; }
-  .oi-bar-short { background: var(--accent-red); transition: width 0.8s ease; }
-  .oi-total-row {
-    display: flex; align-items: center; justify-content: space-between;
-    background: rgba(44,95,138,0.06); border: 1px solid rgba(44,95,138,0.18);
-    border-radius: 8px; padding: 10px 16px;
-    font-family: var(--font-mono); font-size: 12px;
-  }
-  .oi-total-label { color: var(--text-muted); }
-  .oi-total-val { font-size: 16px; font-weight: 500; }
-
-  .history-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 14px; box-shadow: 0 2px 12px rgba(100,80,50,0.07); }
-  table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
-  thead th { text-align:left; padding: 6px 8px; color: var(--text-muted); font-size: 10px; letter-spacing: 0.1em; border-bottom: 1px solid var(--border); }
-  tbody tr { border-bottom: 1px solid rgba(30,42,58,0.5); transition: background 0.15s; }
-  tbody tr:hover { background: rgba(44,95,138,0.05); }
-  tbody td { padding: 9px 8px; color: var(--text-primary); }
-  tbody td:first-child { color: var(--text-muted); }
-
-  .up { color: var(--accent-green); }
-  .down { color: var(--accent-red); }
-  .neutral { color: var(--text-muted); }
-  .badge { display:inline-block; padding:2px 7px; border-radius:4px; font-size:11px; }
-  .badge.up { background: rgba(192,57,43,0.1); color: var(--accent-green); }
-  .badge.down { background: rgba(26,122,94,0.1); color: var(--accent-red); }
-  .badge.flat { background: rgba(138,122,101,0.12); color: var(--text-muted); }
-
-  .spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--border); border-top-color:var(--accent-blue); border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle; margin-right:5px; }
-  @keyframes spin { to{transform:rotate(360deg)} }
-  .flash { animation: flash 0.5s ease; }
-  @keyframes flash { 0%{opacity:0.3} 100%{opacity:1} }
-
-  .source-note { font-size:11px; color:var(--text-muted); font-family:var(--font-mono); text-align:center; padding-top:6px; }
-  .source-note a { color:var(--text-muted); text-decoration:none; }
-  .source-note a:hover { color:var(--accent-blue); }
-
-  @media (max-width: 640px) {
-    .cards-top { grid-template-columns:1fr; }
-    .card-value { font-size:26px; }
-    .oi-grid { grid-template-columns:1fr; }
-    .oi-total-row { flex-direction:column; gap:6px; align-items:flex-start; }
-  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text-primary);font-family:var(--font-sans);min-height:100vh;padding:20px;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--text-dim) 1px,transparent 1px),linear-gradient(90deg,var(--text-dim) 1px,transparent 1px);background-size:40px 40px;opacity:.35;pointer-events:none;z-index:0;}
+  .container{max-width:940px;margin:0 auto;position:relative;z-index:1;}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  .logo{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;color:var(--text-muted);}
+  .logo span{color:var(--accent-blue);}
+  .last-update{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
+  .blink{display:inline-block;width:6px;height:6px;background:var(--accent-green);border-radius:50%;margin-right:6px;animation:blink 1.2s infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+  .forex-rates{display:flex;gap:16px;margin-top:6px;}
+  .forex-rate-item{display:flex;flex-direction:column;}
+  .forex-rate-label{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;color:var(--text-muted);margin-bottom:2px;}
+  .forex-rate-val{font-family:var(--font-mono);font-size:18px;font-weight:500;}
+  .cards-top{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px 24px;position:relative;overflow:hidden;box-shadow:0 2px 12px rgba(100,80,50,.07);}
+  .card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--card-accent,var(--accent-blue));}
+  .card.taiex{--card-accent:var(--accent-yellow);}
+  .card.forex{--card-accent:var(--accent-blue);}
+  .card-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px;}
+  .card-value{font-family:var(--font-mono);font-size:34px;font-weight:500;letter-spacing:-.02em;line-height:1;margin-bottom:8px;transition:color .3s;}
+  .card-change{font-family:var(--font-mono);font-size:13px;display:flex;gap:8px;align-items:center;}
+  .oi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:14px;position:relative;overflow:hidden;box-shadow:0 2px 12px rgba(100,80,50,.07);}
+  .oi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent-green);}
+  .section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .section-title{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:var(--text-muted);text-transform:uppercase;}
+  .oi-date{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
+  .oi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
+  .oi-block{background:#f0ebe0;border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+  .oi-block-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--text-muted);margin-bottom:6px;}
+  .oi-net{font-family:var(--font-mono);font-size:22px;font-weight:500;transition:color .3s;}
+  .oi-detail{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:4px;line-height:1.5;}
+  .oi-bar-wrap{display:flex;height:4px;border-radius:2px;overflow:hidden;margin-top:8px;background:var(--border);}
+  .oi-bar-long{background:var(--accent-green);transition:width .8s ease;}
+  .oi-bar-short{background:var(--accent-red);transition:width .8s ease;}
+  .oi-total-row{display:flex;align-items:center;justify-content:space-between;background:rgba(44,95,138,.06);border:1px solid rgba(44,95,138,.18);border-radius:8px;padding:10px 16px;font-family:var(--font-mono);font-size:12px;}
+  .oi-total-label{color:var(--text-muted);}
+  .oi-total-val{font-size:16px;font-weight:500;}
+  .history-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:14px;box-shadow:0 2px 12px rgba(100,80,50,.07);}
+  .up{color:var(--accent-green);}
+  .down{color:var(--accent-red);}
+  .neutral{color:var(--text-muted);}
+  .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent-blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .flash{animation:flash .5s ease;}
+  @keyframes flash{0%{opacity:.3}100%{opacity:1}}
+  .source-note{font-size:11px;color:var(--text-muted);font-family:var(--font-mono);text-align:center;padding-top:6px;}
+  .source-note a{color:var(--text-muted);text-decoration:none;}
+  .source-note a:hover{color:var(--accent-blue);}
+  @media(max-width:640px){.cards-top{grid-template-columns:1fr;}.card-value{font-size:26px;}.oi-grid{grid-template-columns:1fr;}.oi-total-row{flex-direction:column;gap:6px;align-items:flex-start;}}
 </style>
 </head>
 <body>
 <div class="container">
-
   <header>
     <div class="logo"><span>shixianba</span> · 即時看板</div>
-    <div class="last-update">
-      <span class="blink"></span>
-      <span id="updateTime">載入中...</span>
-    </div>
+    <div class="last-update"><span class="blink"></span><span id="updateTime">載入中...</span></div>
   </header>
 
   <div class="cards-top">
     <div class="card taiex">
       <div class="card-label">▪ 加權指數 TAIEX</div>
       <div class="card-value" id="taiexVal">—</div>
-      <div class="card-change">
-        <span id="taiexArrow">—</span>
-        <span id="taiexChg">載入中</span>
-        <span id="taiexPct"></span>
-      </div>
+      <div class="card-change"><span id="taiexArrow">—</span><span id="taiexChg">載入中</span><span id="taiexPct"></span></div>
     </div>
     <div class="card forex">
       <div class="card-label">▪ USD/TWD 臺灣銀行即期匯率</div>
       <div class="card-value" id="forexVal">—</div>
-      <div class="card-change" style="margin-bottom:10px;">
-        <span id="forexArrow">—</span>
-        <span id="forexChg">載入中</span>
-        <span id="forexPct"></span>
-      </div>
+      <div class="card-change" style="margin-bottom:10px;"><span id="forexArrow">—</span><span id="forexChg">載入中</span><span id="forexPct"></span></div>
       <div class="forex-rates">
-        <div class="forex-rate-item">
-          <div class="forex-rate-label">本行買入</div>
-          <div class="forex-rate-val" id="forexBuy">—</div>
-        </div>
-        <div class="forex-rate-item">
-          <div class="forex-rate-label">本行賣出</div>
-          <div class="forex-rate-val" id="forexSell">—</div>
-        </div>
-        <div class="forex-rate-item" style="margin-left:auto;text-align:right;">
-          <div class="forex-rate-label">報價時間</div>
-          <div class="forex-rate-val" style="font-size:11px;color:var(--text-muted)" id="forexTime">—</div>
-        </div>
+        <div class="forex-rate-item"><div class="forex-rate-label">本行買入</div><div class="forex-rate-val" id="forexBuy">—</div></div>
+        <div class="forex-rate-item"><div class="forex-rate-label">本行賣出</div><div class="forex-rate-val" id="forexSell">—</div></div>
+        <div class="forex-rate-item" style="margin-left:auto;text-align:right;"><div class="forex-rate-label">報價時間</div><div class="forex-rate-val" style="font-size:11px;color:var(--text-muted)" id="forexTime">—</div></div>
       </div>
     </div>
   </div>
@@ -189,33 +95,9 @@
       <div class="oi-date" id="oiDate"><span class="spinner"></span>自動抓取中...</div>
     </div>
     <div class="oi-grid">
-      <div class="oi-block">
-        <div class="oi-block-label">外資及陸資</div>
-        <div class="oi-net neutral" id="oiForeignNet">—</div>
-        <div class="oi-detail" id="oiForeignDetail">多 — ／ 空 —</div>
-        <div class="oi-bar-wrap">
-          <div class="oi-bar-long" id="oiForeignLong" style="width:50%"></div>
-          <div class="oi-bar-short" id="oiForeignShort" style="width:50%"></div>
-        </div>
-      </div>
-      <div class="oi-block">
-        <div class="oi-block-label">投信</div>
-        <div class="oi-net neutral" id="oiTrustNet">—</div>
-        <div class="oi-detail" id="oiTrustDetail">多 — ／ 空 —</div>
-        <div class="oi-bar-wrap">
-          <div class="oi-bar-long" id="oiTrustLong" style="width:50%"></div>
-          <div class="oi-bar-short" id="oiTrustShort" style="width:50%"></div>
-        </div>
-      </div>
-      <div class="oi-block">
-        <div class="oi-block-label">自營商</div>
-        <div class="oi-net neutral" id="oiDealerNet">—</div>
-        <div class="oi-detail" id="oiDealerDetail">多 — ／ 空 —</div>
-        <div class="oi-bar-wrap">
-          <div class="oi-bar-long" id="oiDealerLong" style="width:50%"></div>
-          <div class="oi-bar-short" id="oiDealerShort" style="width:50%"></div>
-        </div>
-      </div>
+      <div class="oi-block"><div class="oi-block-label">外資及陸資</div><div class="oi-net neutral" id="oiForeignNet">—</div><div class="oi-detail" id="oiForeignDetail">多 — ／ 空 —</div><div class="oi-bar-wrap"><div class="oi-bar-long" id="oiForeignLong" style="width:50%"></div><div class="oi-bar-short" id="oiForeignShort" style="width:50%"></div></div></div>
+      <div class="oi-block"><div class="oi-block-label">投信</div><div class="oi-net neutral" id="oiTrustNet">—</div><div class="oi-detail" id="oiTrustDetail">多 — ／ 空 —</div><div class="oi-bar-wrap"><div class="oi-bar-long" id="oiTrustLong" style="width:50%"></div><div class="oi-bar-short" id="oiTrustShort" style="width:50%"></div></div></div>
+      <div class="oi-block"><div class="oi-block-label">自營商</div><div class="oi-net neutral" id="oiDealerNet">—</div><div class="oi-detail" id="oiDealerDetail">多 — ／ 空 —</div><div class="oi-bar-wrap"><div class="oi-bar-long" id="oiDealerLong" style="width:50%"></div><div class="oi-bar-short" id="oiDealerShort" style="width:50%"></div></div></div>
     </div>
     <div class="oi-total-row">
       <span class="oi-total-label">三大法人合計淨額</span>
@@ -224,26 +106,23 @@
     </div>
   </div>
 
-  <!-- Chart.js CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-
-  <!-- 圖1：30日匯率走勢 + 加權指數 -->
+  <!-- 圖1：即期匯率 30日 -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
       <div class="section-title">▪ 即期匯率（30日）</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">
         <span style="display:inline-block;width:18px;height:2px;background:#2c5f8a;vertical-align:middle;margin-right:3px;"></span>本行賣出　
         <span style="display:inline-block;width:18px;height:2px;background:#c0392b;vertical-align:middle;margin-right:3px;"></span>本行買入　
-        <span style="display:inline-block;width:18px;height:2px;background:#b8860b;vertical-align:middle;margin-right:3px;border-top:2px dashed #b8860b;border-bottom:none;height:0;"></span>加權指數（右軸）
+        <span style="display:inline-block;width:18px;height:2px;background:#b8860b;vertical-align:middle;margin-right:3px;"></span>加權指數（右軸）
       </div>
     </div>
     <div style="position:relative;width:100%;height:260px;">
-      <canvas id="forexCanvas" role="img" aria-label="即期匯率30日走勢圖，含本行買入賣出及加權指數">匯率走勢圖</canvas>
+      <canvas id="forexCanvas" role="img" aria-label="即期匯率30日走勢">匯率走勢圖</canvas>
     </div>
     <div id="chartStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);text-align:center;padding-top:4px;"></div>
   </div>
 
-  <!-- 圖2：加權指數 vs 三大法人淨多空 -->
+  <!-- 圖2：加權指數 vs 三大法人 -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
       <div class="section-title">▪ 加權指數 vs 三大法人未平倉淨多空</div>
@@ -253,7 +132,7 @@
       </div>
     </div>
     <div style="position:relative;width:100%;height:260px;">
-      <canvas id="oiCanvas" role="img" aria-label="加權指數與三大法人未平倉淨多空30日走勢圖">加權指數與三大法人圖</canvas>
+      <canvas id="oiCanvas" role="img" aria-label="加權指數與三大法人淨多空走勢">加權指數與三大法人圖</canvas>
     </div>
     <div id="oiChartStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);text-align:center;padding-top:4px;"></div>
   </div>
@@ -267,674 +146,294 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-// ── 歷史靜態資料 ──────────────────────────────────────────────────────
+// ── 靜態歷史資料 ──────────────────────────────────────────────────────
 const staticHistory = [
-  // 5月
-  { date:'05/07', taiex:null,    taiexChg:null,   usdtwd:31.785, twdChg:-0.059, oiNet:null,   oiLong:null,  oiShort:null  },
-  { date:'05/06', taiex:41139,   taiexChg:+370,   usdtwd:31.726, twdChg:+0.059, oiNet:null,   oiLong:null,  oiShort:null  },
-  { date:'05/05', taiex:40769,   taiexChg:+63,    usdtwd:31.790, twdChg:-0.064, oiNet:-5326,  oiLong:73796, oiShort:79122 },
-  { date:'05/04', taiex:40705,   taiexChg:+1778,  usdtwd:31.730, twdChg:+0.055, oiNet:null,   oiLong:null,  oiShort:null  },
-  // 4月下旬
-  { date:'04/30', taiex:38927,   taiexChg:-377,   usdtwd:31.967, twdChg:-0.080, oiNet:-8200,  oiLong:70000, oiShort:78200 },
-  { date:'04/29', taiex:39303,   taiexChg:-218,   usdtwd:31.518, twdChg:-0.051, oiNet:-12400, oiLong:68000, oiShort:80400 },
-  { date:'04/28', taiex:39522,   taiexChg:-95,    usdtwd:31.518, twdChg:-0.051, oiNet:-18200, oiLong:62000, oiShort:80200 },
-  { date:'04/27', taiex:39617,   taiexChg:+684,   usdtwd:31.467, twdChg:+0.049, oiNet:-22100, oiLong:60000, oiShort:82100 },
-  { date:'04/25', taiex:38933,   taiexChg:-1,     usdtwd:31.967, twdChg:+0.005, oiNet:-35600, oiLong:55000, oiShort:90600 },
-  { date:'04/24', taiex:38932,   taiexChg:+1218,  usdtwd:31.972, twdChg:+0.010, oiNet:-42000, oiLong:52000, oiShort:94000 },
-  { date:'04/23', taiex:37714,   taiexChg:-1757,  usdtwd:31.982, twdChg:-0.020, oiNet:-48500, oiLong:50000, oiShort:98500 },
-  // 4月中旬
-  { date:'04/22', taiex:39471,   taiexChg:+1608,  usdtwd:32.400, twdChg:+0.050, oiNet:-52000, oiLong:48000, oiShort:100000},
-  { date:'04/17', taiex:37863,   taiexChg:+200,   usdtwd:32.450, twdChg:+0.030, oiNet:-58000, oiLong:45000, oiShort:103000},
-  { date:'04/16', taiex:37663,   taiexChg:+480,   usdtwd:32.500, twdChg:+0.010, oiNet:-61000, oiLong:44000, oiShort:105000},
-  { date:'04/15', taiex:37183,   taiexChg:+380,   usdtwd:32.510, twdChg:-0.050, oiNet:-64000, oiLong:43000, oiShort:107000},
-  { date:'04/14', taiex:36803,   taiexChg:+2097,  usdtwd:32.560, twdChg:-0.100, oiNet:-68000, oiLong:41000, oiShort:109000},
-  // 4月上旬（美中貿易戰最劇烈波動期）
-  { date:'04/11', taiex:34706,   taiexChg:-55,    usdtwd:32.660, twdChg:+0.080, oiNet:-72000, oiLong:39000, oiShort:111000},
-  { date:'04/10', taiex:34761,   taiexChg:+3055,  usdtwd:32.580, twdChg:+0.150, oiNet:-75000, oiLong:37000, oiShort:112000},
-  { date:'04/09', taiex:31706,   taiexChg:-3248,  usdtwd:32.730, twdChg:-0.200, oiNet:-80000, oiLong:35000, oiShort:115000},
-  { date:'04/07', taiex:34954,   taiexChg:-2694,  usdtwd:32.930, twdChg:-0.350, oiNet:-85000, oiLong:32000, oiShort:117000},
+  {date:'05/07',taiex:null,   usdtwd:31.785,oiNet:null,   oiLong:null, oiShort:null },
+  {date:'05/06',taiex:41139,  usdtwd:31.726,oiNet:null,   oiLong:null, oiShort:null },
+  {date:'05/05',taiex:40769,  usdtwd:31.790,oiNet:-5326,  oiLong:73796,oiShort:79122},
+  {date:'05/04',taiex:40705,  usdtwd:31.730,oiNet:null,   oiLong:null, oiShort:null },
+  {date:'04/30',taiex:38927,  usdtwd:31.967,oiNet:-8200,  oiLong:70000,oiShort:78200},
+  {date:'04/29',taiex:39303,  usdtwd:31.518,oiNet:-12400, oiLong:68000,oiShort:80400},
+  {date:'04/28',taiex:39522,  usdtwd:31.518,oiNet:-18200, oiLong:62000,oiShort:80200},
+  {date:'04/27',taiex:39617,  usdtwd:31.467,oiNet:-22100, oiLong:60000,oiShort:82100},
+  {date:'04/25',taiex:38933,  usdtwd:31.967,oiNet:-35600, oiLong:55000,oiShort:90600},
+  {date:'04/24',taiex:38932,  usdtwd:31.972,oiNet:-42000, oiLong:52000,oiShort:94000},
+  {date:'04/23',taiex:37714,  usdtwd:31.982,oiNet:-48500, oiLong:50000,oiShort:98500},
+  {date:'04/22',taiex:39471,  usdtwd:32.400,oiNet:-52000, oiLong:48000,oiShort:100000},
+  {date:'04/17',taiex:37863,  usdtwd:32.450,oiNet:-58000, oiLong:45000,oiShort:103000},
+  {date:'04/16',taiex:37663,  usdtwd:32.500,oiNet:-61000, oiLong:44000,oiShort:105000},
+  {date:'04/15',taiex:37183,  usdtwd:32.510,oiNet:-64000, oiLong:43000,oiShort:107000},
+  {date:'04/14',taiex:36803,  usdtwd:32.560,oiNet:-68000, oiLong:41000,oiShort:109000},
+  {date:'04/11',taiex:34706,  usdtwd:32.660,oiNet:-72000, oiLong:39000,oiShort:111000},
+  {date:'04/10',taiex:34761,  usdtwd:32.580,oiNet:-75000, oiLong:37000,oiShort:112000},
+  {date:'04/09',taiex:31706,  usdtwd:32.730,oiNet:-80000, oiLong:35000,oiShort:115000},
+  {date:'04/07',taiex:34954,  usdtwd:32.930,oiNet:-85000, oiLong:32000,oiShort:117000},
 ];
 
-// ── 工具 ──────────────────────────────────────────────────────────────
-const fmt   = (n,d=2) => n==null ? '—' : n.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d});
-const sgn   = (n,d=2) => n==null ? '—' : (n>=0?'+':'')+fmt(n,d);
-const vcls  = (n, inv=false) => n==null?'neutral':(inv?n<0:n>0)?'up':(n===0?'neutral':'down');
+// ── 工具函式 ──────────────────────────────────────────────────────────
+const fmt  = (n,d=2)=>n==null?'—':n.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d});
+const sgn  = (n,d=2)=>n==null?'—':(n>=0?'+':'')+fmt(n,d);
+const vcls = (n,inv=false)=>n==null?'neutral':(inv?n<0:n>0)?'up':(n===0?'neutral':'down');
 
-function setCard(valId, arrowId, chgId, pctId, price, change, pct, inv=false) {
-  const c = vcls(change, inv);
-  const el = document.getElementById(valId);
-  el.textContent = fmt(price);
-  el.className = 'card-value '+c;
-  el.classList.add('flash');
+function setCard(vId,aId,cId,pId,price,change,pct,inv=false){
+  const c=vcls(change,inv),el=document.getElementById(vId);
+  el.textContent=fmt(price);el.className='card-value '+c;el.classList.add('flash');
   setTimeout(()=>el.classList.remove('flash'),600);
-  document.getElementById(arrowId).textContent = change===0?'→':(c==='up'?'▲':'▼');
-  document.getElementById(arrowId).className = c;
-  document.getElementById(chgId).textContent = sgn(change);
-  document.getElementById(chgId).className = c;
-  document.getElementById(pctId).textContent = pct!=null?`(${sgn(pct)}%)`:'';
-  document.getElementById(pctId).className = c;
+  document.getElementById(aId).textContent=change===0?'→':(c==='up'?'▲':'▼');
+  document.getElementById(aId).className=c;
+  document.getElementById(cId).textContent=sgn(change);document.getElementById(cId).className=c;
+  document.getElementById(pId).textContent=pct!=null?`(${sgn(pct)}%)`:'';document.getElementById(pId).className=c;
 }
 
-function setOIBlock(netId, detailId, longId, shortId, lo, sh) {
-  const net = lo - sh;
-  const tot = lo + sh || 1;
-  const lp  = Math.round(lo/tot*100);
-  const c   = net>0?'up':net<0?'down':'neutral';
-  document.getElementById(netId).textContent = (net>=0?'+':'')+net.toLocaleString();
-  document.getElementById(netId).className   = 'oi-net '+c;
-  document.getElementById(detailId).textContent = `多 ${lo.toLocaleString()} ／ 空 ${sh.toLocaleString()}`;
-  document.getElementById(longId).style.width  = lp+'%';
-  document.getElementById(shortId).style.width = (100-lp)+'%';
+function setOIBlock(nId,dId,lId,sId,lo,sh){
+  const net=lo-sh,tot=lo+sh||1,lp=Math.round(lo/tot*100),c=net>0?'up':net<0?'down':'neutral';
+  document.getElementById(nId).textContent=(net>=0?'+':'')+net.toLocaleString();
+  document.getElementById(nId).className='oi-net '+c;
+  document.getElementById(dId).textContent=`多 ${lo.toLocaleString()} ／ 空 ${sh.toLocaleString()}`;
+  document.getElementById(lId).style.width=lp+'%';document.getElementById(sId).style.width=(100-lp)+'%';
 }
 
-// ── 透過自己的 Netlify Function proxy（同源，完全無 CORS 問題）────────
-async function fetchViaProxy(url) {
-  const proxyUrl = `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
-  try {
-    const r = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
-    if (!r.ok) throw new Error('proxy HTTP ' + r.status);
+// ── Netlify proxy ─────────────────────────────────────────────────────
+async function fetchViaProxy(url){
+  try{
+    const r=await fetch(`/.netlify/functions/proxy?url=${encodeURIComponent(url)}`,{signal:AbortSignal.timeout(15000)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
     return await r.json();
-  } catch(e) {
-    console.error('Netlify proxy failed:', e.message, url.slice(0, 60));
-    return null;
-  }
+  }catch(e){console.error('proxy:',e.message,url.slice(0,60));return null;}
 }
 
-// ── 加權指數 — 證交所官方 JSON API ──────────────────────────────────
-async function fetchTaiex() {
-  const url = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&json=1&delay=0';
-  try {
-    const data = await fetchViaProxy(url);
-    if (data?.msgArray?.[0]) {
-      const d = data.msgArray[0];
-      const price  = parseFloat(d.z && d.z !== '-' ? d.z : d.y);
-      const prev   = parseFloat(d.y);
-      const change = price - prev;
-      return { price, change, pct: change / prev * 100 };
+// ── 加權指數即時 ──────────────────────────────────────────────────────
+async function fetchTaiex(){
+  try{
+    const d=await fetchViaProxy('https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&json=1&delay=0');
+    if(d?.msgArray?.[0]){
+      const m=d.msgArray[0],price=parseFloat(m.z&&m.z!=='-'?m.z:m.y),prev=parseFloat(m.y),change=price-prev;
+      return{price,change,pct:change/prev*100};
     }
-  } catch(e) { console.warn('TWSE error:', e.message); }
+  }catch(e){console.warn(e);}
   return null;
 }
 
-// ── 台銀匯率 — 解析 HTML，回傳買入/賣出/中間/時間 ─────────────────────
-async function fetchBOTForex() {
-  const url = 'https://rate.bot.com.tw/xrt?Lang=zh-TW';
-  try {
-    const proxyUrl = `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
-    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const html = await res.text();
-
-    // 抓報價時間
-    const timeMatch = html.match(/牌價最新掛牌時間：([\d/: ]+)/);
-    const quoteTime = timeMatch ? timeMatch[1].trim() : '';
-
-    // 解析 USD 即期買入、賣出
-    // HTML 表格順序：幣別 | 現金買 | 現金賣 | 即期買 | 即期賣 | ...
-    const rows = html.split('<tr');
-    for (const row of rows) {
-      if (!row.includes('USD') && !row.includes('美金')) continue;
-      // 找所有 td 數字
-      const nums = [...row.matchAll(/>\s*([\d]{2,2}\.[\d]{2,4})\s*</g)].map(m => parseFloat(m[1]));
-      if (nums.length >= 4) {
-        // nums[0]=現金買, nums[1]=現金賣, nums[2]=即期買, nums[3]=即期賣
-        const spotBuy  = nums[2];
-        const spotSell = nums[3];
-        const mid = (spotBuy + spotSell) / 2;
-        return { buy: spotBuy, sell: spotSell, mid, quoteTime, change: 0, pct: 0 };
-      }
+// ── 台銀即期匯率 ──────────────────────────────────────────────────────
+async function fetchBOTForex(){
+  try{
+    const res=await fetch(`/.netlify/functions/proxy?url=${encodeURIComponent('https://rate.bot.com.tw/xrt?Lang=zh-TW')}`,{signal:AbortSignal.timeout(15000)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const html=await res.text();
+    const timeM=html.match(/牌價最新掛牌時間：([\d/: ]+)/);
+    const quoteTime=timeM?timeM[1].trim():'';
+    for(const row of html.split('<tr')){
+      if(!row.includes('USD')&&!row.includes('美金')) continue;
+      const nums=[...row.matchAll(/>\s*([\d]{2,2}\.[\d]{2,4})\s*</g)].map(m=>parseFloat(m[1]));
+      if(nums.length>=4) return{buy:nums[2],sell:nums[3],mid:(nums[2]+nums[3])/2,quoteTime,change:0,pct:0};
     }
-    // 備援 regex
-    const allNums = [...html.matchAll(/>(3[01]\.\d{2,3})</g)].map(m => parseFloat(m[1]));
-    if (allNums.length >= 4) {
-      const spotBuy = allNums[2], spotSell = allNums[3];
-      return { buy: spotBuy, sell: spotSell, mid: (spotBuy+spotSell)/2, quoteTime, change: 0, pct: 0 };
-    }
-  } catch(e) { console.warn('BOT forex error:', e.message); }
+  }catch(e){console.warn(e);}
   return null;
 }
 
-// ── 台銀 60 日歷史匯率 — 直接用 /xrt/quote/ltm/USD（近3個月）──────
-async function fetchBOTHistory60() {
-  const url = 'https://rate.bot.com.tw/xrt/quote/ltm/USD';
-  try {
-    const proxyUrl = `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
-    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const html = await res.text();
+// ── 台銀歷史匯率 ──────────────────────────────────────────────────────
+async function fetchBOTHistory(){
+  try{
+    const res=await fetch(`/.netlify/functions/proxy?url=${encodeURIComponent('https://rate.bot.com.tw/xrt/quote/ltm/USD')}`,{signal:AbortSignal.timeout(15000)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const html=await res.text(),results=[];
+    for(const row of (html.match(/<tr[\s\S]*?<\/tr>/gi)||[])){
+      const dm=row.match(/(\d{4})\/(\d{2})\/(\d{2})/);
+      if(!dm) continue;
+      const nums=[...row.matchAll(/>(\d{2}\.\d{2,4})</g)].map(m=>parseFloat(m[1]));
+      if(nums.length>=4) results.push({date:`${dm[2]}/${dm[3]}`,buy:nums[2],sell:nums[3],mid:(nums[2]+nums[3])/2});
+    }
+    return results.sort((a,b)=>a.date>b.date?1:-1).slice(-30);
+  }catch(e){console.warn(e);return[];}
+}
 
-    const results = [];
-    // 每列格式：<td><a href="...">2026/05/06</a></td> ... 即期買 | 即期賣
-    const rowRe = /<tr[\s\S]*?<\/tr>/gi;
-    const rows = html.match(rowRe) || [];
-    for (const row of rows) {
-      const dateM = row.match(/(\d{4})\/(\d{2})\/(\d{2})/);
-      if (!dateM) continue;
-      const mmdd = `${dateM[2]}/${dateM[3]}`;
-      // 抓所有 td 數字（格式 31.xxx）
-      const nums = [...row.matchAll(/>(\d{2}\.\d{2,4})</g)].map(m => parseFloat(m[1]));
-      // 順序：現金買、現金賣、即期買、即期賣
-      if (nums.length >= 4) {
-        results.push({ date: mmdd, buy: nums[2], sell: nums[3], mid: (nums[2]+nums[3])/2 });
+// ── 證交所歷史加權 ────────────────────────────────────────────────────
+async function fetchTWSEHistory(){
+  const results=[],now=new Date();
+  for(let m=0;m<=1;m++){
+    const d=new Date(now.getFullYear(),now.getMonth()-m,1);
+    const ym=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}01`;
+    try{
+      const data=await fetchViaProxy(`https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST?date=${ym}&response=json`);
+      if(data?.data) for(const row of data.data){
+        const parts=row[0].split('/'),close=parseFloat(row[4]?.replace(/,/g,''));
+        if(parts.length>=3&&!isNaN(close)) results.push({date:`${parts[1]}/${parts[2]}`,close});
       }
-    }
-    // 排序舊→新，取最近60筆
-    return results.sort((a,b) => a.date > b.date ? 1 : -1).slice(-60);
-  } catch(e) {
-    console.warn('BOT ltm history error:', e.message);
-    return [];
+    }catch(e){console.warn(e);}
   }
+  return results.sort((a,b)=>a.date>b.date?1:-1).slice(-30);
 }
 
-// ── 證交所 60 日加權指數歷史 ──────────────────────────────────────────
-async function fetchTWSEHistory60() {
-  const results = [];
-  const now = new Date();
-  for (let m = 0; m <= 2; m++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
-    const ym = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}01`;
-    const url = `https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST?date=${ym}&response=json`;
-    try {
-      const data = await fetchViaProxy(url);
-      if (data?.data) {
-        for (const row of data.data) {
-          // row: [日期, 開盤, 最高, 最低, 收盤]
-          const dateRaw = row[0]; // 民國年 e.g. "115/03/01"
-          const close   = parseFloat(row[4]?.replace(/,/g,''));
-          if (!dateRaw || isNaN(close)) continue;
-          // 民國轉西元 MM/DD
-          const parts = dateRaw.split('/');
-          const mmdd = `${parts[1]}/${parts[2]}`;
-          results.push({ date: mmdd, close });
-        }
-      }
-    } catch(e) { console.warn('TWSE history', ym, e.message); }
-  }
-  return results.sort((a,b) => a.date > b.date ? 1 : -1).slice(-60);
+// ── TAIFEX 三大法人 ───────────────────────────────────────────────────
+async function fetchTaifexOI(){
+  try{
+    const data=await fetchViaProxy('https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate');
+    if(!Array.isArray(data)||!data.length) return null;
+    const txRows=data.filter(r=>String(r.ContractCode??'').includes('臺股'));
+    if(!txRows.length) return null;
+    const latestDate=[...new Set(txRows.map(r=>r.Date))].sort().at(-1);
+    const rows=txRows.filter(r=>r.Date===latestDate);
+    const pnum=v=>parseInt(String(v??'0').replace(/,/g,''))||0;
+    let fL=0,fS=0,tL=0,tS=0,dL=0,dS=0;
+    for(const r of rows){
+      const id=String(r.Item??''),lo=pnum(r['OpenInterest(Long)']),sh=pnum(r['OpenInterest(Short)']);
+      if(/外資|foreign/i.test(id)){fL=lo;fS=sh;}
+      else if(/投信|trust/i.test(id)){tL=lo;tS=sh;}
+      else if(/自營|dealer/i.test(id)){dL=lo;dS=sh;}
+    }
+    if(!fL&&!fS&&!tL&&!tS&&!dL&&!dS) return null;
+    return{date:latestDate,fL,fS,tL,tS,dL,dS};
+  }catch(e){console.error(e);return null;}
 }
 
-// ── TAIFEX OpenAPI — 台股期貨三大法人 ────────────────────────────────
-async function fetchTaifexOI() {
-  const EP = 'https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate';
-  try {
-    const data = await fetchViaProxy(EP);
-    if (!Array.isArray(data) || !data.length) {
-      console.warn('TAIFEX: 空陣列');
-      return null;
-    }
-
-    // 實測欄位名稱：Date, ContractCode, Item, OpenInterest(Long), OpenInterest(Short)
-    const kDate     = 'Date';
-    const kContract = 'ContractCode';
-    const kIdentity = 'Item';
-    const kLongOI   = 'OpenInterest(Long)';
-    const kShortOI  = 'OpenInterest(Short)';
-
-    // 篩選台股期貨（ContractCode = "臺股期貨"）
-    const txRows = data.filter(r => String(r[kContract] ?? '').includes('臺股'));
-    if (!txRows.length) {
-      console.warn('TAIFEX TX 找不到，契約樣本:', [...new Set(data.map(r=>r[kContract]))].slice(0,5));
-      return null;
-    }
-
-    const latestDate = [...new Set(txRows.map(r => r[kDate]))].sort().at(-1);
-    const rows = txRows.filter(r => r[kDate] === latestDate);
-    const pnum = v => parseInt(String(v ?? '0').replace(/,/g, '')) || 0;
-
-    let fL=0, fS=0, tL=0, tS=0, dL=0, dS=0;
-    for (const r of rows) {
-      const id = String(r[kIdentity] ?? '');
-      const lo = pnum(r[kLongOI]), sh = pnum(r[kShortOI]);
-      if (/外資|foreign/i.test(id))     { fL=lo; fS=sh; }
-      else if (/投信|trust/i.test(id))  { tL=lo; tS=sh; }
-      else if (/自營|dealer/i.test(id)) { dL=lo; dS=sh; }
-    }
-    if (!fL && !fS && !tL && !tS && !dL && !dS) return null;
-    return { date: latestDate, fL, fS, tL, tS, dL, dS };
-  } catch(e) { console.error('TAIFEX error:', e); return null; }
+// ── OI 卡片渲染 ───────────────────────────────────────────────────────
+function renderOI(oi){
+  if(!oi){document.getElementById('oiDate').textContent='無法自動取得，請查閱期交所網站';return;}
+  document.getElementById('oiDate').textContent='資料日期：'+oi.date;
+  setOIBlock('oiForeignNet','oiForeignDetail','oiForeignLong','oiForeignShort',oi.fL,oi.fS);
+  setOIBlock('oiTrustNet','oiTrustDetail','oiTrustLong','oiTrustShort',oi.tL,oi.tS);
+  setOIBlock('oiDealerNet','oiDealerDetail','oiDealerLong','oiDealerShort',oi.dL,oi.dS);
+  const totL=oi.fL+oi.tL+oi.dL,totS=oi.fS+oi.tS+oi.dS,net=totL-totS,c=net>0?'up':net<0?'down':'neutral';
+  document.getElementById('oiTotal').textContent=(net>=0?'+':'')+net.toLocaleString()+' 口';
+  document.getElementById('oiTotal').className='oi-total-val '+c;
+  document.getElementById('oiTotalDetail').textContent=`多 ${totL.toLocaleString()} ／ 空 ${totS.toLocaleString()}`;
 }
 
-// ── 渲染 OI 卡片 ──────────────────────────────────────────────────────
-function renderOI(oi) {
-  if (!oi) {
-    document.getElementById('oiDate').textContent = '無法自動取得，請查閱期交所網站';
-    return;
-  }
-  document.getElementById('oiDate').textContent = '資料日期：' + oi.date;
-  setOIBlock('oiForeignNet','oiForeignDetail','oiForeignLong','oiForeignShort', oi.fL, oi.fS);
-  setOIBlock('oiTrustNet',  'oiTrustDetail',  'oiTrustLong',  'oiTrustShort',  oi.tL, oi.tS);
-  setOIBlock('oiDealerNet', 'oiDealerDetail', 'oiDealerLong', 'oiDealerShort', oi.dL, oi.dS);
-
-  const totL = oi.fL+oi.tL+oi.dL, totS = oi.fS+oi.tS+oi.dS, net = totL-totS;
-  const c = net>0?'up':net<0?'down':'neutral';
-  document.getElementById('oiTotal').textContent = (net>=0?'+':'')+net.toLocaleString()+' 口';
-  document.getElementById('oiTotal').className = 'oi-total-val '+c;
-  document.getElementById('oiTotalDetail').textContent = `多 ${totL.toLocaleString()} ／ 空 ${totS.toLocaleString()}`;
-}
-
-// ── 60日雙軸走勢圖（加權 + 匯率 + 三大法人）────────────────────────
-async function renderChart60() {
-  document.getElementById('chartStatus').innerHTML = '<span class="spinner"></span>載入60日資料...';
-
-  const [taiexHist, forexHist] = await Promise.all([
-    fetchTWSEHistory60(),
-    fetchBOTHistory60()
-  ]);
-
-  // 合併日期
-  const allDates = [...new Set([
-    ...taiexHist.map(d=>d.date),
-    ...forexHist.map(d=>d.date),
-    ...staticHistory.filter(r=>r.taiex).map(r=>r.date)
-  ])].sort();
-
-  const last60 = allDates.slice(-60);
-  if (last60.length < 5) {
-    // 備援：直接用靜態資料
-    renderChartStatic();
-    document.getElementById('chartStatus').textContent = '（使用靜態資料）';
-    return;
-  }
-
-  // 建立 lookup maps
-  const taiexMap = {};
-  taiexHist.forEach(d => taiexMap[d.date] = d.close);
-  staticHistory.filter(r=>r.taiex).forEach(r => taiexMap[r.date] = r.taiex);
-
-  const forexMap = {};
-  forexHist.forEach(d => forexMap[d.date] = d.mid);
-  staticHistory.filter(r=>r.usdtwd).forEach(r => forexMap[r.date] = r.usdtwd);
-
-  const oiMap = {};
-  staticHistory.filter(r=>r.oiNet!=null).forEach(r => oiMap[r.date] = r.oiNet);
-
-  drawDualChart(last60, taiexMap, forexMap, oiMap);
-  document.getElementById('chartStatus').textContent = '';
-}
-
-// ══════════════════════════════════════════════════════════════════════
-// Chart.js 圖表（互動式，滑鼠懸停顯示 tooltip）
-// ══════════════════════════════════════════════════════════════════════
-
-const CHART_DEFAULTS = {
-  responsive: true,
-  maintainAspectRatio: false,
-  interaction: { mode: 'index', intersect: false },
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      backgroundColor: 'rgba(255,255,255,0.97)',
-      borderColor: '#ccc',
-      borderWidth: 1,
-      titleColor: '#2a2118',
-      bodyColor: '#555',
-      titleFont: { size: 11, weight: 'bold', family: 'DM Mono, monospace' },
-      bodyFont: { size: 10, family: 'DM Mono, monospace' },
-      padding: 10,
-      callbacks: {}
-    }
-  },
-  scales: {
-    x: {
-      grid: { color: '#ece8e0' },
-      ticks: { font: { size: 10, family: 'DM Mono, monospace' }, color: '#888', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }
-    }
-  }
+// ── Chart.js 共用設定 ─────────────────────────────────────────────────
+const CJ_TOOLTIP={
+  backgroundColor:'rgba(255,255,255,0.97)',borderColor:'#ccc',borderWidth:1,
+  titleColor:'#2a2118',bodyColor:'#555',
+  titleFont:{size:11,weight:'bold',family:'DM Mono,monospace'},
+  bodyFont:{size:10,family:'DM Mono,monospace'},padding:10
 };
+const CJ_X={grid:{color:'#ece8e0'},ticks:{font:{size:10,family:'DM Mono,monospace'},color:'#888',maxRotation:0,autoSkip:true,maxTicksLimit:8}};
 
-let forexChartInst = null;
-let oiChartInst = null;
+let chart1=null,chart2=null;
 
-// ─── 匯率圖（本行買入/賣出 + 加權指數）────────────────────────────────
-function drawDualChart(dates, taiexMap, forexHist) {
-  const buyMap={}, sellMap={};
-  forexHist.forEach(d=>{ buyMap[d.date]=d.buy; sellMap[d.date]=d.sell; });
-  staticHistory.forEach(r=>{ if(r.usdtwd&&!buyMap[r.date]){buyMap[r.date]=r.usdtwd-0.075;sellMap[r.date]=r.usdtwd+0.075;} });
+// ── 圖1：匯率 + 加權指數 ─────────────────────────────────────────────
+function drawForexChart(dates,forexHist,taiexMap){
+  const buyMap={},sellMap={};
+  forexHist.forEach(d=>{buyMap[d.date]=d.buy;sellMap[d.date]=d.sell;});
+  staticHistory.forEach(r=>{if(r.usdtwd&&!buyMap[r.date]){buyMap[r.date]=r.usdtwd-.075;sellMap[r.date]=r.usdtwd+.075;}});
 
-  const sellData = dates.map(d=>sellMap[d]??null);
-  const buyData  = dates.map(d=>buyMap[d]??null);
-  const taiexData= dates.map(d=>taiexMap?.[d]??null);
-  const hasTaiex = taiexData.some(v=>v!=null);
+  const sellData=dates.map(d=>sellMap[d]??null);
+  const buyData=dates.map(d=>buyMap[d]??null);
+  const taiexData=dates.map(d=>taiexMap?.[d]??null);
+  const hasTaiex=taiexData.some(v=>v!=null);
 
-  if (forexChartInst) { forexChartInst.destroy(); forexChartInst = null; }
+  if(chart1){chart1.destroy();chart1=null;}
+  const canvas=document.getElementById('forexCanvas');
+  if(!canvas) return;
 
-  const canvas = document.getElementById('forexCanvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-
-  const datasets = [
-    {
-      label: '本行賣出', data: sellData,
-      borderColor: '#2c5f8a', backgroundColor: 'transparent',
-      borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
-      pointHoverBackgroundColor: '#2c5f8a', tension: 0.3, yAxisID: 'y', spanGaps: true,
-    },
-    {
-      label: '本行買入', data: buyData,
-      borderColor: '#c0392b', backgroundColor: 'transparent',
-      borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
-      pointHoverBackgroundColor: '#c0392b', tension: 0.3, yAxisID: 'y', spanGaps: true,
-    },
+  const datasets=[
+    {label:'本行賣出',data:sellData,borderColor:'#2c5f8a',backgroundColor:'transparent',borderWidth:2,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#2c5f8a',tension:.3,yAxisID:'y',spanGaps:true},
+    {label:'本行買入',data:buyData,borderColor:'#c0392b',backgroundColor:'transparent',borderWidth:2,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#c0392b',tension:.3,yAxisID:'y',spanGaps:true},
   ];
+  if(hasTaiex) datasets.push({label:'加權指數',data:taiexData,borderColor:'#b8860b',backgroundColor:'transparent',borderWidth:1.8,borderDash:[4,3],pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#b8860b',tension:.3,yAxisID:'y2',spanGaps:true});
 
-  if (hasTaiex) {
-    datasets.push({
-      label: '加權指數', data: taiexData,
-      borderColor: '#b8860b', backgroundColor: 'transparent',
-      borderWidth: 1.8, borderDash: [4,3],
-      pointRadius: 0, pointHoverRadius: 5,
-      pointHoverBackgroundColor: '#b8860b',
-      tension: 0.3, yAxisID: 'y2', spanGaps: true,
-    });
-  }
-
-  forexChartInst = new Chart(ctx, {
-    type: 'line',
-    data: { labels: dates, datasets },
-    options: {
-      ...CHART_DEFAULTS,
-      plugins: {
-        ...CHART_DEFAULTS.plugins,
-        tooltip: {
-          ...CHART_DEFAULTS.plugins.tooltip,
-          callbacks: {
-            label: ctx => {
-              const v = ctx.raw; if(v==null) return null;
-              if(ctx.datasetIndex===2) return ` 加權指數: ${v.toLocaleString()}`;
-              return ` ${ctx.dataset.label}: ${v.toFixed(3)}`;
-            }
-          }
-        }
-      },
-      scales: {
-        x: CHART_DEFAULTS.scales.x,
-        y: {
-          position: 'left',
-          grid: { color: '#ece8e0' },
-          ticks: { font:{size:10,family:'DM Mono,monospace'}, color:'#888', callback: v=>v.toFixed(2) }
-        },
-        ...(hasTaiex ? { y2: {
-          position: 'right', grid: { display: false },
-          ticks: { font:{size:10,family:'DM Mono,monospace'}, color:'#b8860b', callback: v=>(v/1000).toFixed(0)+'K' }
-        }} : {})
+  chart1=new Chart(canvas.getContext('2d'),{
+    type:'line',data:{labels:dates,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{...CJ_TOOLTIP,callbacks:{label:ctx=>{const v=ctx.raw;if(v==null)return null;return ctx.datasetIndex===2?` 加權指數: ${v.toLocaleString()}`:` ${ctx.dataset.label}: ${v.toFixed(3)}`;}}}},
+      scales:{
+        x:CJ_X,
+        y:{position:'left',grid:{color:'#ece8e0'},ticks:{font:{size:10,family:'DM Mono,monospace'},color:'#888',callback:v=>v.toFixed(2)}},
+        ...(hasTaiex?{y2:{position:'right',grid:{display:false},ticks:{font:{size:10,family:'DM Mono,monospace'},color:'#b8860b',callback:v=>(v/1000).toFixed(0)+'K'}}}:{})
       }
     }
   });
 }
 
-function renderChartStatic() {
-  const rows=[...staticHistory].reverse();
-  const taiexMap={};
-  rows.forEach(r=>{ if(r.taiex) taiexMap[r.date]=r.taiex; });
-  const forexHist=rows.filter(r=>r.usdtwd).map(r=>({date:r.date,buy:r.usdtwd-0.075,sell:r.usdtwd+0.075,mid:r.usdtwd}));
-  drawDualChart(rows.map(r=>r.date), taiexMap, forexHist);
-}
+// ── 圖2：加權指數 vs OI ───────────────────────────────────────────────
+function drawOIChart(dates,taiexMap,oiMap){
+  if(chart2){chart2.destroy();chart2=null;}
+  const canvas=document.getElementById('oiCanvas');
+  if(!canvas) return;
 
-// ─── 加權指數 vs 三大法人 OI 圖 ──────────────────────────────────────
-function drawOIChart(dates, taiexMap, oiMap) {
-  const taiexData = dates.map(d=>taiexMap[d]??null);
-  const oiData    = dates.map(d=>oiMap[d]??null);
-
-  if (oiChartInst) { oiChartInst.destroy(); oiChartInst = null; }
-
-  const canvas = document.getElementById('oiCanvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-
-  oiChartInst = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: dates,
-      datasets: [
-        {
-          label: '加權指數', data: taiexData,
-          borderColor: '#b8860b', backgroundColor: 'transparent',
-          borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
-          pointHoverBackgroundColor: '#b8860b', tension: 0.3, yAxisID: 'y', spanGaps: true,
-          order: 2,
-        },
-        {
-          label: '三大法人淨多空', data: oiData,
-          borderColor: '#2c5f8a',
-          backgroundColor: ctx2 => {
-            const g = ctx2.chart.ctx.createLinearGradient(0,0,0,260);
-            g.addColorStop(0,'rgba(44,95,138,0.3)');
-            g.addColorStop(1,'rgba(44,95,138,0.02)');
-            return g;
-          },
-          fill: 'origin',
-          borderWidth: 1.8, pointRadius: 0, pointHoverRadius: 5,
-          pointHoverBackgroundColor: '#2c5f8a', tension: 0.3, yAxisID: 'y2', spanGaps: true,
-          order: 1,
-        },
+  chart2=new Chart(canvas.getContext('2d'),{
+    type:'line',
+    data:{
+      labels:dates,
+      datasets:[
+        {label:'加權指數',data:dates.map(d=>taiexMap[d]??null),borderColor:'#b8860b',backgroundColor:'transparent',borderWidth:2,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#b8860b',tension:.3,yAxisID:'y',spanGaps:true,order:2},
+        {label:'三大法人淨多空',data:dates.map(d=>oiMap[d]??null),borderColor:'#2c5f8a',backgroundColor:'rgba(44,95,138,0.15)',fill:'origin',borderWidth:1.8,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#2c5f8a',tension:.3,yAxisID:'y2',spanGaps:true,order:1},
       ]
     },
-    options: {
-      ...CHART_DEFAULTS,
-      plugins: {
-        ...CHART_DEFAULTS.plugins,
-        tooltip: {
-          ...CHART_DEFAULTS.plugins.tooltip,
-          callbacks: {
-            label: ctx => {
-              const v=ctx.raw; if(v==null) return null;
-              if(ctx.datasetIndex===0) return ` 加權指數: ${v.toLocaleString()}`;
-              return ` 三大法人淨多空: ${v>=0?'+':''}${v.toLocaleString()} 口`;
-            }
-          }
-        }
-      },
-      scales: {
-        x: CHART_DEFAULTS.scales.x,
-        y: {
-          position: 'left', grid: { color: '#ece8e0' },
-          ticks: { font:{size:10,family:'DM Mono,monospace'}, color:'#b8860b', callback: v=>(v/1000).toFixed(0)+'K' }
-        },
-        y2: {
-          position: 'right', grid: { display: false },
-          ticks: { font:{size:10,family:'DM Mono,monospace'}, color:'#2c5f8a', callback: v=>(v/1000).toFixed(0)+'K' }
-        }
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{...CJ_TOOLTIP,callbacks:{label:ctx=>{const v=ctx.raw;if(v==null)return null;return ctx.datasetIndex===0?` 加權指數: ${v.toLocaleString()}`:` 三大法人淨多空: ${v>=0?'+':''}${v.toLocaleString()} 口`;}}}},
+      scales:{
+        x:CJ_X,
+        y:{position:'left',grid:{color:'#ece8e0'},ticks:{font:{size:10,family:'DM Mono,monospace'},color:'#b8860b',callback:v=>(v/1000).toFixed(0)+'K'}},
+        y2:{position:'right',grid:{display:false},ticks:{font:{size:10,family:'DM Mono,monospace'},color:'#2c5f8a',callback:v=>(v/1000).toFixed(0)+'K'}}
       }
     }
   });
 }
 
-// ── 主流程 ────────────────────────────────────────────────────────────
-
-// ── 60日走勢圖主函式 ─────────────────────────────────────────────────
-async function renderChart60() {
-  document.getElementById('chartStatus').innerHTML = '<span class="spinner"></span>載入30日資料...';
-  const [taiexHist, forexHist] = await Promise.all([fetchTWSEHistory60(), fetchBOTHistory60()]);
-
-  const allDates = [...new Set([
-    ...taiexHist.map(d=>d.date),
-    ...forexHist.map(d=>d.date),
-    ...staticHistory.filter(r=>r.taiex||r.usdtwd).map(r=>r.date)
-  ])].sort().slice(-30);  // 改為30日
-
-  if (allDates.length < 5) {
-    renderChartStatic();
-    document.getElementById('chartStatus').textContent = '（使用靜態備援資料）';
-    return;
-  }
-
-  const taiexMap = {};
-  taiexHist.forEach(d => taiexMap[d.date] = d.close);
-  staticHistory.filter(r=>r.taiex).forEach(r => { if(!taiexMap[r.date]) taiexMap[r.date]=r.taiex; });
-
-  drawDualChart(allDates, taiexMap, forexHist);
-  document.getElementById('chartStatus').textContent = '';
+// ── 圖表初始化（先用靜態資料）────────────────────────────────────────
+function initChartsStatic(){
+  const rows=[...staticHistory].reverse();
+  const taiexMap={};rows.forEach(r=>{if(r.taiex)taiexMap[r.date]=r.taiex;});
+  const forexHist=rows.filter(r=>r.usdtwd).map(r=>({date:r.date,buy:r.usdtwd-.075,sell:r.usdtwd+.075,mid:r.usdtwd}));
+  const dates=rows.map(r=>r.date);
+  drawForexChart(dates,forexHist,taiexMap);
+  const oiMap={};rows.forEach(r=>{if(r.oiNet!=null)oiMap[r.date]=r.oiNet;});
+  drawOIChart(dates,taiexMap,oiMap);
 }
 
-// ── 加權指數 vs 三大法人淨多空 30日圖 ────────────────────────────────
-async function renderOIChart() {
-  document.getElementById('oiChartStatus').innerHTML = '<span class="spinner"></span>載入資料...';
+// ── 圖表更新（用API資料）─────────────────────────────────────────────
+async function updateCharts(){
+  document.getElementById('chartStatus').innerHTML='<span class="spinner"></span>載入資料...';
+  const [taiexHist,forexHist]=await Promise.all([fetchTWSEHistory(),fetchBOTHistory()]);
 
-  // 從 TAIFEX OpenAPI 抓近期歷史（只有最新一天，需搭配靜態資料）
-  // 主要用靜態資料 + 最新一筆 API 資料組成30日
-  const taiexHist = await fetchTWSEHistory60();
+  const taiexMap={};
+  taiexHist.forEach(d=>taiexMap[d.date]=d.close);
+  staticHistory.filter(r=>r.taiex).forEach(r=>{if(!taiexMap[r.date])taiexMap[r.date]=r.taiex;});
 
-  // 建立加權指數 map
-  const taiexMap = {};
-  taiexHist.forEach(d => taiexMap[d.date] = d.close);
-  staticHistory.filter(r=>r.taiex).forEach(r => { if(!taiexMap[r.date]) taiexMap[r.date]=r.taiex; });
-
-  // OI map（從靜態資料）
-  const oiMap = {};
-  staticHistory.filter(r=>r.oiNet!=null).forEach(r => oiMap[r.date]=r.oiNet);
-
-  // 合併日期取30日
-  const allDates = [...new Set([
+  const allDates=[...new Set([
+    ...forexHist.map(d=>d.date),
     ...Object.keys(taiexMap),
-    ...Object.keys(oiMap)
+    ...staticHistory.map(r=>r.date)
   ])].sort().slice(-30);
 
-  if (allDates.length < 3) {
-    document.getElementById('oiChartStatus').textContent = '資料不足';
-    return;
+  if(allDates.length>=5){
+    drawForexChart(allDates,forexHist,taiexMap);
+    const oiMap={};staticHistory.filter(r=>r.oiNet!=null).forEach(r=>oiMap[r.date]=r.oiNet);
+    drawOIChart(allDates,taiexMap,oiMap);
   }
-
-  drawOIChart(allDates, taiexMap, oiMap);
-  document.getElementById('oiChartStatus').textContent = '';
+  document.getElementById('chartStatus').textContent='';
+  document.getElementById('oiChartStatus').textContent='';
 }
 
-function drawOIChart(dates, taiexMap, oiMap) {
-  const W=860, H=240, PL=52, PR=62, PT=24, PB=28;
-  const innerW=W-PL-PR, innerH=H-PT-PB;
-  const n=dates.length;
-  if(n<2) return;
-  const xPos = i => PL + (i/(n-1))*innerW;
-
-  const tVals = dates.map(d=>taiexMap[d]).filter(v=>v!=null);
-  const oVals = dates.map(d=>oiMap[d]).filter(v=>v!=null);
-
-  if(tVals.length<2) return;
-
-  // 加權指數 Y（左）
-  const tMin=Math.min(...tVals)*0.997, tMax=Math.max(...tVals)*1.003;
-  const ty = v => v==null?null: PT+(1-(v-tMin)/(tMax-tMin))*innerH;
-
-  // OI Y（右，以0為中心）
-  const oAbs = oVals.length ? Math.max(...oVals.map(Math.abs),1)*1.1 : 100000;
-  const oy = v => v==null?null: PT+(1-(v+oAbs)/(oAbs*2))*innerH;
-  const zeroY = oy(0);
-
-  let svg=`<style>.cy2{font-family:'DM Mono',monospace;font-size:9px;fill:#8a7a65}</style>`;
-  svg+=`<rect x="${PL}" y="${PT}" width="${innerW}" height="${innerH}" fill="white" opacity="0.55"/>`;
-
-  // 格線
-  for(let i=0;i<=4;i++){
-    const y=PT+(i/4)*innerH;
-    svg+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#ddd" stroke-width="0.8"/>`;
-    const tv=tMax-(tMax-tMin)*i/4;
-    svg+=`<text x="${PL-4}" y="${y+3}" text-anchor="end" class="cy2" fill="#b8860b">${(tv/1000).toFixed(1)}K</text>`;
-    const ov=(oAbs-(oAbs*2)*i/4);
-    svg+=`<text x="${W-PR+4}" y="${y+3}" text-anchor="start" class="cy2" fill="#2c5f8a">${(ov/1000).toFixed(0)}K</text>`;
-  }
-
-  // Y軸標題
-  svg+=`<text x="11" y="${PT+innerH/2}" text-anchor="middle" class="cy2" fill="#b8860b" transform="rotate(-90,11,${PT+innerH/2})">加權指數</text>`;
-  svg+=`<text x="${W-11}" y="${PT+innerH/2}" text-anchor="middle" class="cy2" fill="#2c5f8a" transform="rotate(90,${W-11},${PT+innerH/2})">淨多空（口）</text>`;
-
-  // 零軸
-  svg+=`<line x1="${PL}" y1="${zeroY}" x2="${W-PR}" y2="${zeroY}" stroke="#c8bfaf" stroke-width="1" stroke-dasharray="4,3"/>`;
-
-  // OI 面積圖（多方淡紅，空方淡綠）
-  if(oVals.length>=2){
-    const oPts=dates.map((d,i)=>({i,v:oiMap[d]??null})).filter(p=>p.v!=null);
-    // 多方區域（正值）
-    let posPath=`M ${xPos(oPts[0].i).toFixed(1)} ${zeroY}`;
-    oPts.forEach(p=>{ posPath+=` L ${xPos(p.i).toFixed(1)} ${oy(p.v).toFixed(1)}`; });
-    posPath+=` L ${xPos(oPts.at(-1).i).toFixed(1)} ${zeroY} Z`;
-    svg+=`<path d="${posPath}" fill="rgba(192,57,43,0.12)" stroke="none"/>`;
-    // OI 折線
-    const oLine=oPts.map((p,j)=>`${j===0?'M':'L'} ${xPos(p.i).toFixed(1)} ${oy(p.v).toFixed(1)}`).join(' ');
-    svg+=`<path d="${oLine}" fill="none" stroke="#2c5f8a" stroke-width="1.8" stroke-linejoin="round"/>`;
-    // 端點
-    const lp=oPts.at(-1);
-    svg+=`<circle cx="${xPos(lp.i)}" cy="${oy(lp.v)}" r="3" fill="#2c5f8a"/>`;
-    const oval=(lp.v>=0?'+':'')+(lp.v/1000).toFixed(1)+'K';
-    svg+=`<text x="${W-PR+5}" y="${oy(lp.v)+3}" class="cy2" fill="#2c5f8a">${oval}</text>`;
-  }
-
-  // 加權指數折線
-  const tPts=dates.map((d,i)=>({i,v:taiexMap[d]??null})).filter(p=>p.v!=null);
-  const tLine=tPts.map((p,j)=>`${j===0?'M':'L'} ${xPos(p.i).toFixed(1)} ${ty(p.v).toFixed(1)}`).join(' ');
-  svg+=`<path d="${tLine}" fill="none" stroke="#b8860b" stroke-width="2" stroke-linejoin="round"/>`;
-  const lt=tPts.at(-1);
-  svg+=`<circle cx="${xPos(lt.i)}" cy="${ty(lt.v)}" r="3" fill="#b8860b"/>`;
-  svg+=`<text x="${PL+4}" y="${ty(lt.v)-5}" class="cy2" fill="#b8860b">${(lt.v/1000).toFixed(1)}K</text>`;
-
-  // 最低點圓圈標記
-  const minT=tPts.reduce((a,b)=>b.v<a.v?b:a);
-  svg+=`<circle cx="${xPos(minT.i)}" cy="${ty(minT.v)}" r="5" fill="none" stroke="#c0392b" stroke-width="1.5" opacity="0.7"/>`;
-
-  // X軸
-  svg+=`<line x1="${PL}" y1="${PT+innerH}" x2="${W-PR}" y2="${PT+innerH}" stroke="#ccc" stroke-width="1"/>`;
-  const step=Math.floor((n-1)/6);
-  for(let k=0;k<=6;k++){
-    const i=Math.min(k*step,n-1);
-    const x=xPos(i);
-    svg+=`<line x1="${x}" y1="${PT+innerH}" x2="${x}" y2="${PT+innerH+4}" stroke="#ccc" stroke-width="1"/>`;
-    svg+=`<text x="${x}" y="${PT+innerH+13}" text-anchor="middle" class="cy2">${dates[i]}</text>`;
-  }
-
-  // 圖例
-  const legs=[{c:'#b8860b',l:'加權指數（左軸）'},{c:'#2c5f8a',l:'三大法人淨多空（右軸）'}];
-  let lx=PL;
-  for(const l of legs){
-    svg+=`<line x1="${lx}" y1="${PT-8}" x2="${lx+18}" y2="${PT-8}" stroke="${l.c}" stroke-width="2"/>`;
-    svg+=`<text x="${lx+22}" y="${PT-5}" class="cy2" fill="${l.c}">${l.l}</text>`;
-    lx+=150;
-  }
-
-  document.getElementById('oiChart').setAttribute('viewBox',`0 0 ${W} ${H}`);
-  document.getElementById('oiChart').setAttribute('height',H);
-  document.getElementById('oiChart').innerHTML=svg;
-  document.getElementById('oiChartDates').innerHTML='';
+// ── 主更新 ────────────────────────────────────────────────────────────
+let oiDone=false;
+async function refresh(){
+  document.getElementById('updateTime').innerHTML='<span class="spinner"></span>更新中...';
+  const [taiex,forex]=await Promise.all([fetchTaiex(),fetchBOTForex()]);
+  if(taiex) setCard('taiexVal','taiexArrow','taiexChg','taiexPct',taiex.price,taiex.change,taiex.pct,false);
+  else{document.getElementById('taiexVal').textContent='無法取得';document.getElementById('taiexChg').textContent='';}
+  if(forex){
+    setCard('forexVal','forexArrow','forexChg','forexPct',forex.mid,forex.change,forex.pct,true);
+    document.getElementById('forexBuy').textContent=forex.buy?.toFixed(3)??'—';
+    document.getElementById('forexSell').textContent=forex.sell?.toFixed(3)??'—';
+    document.getElementById('forexTime').textContent=forex.quoteTime?.slice(-5)??'—';
+  }else{document.getElementById('forexVal').textContent='無法取得';document.getElementById('forexChg').textContent='';}
+  if(!oiDone){fetchTaifexOI().then(oi=>{renderOI(oi);oiDone=true;});setTimeout(()=>{oiDone=false;},3600000);}
+  document.getElementById('updateTime').textContent='更新 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 
-// ── 主流程 ────────────────────────────────────────────────────────────
-let oiDone = false;
-
-async function refresh() {
-  document.getElementById('updateTime').innerHTML = '<span class="spinner"></span>更新中...';
-
-  const [taiex, forex] = await Promise.all([fetchTaiex(), fetchBOTForex()]);
-
-  if (taiex) setCard('taiexVal','taiexArrow','taiexChg','taiexPct', taiex.price, taiex.change, taiex.pct, false);
-  else { document.getElementById('taiexVal').textContent='無法取得'; document.getElementById('taiexChg').textContent=''; }
-
-  if (forex) {
-    // 大數字顯示中間價
-    const mid = forex.mid;
-    const prev = forex.prevMid ?? mid;
-    setCard('forexVal','forexArrow','forexChg','forexPct', mid, forex.change, forex.pct, true);
-    document.getElementById('forexBuy').textContent  = forex.buy?.toFixed(3)  ?? '—';
-    document.getElementById('forexSell').textContent = forex.sell?.toFixed(3) ?? '—';
-    document.getElementById('forexTime').textContent = forex.quoteTime?.slice(-5) ?? '—';
-  } else {
-    document.getElementById('forexVal').textContent='無法取得';
-    document.getElementById('forexChg').textContent='';
-  }
-
-  if (!oiDone) {
-    fetchTaifexOI().then(oi => { renderOI(oi); oiDone=true; });
-    setTimeout(() => { oiDone=false; }, 3600000);
-  }
-
-  const ts = new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  document.getElementById('updateTime').textContent = '更新 '+ts;
-}
-
-// 初始化
-renderChartStatic();
+// ── 啟動 ──────────────────────────────────────────────────────────────
+initChartsStatic();
 refresh();
-renderChart60();
-renderOIChart();
-setInterval(refresh, 60000);
-setInterval(() => { renderChart60(); renderOIChart(); }, 3600000);
+updateCharts();
+setInterval(refresh,60000);
+setInterval(updateCharts,3600000);
 </script>
 </body>
 </html>
