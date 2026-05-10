@@ -224,24 +224,23 @@
     </div>
   </div>
 
-  <!-- 圖1：30日匯率走勢 + 加權指數 -->
+  <!-- 圖1：30日匯率走勢 + 加權指數（互動式） -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
-      <div class="section-title">▪ 30日走勢對照</div>
+      <div class="section-title">▪ 即期匯率（30日）</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">
         <span style="color:#2c5f8a">─</span> 本行賣出　
         <span style="color:#c0392b">─</span> 本行買入　
         <span style="color:#b8860b">─</span> 加權指數（右軸）
       </div>
     </div>
-    <div class="chart-wrap">
-      <svg id="trendChart" width="100%" height="240" viewBox="0 0 860 240" preserveAspectRatio="none" style="display:block;"></svg>
+    <div style="position:relative;width:100%;">
+      <canvas id="forexCanvas" style="width:100%;height:280px;display:block;cursor:crosshair;"></canvas>
     </div>
-    <div id="chartDates"></div>
     <div id="chartStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);text-align:center;padding-top:4px;"></div>
   </div>
 
-  <!-- 圖2：加權指數 vs 三大法人未平倉淨多空 -->
+  <!-- 圖2：加權指數 vs 三大法人淨多空（互動式） -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
       <div class="section-title">▪ 加權指數 vs 三大法人未平倉淨多空</div>
@@ -250,10 +249,9 @@
         <span style="color:#2c5f8a">■</span> 三大法人淨多空（右軸，口）
       </div>
     </div>
-    <div class="chart-wrap">
-      <svg id="oiChart" width="100%" height="240" viewBox="0 0 860 240" preserveAspectRatio="none" style="display:block;"></svg>
+    <div style="position:relative;width:100%;">
+      <canvas id="oiCanvas" style="width:100%;height:280px;display:block;cursor:crosshair;"></canvas>
     </div>
-    <div id="oiChartDates"></div>
     <div id="oiChartStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);text-align:center;padding-top:4px;"></div>
   </div>
 
@@ -552,152 +550,354 @@ async function renderChart60() {
   document.getElementById('chartStatus').textContent = '';
 }
 
-function drawDualChart(dates, taiexMap, forexHist) {
-  const W=860, H=300, PL=52, PR=taiexMap && Object.keys(taiexMap).length>0 ? 60 : 16, PT=48, PB=36;
-  const innerW=W-PL-PR, innerH=H-PT-PB;
-  const n=dates.length;
-  if(n<2) return;
-  const xPos = i => PL+(i/(n-1))*innerW;
+// ══════════════════════════════════════════════════════════════════════
+// Canvas 互動圖表引擎
+// ══════════════════════════════════════════════════════════════════════
 
-  // 建立 buy/sell map
+function makeInteractiveChart(canvasId, config) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  // 設定 canvas 實際像素解析度（HiDPI）
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const CW = rect.width  || canvas.offsetWidth  || 800;
+  const CH = rect.height || canvas.offsetHeight || 280;
+  canvas.width  = CW * dpr;
+  canvas.height = CH * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const PL=58, PR=config.rightAxis?62:16, PT=50, PB=38;
+  const IW=CW-PL-PR, IH=CH-PT-PB;
+  const { dates, series, rightSeries, title, leftLabel, rightLabel } = config;
+  const n = dates.length;
+  if (n < 2) return;
+
+  const xPos = i => PL + (i / (n-1)) * IW;
+
+  // Scale helpers
+  function makeScale(vals, pad=0.05) {
+    const min=Math.min(...vals), max=Math.max(...vals);
+    const r=max-min||1;
+    return { min:min-r*pad, max:max+r*pad };
+  }
+  function scaleY(v, sc) { return PT + (1-(v-sc.min)/(sc.max-sc.min))*IH; }
+
+  // 左軸 scale
+  const leftVals = series.flatMap(s=>s.data.filter(v=>v!=null));
+  const leftSc = makeScale(leftVals, 0.08);
+
+  // 右軸 scale
+  let rightSc = null;
+  if (rightSeries && rightSeries.data.filter(v=>v!=null).length>1) {
+    const rVals = rightSeries.data.filter(v=>v!=null);
+    rightSc = makeScale(rVals, 0.06);
+  }
+
+  // ─── 繪製函式 ───────────────────────────────────────────────────────
+  function draw(hoverIdx) {
+    ctx.clearRect(0, 0, CW, CH);
+
+    // 背景
+    ctx.fillStyle = '#fdfaf4';
+    ctx.fillRect(0, 0, CW, CH);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(PL, PT, IW, IH);
+    ctx.strokeStyle = '#e8e0d0';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(PL, PT, IW, IH);
+
+    // 格線 + Y軸刻度（左）
+    ctx.textAlign = 'right';
+    ctx.font = '10px DM Mono, monospace';
+    const nTicks = 6;
+    for (let i=0; i<=nTicks; i++) {
+      const v = leftSc.min + (leftSc.max-leftSc.min)*i/nTicks;
+      const y = PT + IH - (i/nTicks)*IH;
+      ctx.strokeStyle = '#ece8e0';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL+IW, y); ctx.stroke();
+      ctx.fillStyle = '#888';
+      ctx.fillText(v.toFixed(2), PL-6, y+3.5);
+    }
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#888';
+    ctx.save();
+    ctx.translate(14, PT+IH/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillText(leftLabel||'', 0, 0);
+    ctx.restore();
+
+    // 右Y軸
+    if (rightSc) {
+      ctx.textAlign = 'left';
+      for (let i=0; i<=nTicks; i++) {
+        const v = rightSc.min + (rightSc.max-rightSc.min)*i/nTicks;
+        const y = PT + IH - (i/nTicks)*IH;
+        ctx.fillStyle = rightSeries.color;
+        ctx.font = '10px DM Mono, monospace';
+        ctx.fillText(rightSeries.formatTick?rightSeries.formatTick(v):v.toFixed(1), CW-PR+6, y+3.5);
+      }
+      ctx.save();
+      ctx.translate(CW-13, PT+IH/2);
+      ctx.rotate(Math.PI/2);
+      ctx.fillStyle = rightSeries.color;
+      ctx.fillText(rightLabel||'', 0, 0);
+      ctx.restore();
+    }
+
+    // X軸底線
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PL, PT+IH); ctx.lineTo(PL+IW, PT+IH); ctx.stroke();
+
+    // X軸標籤
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#888';
+    ctx.font = '10px DM Mono, monospace';
+    const xStep = Math.floor((n-1)/6);
+    for (let k=0; k<=6; k++) {
+      const i = Math.min(k*xStep, n-1);
+      const x = xPos(i);
+      ctx.beginPath(); ctx.moveTo(x, PT+IH); ctx.lineTo(x, PT+IH+5); ctx.stroke();
+      ctx.fillText(dates[i], x, PT+IH+17);
+    }
+    ctx.fillText('日期', PL+IW/2, CH-4);
+
+    // 右軸面積/折線（畫在主線下方）
+    if (rightSc && rightSeries.data.filter(v=>v!=null).length>=2) {
+      const pts = rightSeries.data.map((v,i)=>({i,v})).filter(p=>p.v!=null);
+      // 面積填色
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(PL, PT, IW, IH);
+      ctx.clip();
+      const zY = scaleY(0, rightSc);
+      ctx.beginPath();
+      ctx.moveTo(xPos(pts[0].i), zY);
+      pts.forEach(p => ctx.lineTo(xPos(p.i), scaleY(p.v, rightSc)));
+      ctx.lineTo(xPos(pts.at(-1).i), zY);
+      ctx.closePath();
+      ctx.fillStyle = rightSeries.fillColor || 'rgba(44,95,138,0.1)';
+      ctx.fill();
+      // 零軸虛線
+      ctx.strokeStyle = '#c8bfaf';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(PL, zY); ctx.lineTo(PL+IW, zY); ctx.stroke();
+      ctx.setLineDash([]);
+      // 折線
+      ctx.strokeStyle = rightSeries.color;
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      pts.forEach((p,j) => j===0 ? ctx.moveTo(xPos(p.i), scaleY(p.v, rightSc)) : ctx.lineTo(xPos(p.i), scaleY(p.v, rightSc)));
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 主折線
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(PL, PT, IW, IH);
+    ctx.clip();
+    for (const s of series) {
+      const pts = s.data.map((v,i)=>({i,v})).filter(p=>p.v!=null);
+      if (pts.length < 2) continue;
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = s.width || 2;
+      ctx.lineJoin = 'round';
+      ctx.globalAlpha = s.alpha || 1;
+      ctx.beginPath();
+      pts.forEach((p,j) => j===0 ? ctx.moveTo(xPos(p.i), scaleY(p.v, leftSc)) : ctx.lineTo(xPos(p.i), scaleY(p.v, leftSc)));
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+
+    // 標題
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 13px Noto Sans TC, sans-serif';
+    ctx.fillStyle = '#2a2118';
+    ctx.fillText(title||'', CW/2, 20);
+
+    // 圖例
+    const legItems = [...series, ...(rightSeries?[rightSeries]:[])];
+    let lx = CW/2 - legItems.length*90/2;
+    for (const l of legItems) {
+      ctx.strokeStyle = l.color; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(lx, 36); ctx.lineTo(lx+22, 36); ctx.stroke();
+      ctx.beginPath(); ctx.arc(lx+11, 36, 3, 0, Math.PI*2); ctx.fillStyle=l.color; ctx.fill();
+      ctx.font = '10px DM Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = l.color;
+      ctx.fillText(l.label, lx+28, 40);
+      lx += 90;
+    }
+
+    // Hover 互動
+    if (hoverIdx !== null && hoverIdx >= 0 && hoverIdx < n) {
+      const hx = xPos(hoverIdx);
+
+      // 垂直虛線
+      ctx.strokeStyle = '#999';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.moveTo(hx, PT); ctx.lineTo(hx, PT+IH); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 各線上的圓點
+      for (const s of series) {
+        const v = s.data[hoverIdx];
+        if (v==null) continue;
+        const y = scaleY(v, leftSc);
+        ctx.beginPath(); ctx.arc(hx, y, 5, 0, Math.PI*2);
+        ctx.fillStyle = s.color; ctx.fill();
+        ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.stroke();
+      }
+      if (rightSc && rightSeries) {
+        const v = rightSeries.data[hoverIdx];
+        if (v!=null) {
+          const y = scaleY(v, rightSc);
+          ctx.beginPath(); ctx.arc(hx, y, 5, 0, Math.PI*2);
+          ctx.fillStyle = rightSeries.color; ctx.fill();
+          ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.stroke();
+        }
+      }
+
+      // Tooltip 卡片
+      const lines = [`${dates[hoverIdx]}`];
+      for (const s of series) {
+        const v = s.data[hoverIdx];
+        if (v!=null) lines.push({ label:s.label, val:s.format?s.format(v):v.toFixed(3), color:s.color });
+      }
+      if (rightSc && rightSeries) {
+        const v = rightSeries.data[hoverIdx];
+        if (v!=null) lines.push({ label:rightSeries.label, val:rightSeries.format?rightSeries.format(v):v.toFixed(0), color:rightSeries.color });
+      }
+
+      const bw=148, lineH=18, bh=14+lines.length*lineH+6;
+      let tx = hx+14;
+      if (tx+bw > CW-PR) tx = hx-bw-14;
+      const ty2 = PT+12;
+
+      ctx.fillStyle='rgba(255,255,255,0.97)';
+      ctx.strokeStyle='#ccc'; ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.roundRect(tx, ty2, bw, bh, 5);
+      ctx.fill(); ctx.stroke();
+
+      ctx.font='bold 11px DM Mono, monospace';
+      ctx.fillStyle='#2a2118'; ctx.textAlign='left';
+      ctx.fillText(lines[0], tx+10, ty2+14);
+
+      for (let i=1; i<lines.length; i++) {
+        const l=lines[i];
+        const ly=ty2+14+i*lineH;
+        ctx.beginPath(); ctx.arc(tx+10, ly-3, 4, 0, Math.PI*2);
+        ctx.fillStyle=l.color; ctx.fill();
+        ctx.font='10px DM Mono, monospace';
+        ctx.fillStyle='#555';
+        ctx.fillText(`${l.label}:`, tx+20, ly);
+        ctx.fillStyle='#2a2118'; ctx.font='bold 10px DM Mono, monospace';
+        ctx.textAlign='right';
+        ctx.fillText(l.val, tx+bw-8, ly);
+        ctx.textAlign='left';
+      }
+    }
+  }
+
+  // 初始渲染
+  draw(null);
+
+  // 滑鼠互動
+  let animFrame = null;
+  function getHoverIdx(clientX) {
+    const r = canvas.getBoundingClientRect();
+    const mx = clientX - r.left;
+    if (mx < PL || mx > PL+IW) return null;
+    return Math.round((mx-PL)/IW*(n-1));
+  }
+
+  canvas.addEventListener('mousemove', e => {
+    if (animFrame) cancelAnimationFrame(animFrame);
+    animFrame = requestAnimationFrame(() => draw(getHoverIdx(e.clientX)));
+  });
+  canvas.addEventListener('mouseleave', () => {
+    if (animFrame) cancelAnimationFrame(animFrame);
+    animFrame = requestAnimationFrame(() => draw(null));
+  });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (animFrame) cancelAnimationFrame(animFrame);
+    animFrame = requestAnimationFrame(() => draw(getHoverIdx(e.touches[0].clientX)));
+  }, {passive:false});
+  canvas.addEventListener('touchend', () => {
+    if (animFrame) cancelAnimationFrame(animFrame);
+    animFrame = requestAnimationFrame(() => draw(null));
+  });
+
+  return { redraw: () => draw(null) };
+}
+
+// ─── drawDualChart：匯率 + 加權指數 ─────────────────────────────────
+function drawDualChart(dates, taiexMap, forexHist) {
   const buyMap={}, sellMap={};
   forexHist.forEach(d=>{ buyMap[d.date]=d.buy; sellMap[d.date]=d.sell; });
   staticHistory.forEach(r=>{ if(r.usdtwd&&!buyMap[r.date]){buyMap[r.date]=r.usdtwd-0.075;sellMap[r.date]=r.usdtwd+0.075;} });
 
-  const buyVals=dates.map(d=>buyMap[d]).filter(v=>v!=null);
-  const sellVals=dates.map(d=>sellMap[d]).filter(v=>v!=null);
-  const taiexVals=taiexMap?dates.map(d=>taiexMap[d]).filter(v=>v!=null):[];
-  if(buyVals.length<2) return;
+  const hasTaiex = taiexMap && dates.some(d=>taiexMap[d]!=null);
 
-  // 匯率 scale（左Y）
-  const fAll=[...buyVals,...sellVals];
-  const fRange=Math.max(...fAll)-Math.min(...fAll);
-  const fMin=Math.min(...fAll)-fRange*0.08;
-  const fMax=Math.max(...fAll)+fRange*0.08;
-  const fy=v=>v==null?null:PT+(1-(v-fMin)/(fMax-fMin))*innerH;
+  makeInteractiveChart('forexCanvas', {
+    title: '即期匯率',
+    dates,
+    leftLabel: '匯率',
+    rightLabel: '加權指數',
+    series: [
+      { label:'本行賣出', color:'#2c5f8a', data:dates.map(d=>sellMap[d]??null), format:v=>v.toFixed(3) },
+      { label:'本行買入', color:'#c0392b', data:dates.map(d=>buyMap[d]??null),  format:v=>v.toFixed(3) },
+    ],
+    rightSeries: hasTaiex ? {
+      label:'加權指數', color:'#b8860b',
+      data: dates.map(d=>taiexMap?.[d]??null),
+      format: v=>(v/1000).toFixed(2)+'K',
+      formatTick: v=>(v/1000).toFixed(0)+'K',
+      fillColor:'rgba(184,134,11,0.08)',
+      alpha:0.7, width:1.8
+    } : null,
+  });
+}
 
-  // 加權指數 scale（右Y）
-  const tMin=taiexVals.length?Math.min(...taiexVals)*0.997:30000;
-  const tMax=taiexVals.length?Math.max(...taiexVals)*1.003:45000;
-  const ty=v=>v==null?null:PT+(1-(v-tMin)/(tMax-tMin))*innerH;
+function renderChartStatic() {
+  const rows=[...staticHistory].reverse();
+  const taiexMap={};
+  rows.forEach(r=>{ if(r.taiex) taiexMap[r.date]=r.taiex; });
+  const forexHist=rows.filter(r=>r.usdtwd).map(r=>({date:r.date,buy:r.usdtwd-0.075,sell:r.usdtwd+0.075,mid:r.usdtwd}));
+  drawDualChart(rows.map(r=>r.date), taiexMap, forexHist);
+}
 
-  // Y 軸刻度數量（自動計算好看的間距）
-  const nTicks=6;
-  const fStep=(fMax-fMin)/nTicks;
-  const fTicks=[];
-  for(let i=0;i<=nTicks;i++) fTicks.push(+(fMin+fStep*i).toFixed(2));
+// ─── drawOIChart：加權指數 vs 三大法人淨多空 ─────────────────────────
+function drawOIChart(dates, taiexMap, oiMap) {
+  makeInteractiveChart('oiCanvas', {
+    title: '加權指數 vs 三大法人未平倉淨多空',
+    dates,
+    leftLabel: '加權指數',
+    rightLabel: '淨多空(口)',
+    series: [
+      { label:'加權指數', color:'#b8860b', data:dates.map(d=>taiexMap[d]??null), format:v=>(v/1000).toFixed(2)+'K' },
+    ],
+    rightSeries: {
+      label:'三大法人淨多空', color:'#2c5f8a',
+      data: dates.map(d=>oiMap[d]??null),
+      format: v=>(v>=0?'+':'')+(v/1000).toFixed(1)+'K',
+      formatTick: v=>(v/1000).toFixed(0)+'K',
+      fillColor:'rgba(192,57,43,0.1)',
+    },
+  });
+}
 
-  let svg=`<defs>
-    <clipPath id="chartClip"><rect x="${PL}" y="${PT}" width="${innerW}" height="${innerH}"/></clipPath>
-  </defs>
-  <style>
-    .cv{font-family:'DM Mono',monospace;font-size:10px;fill:#555}
-    .ct{font-family:'Noto Sans TC',sans-serif;font-size:13px;fill:#2a2118;font-weight:600}
-    .cl{font-family:'DM Mono',monospace;font-size:10px}
-    .tt{font-family:'DM Mono',monospace;font-size:10px;fill:#2a2118}
-  </style>`;
-
-  // 白底繪圖區
-  svg+=`<rect x="0" y="0" width="${W}" height="${H}" fill="#fdfaf4" rx="8"/>`;
-  svg+=`<rect x="${PL}" y="${PT}" width="${innerW}" height="${innerH}" fill="white" stroke="#e8e0d0" stroke-width="0.5"/>`;
-
-  // 標題（置中）
-  svg+=`<text x="${W/2}" y="18" text-anchor="middle" class="ct">即期匯率</text>`;
-
-  // 圖例（標題下方）
-  const legItems=[
-    {c:'#2c5f8a',l:'本行賣出'},
-    {c:'#c0392b',l:'本行買入'},
-    ...(taiexVals.length?[{c:'#b8860b',l:'加權指數'}]:[])
-  ];
-  let legX=W/2-(legItems.length*90)/2;
-  for(const li of legItems){
-    svg+=`<line x1="${legX}" y1="32" x2="${legX+22}" y2="32" stroke="${li.c}" stroke-width="2.5"/>`;
-    svg+=`<circle cx="${legX+11}" cy="32" r="3" fill="${li.c}"/>`;
-    svg+=`<text x="${legX+28}" y="36" class="cl" fill="${li.c}">${li.l}</text>`;
-    legX+=90;
-  }
-
-  // 格線 + Y軸刻度
-  for(const fv of fTicks){
-    const y=fy(fv);
-    svg+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#e8e0d0" stroke-width="0.8"/>`;
-    svg+=`<text x="${PL-6}" y="${y+3.5}" text-anchor="end" class="cv">${fv.toFixed(2)}</text>`;
-  }
-  // 左Y軸標題
-  svg+=`<text x="12" y="${PT+innerH/2+3}" text-anchor="middle" class="cv" transform="rotate(-90,12,${PT+innerH/2})">匯率</text>`;
-
-  // 右Y軸（加權指數）
-  if(taiexVals.length){
-    for(let i=0;i<=nTicks;i++){
-      const tv=tMin+(tMax-tMin)*i/nTicks;
-      const y=PT+innerH-(i/nTicks)*innerH;
-      svg+=`<text x="${W-PR+6}" y="${y+3.5}" text-anchor="start" class="cv" fill="#b8860b">${(tv/1000).toFixed(0)}K</text>`;
-    }
-    svg+=`<text x="${W-12}" y="${PT+innerH/2+3}" text-anchor="middle" class="cv" fill="#b8860b" transform="rotate(90,${W-12},${PT+innerH/2})">加權指數</text>`;
-  }
-
-  // X軸
-  svg+=`<line x1="${PL}" y1="${PT+innerH}" x2="${W-PR}" y2="${PT+innerH}" stroke="#ccc" stroke-width="1"/>`;
-  const xStep=Math.floor((n-1)/6);
-  for(let k=0;k<=6;k++){
-    const i=Math.min(k*xStep,n-1);
-    const x=xPos(i);
-    svg+=`<line x1="${x}" y1="${PT+innerH}" x2="${x}" y2="${PT+innerH+5}" stroke="#bbb" stroke-width="1"/>`;
-    svg+=`<text x="${x}" y="${PT+innerH+17}" text-anchor="middle" class="cv">${dates[i]}</text>`;
-  }
-  svg+=`<text x="${W/2}" y="${H-4}" text-anchor="middle" class="cv">日期</text>`;
-
-  // 加權指數線（先畫，在匯率線下方）
-  if(taiexVals.length>=2){
-    const tPts=dates.map((d,i)=>({i,v:taiexMap[d]??null,d})).filter(p=>p.v!=null);
-    const tLine=tPts.map((p,j)=>`${j===0?'M':'L'}${xPos(p.i).toFixed(1)},${ty(p.v).toFixed(1)}`).join(' ');
-    svg+=`<path d="${tLine}" fill="none" stroke="#b8860b" stroke-width="1.8" stroke-linejoin="round" opacity="0.7" clip-path="url(#chartClip)"/>`;
-  }
-
-  // 買入線（紅）
-  const buyPts=dates.map((d,i)=>({i,v:buyMap[d]??null,d})).filter(p=>p.v!=null);
-  if(buyPts.length>=2){
-    const line=buyPts.map((p,j)=>`${j===0?'M':'L'}${xPos(p.i).toFixed(1)},${fy(p.v).toFixed(1)}`).join(' ');
-    svg+=`<path d="${line}" fill="none" stroke="#c0392b" stroke-width="2" stroke-linejoin="round" clip-path="url(#chartClip)"/>`;
-  }
-
-  // 賣出線（藍）
-  const sellPts=dates.map((d,i)=>({i,v:sellMap[d]??null,d})).filter(p=>p.v!=null);
-  if(sellPts.length>=2){
-    const line=sellPts.map((p,j)=>`${j===0?'M':'L'}${xPos(p.i).toFixed(1)},${fy(p.v).toFixed(1)}`).join(' ');
-    svg+=`<path d="${line}" fill="none" stroke="#2c5f8a" stroke-width="2" stroke-linejoin="round" clip-path="url(#chartClip)"/>`;
-  }
-
-  // 最後端點大圓點
-  if(sellPts.length){
-    const lp=sellPts.at(-1);
-    svg+=`<circle cx="${xPos(lp.i)}" cy="${fy(lp.v)}" r="5" fill="#2c5f8a"/>`;
-  }
-  if(buyPts.length){
-    const lp=buyPts.at(-1);
-    svg+=`<circle cx="${xPos(lp.i)}" cy="${fy(lp.v)}" r="5" fill="#c0392b"/>`;
-  }
-
-  // Tooltip 框（最後一筆資料，右上角浮動卡片）
-  const lastDate=dates.at(-1);
-  const lastSell=sellMap[lastDate], lastBuy=buyMap[lastDate];
-  if(lastSell&&lastBuy){
-    const tx=W-PR-4, ty2=PT+8;
-    const bw=110, bh=54;
-    svg+=`<rect x="${tx-bw}" y="${ty2}" width="${bw}" height="${bh}" fill="white" stroke="#ccc" stroke-width="1" rx="4" opacity="0.95"/>`;
-    svg+=`<text x="${tx-bw+8}" y="${ty2+14}" class="tt" font-weight="600">${lastDate.replace(/(\d+)\/(\d+)/,'2026/$1/$2')}</text>`;
-    svg+=`<circle cx="${tx-bw+10}" cy="${ty2+26}" r="4" fill="#2c5f8a"/>`;
-    svg+=`<text x="${tx-bw+18}" y="${ty2+30}" class="tt"> 本行賣出: <tspan font-weight="600">${lastSell.toFixed(3)}</tspan></text>`;
-    svg+=`<circle cx="${tx-bw+10}" cy="${ty2+40}" r="4" fill="#c0392b"/>`;
-    svg+=`<text x="${tx-bw+18}" y="${ty2+44}" class="tt"> 本行買入: <tspan font-weight="600">${lastBuy.toFixed(3)}</tspan></text>`;
-  }
-
-  const el=document.getElementById('trendChart');
-  el.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  el.setAttribute('height',H);
-  el.innerHTML=svg;
-  document.getElementById('chartDates').innerHTML='';
+// ── 主流程 ────────────────────────────────────────────────────────────
 }
 
 function renderChartStatic() {
@@ -894,7 +1094,6 @@ async function refresh() {
 
   const ts = new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   document.getElementById('updateTime').textContent = '更新 '+ts;
-  renderTable();
 }
 
 // 初始化
