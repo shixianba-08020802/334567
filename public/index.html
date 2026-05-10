@@ -558,287 +558,265 @@ function makeInteractiveChart(canvasId, config) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
-  // 設定 canvas 實際像素解析度（HiDPI）
   const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  const CW = rect.width  || canvas.offsetWidth  || 800;
-  const CH = rect.height || canvas.offsetHeight || 280;
-  canvas.width  = CW * dpr;
-  canvas.height = CH * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
 
-  const PL=58, PR=config.rightAxis?62:16, PT=50, PB=38;
-  const IW=CW-PL-PR, IH=CH-PT-PB;
-  const { dates, series, rightSeries, title, leftLabel, rightLabel } = config;
-  const n = dates.length;
-  if (n < 2) return;
-
-  const xPos = i => PL + (i / (n-1)) * IW;
-
-  // Scale helpers
-  function makeScale(vals, pad=0.05) {
-    const min=Math.min(...vals), max=Math.max(...vals);
-    const r=max-min||1;
-    return { min:min-r*pad, max:max+r*pad };
-  }
-  function scaleY(v, sc) { return PT + (1-(v-sc.min)/(sc.max-sc.min))*IH; }
-
-  // 左軸 scale
-  const leftVals = series.flatMap(s=>s.data.filter(v=>v!=null));
-  const leftSc = makeScale(leftVals, 0.08);
-
-  // 右軸 scale
-  let rightSc = null;
-  if (rightSeries && rightSeries.data.filter(v=>v!=null).length>1) {
-    const rVals = rightSeries.data.filter(v=>v!=null);
-    rightSc = makeScale(rVals, 0.06);
+  function getSize() {
+    // 優先用父元素寬度，確保拿到正確值
+    const parent = canvas.parentElement;
+    const CW = (parent ? parent.clientWidth : 0) || canvas.offsetWidth || 800;
+    const CH = 280;
+    return { CW, CH };
   }
 
-  // ─── 繪製函式 ───────────────────────────────────────────────────────
-  function draw(hoverIdx) {
-    ctx.clearRect(0, 0, CW, CH);
+  function initCanvas() {
+    const { CW, CH } = getSize();
+    if (CW < 10) return false; // 還沒準備好
+    canvas.width  = CW * dpr;
+    canvas.height = CH * dpr;
+    canvas.style.height = CH + 'px';
+    return true;
+  }
 
-    // 背景
-    ctx.fillStyle = '#fdfaf4';
-    ctx.fillRect(0, 0, CW, CH);
-    ctx.fillStyle = 'white';
-    ctx.fillRect(PL, PT, IW, IH);
-    ctx.strokeStyle = '#e8e0d0';
-    ctx.lineWidth = 0.5;
-    ctx.strokeRect(PL, PT, IW, IH);
+  function buildChart() {
+    if (!initCanvas()) return;
+    const { CW, CH } = getSize();
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // 格線 + Y軸刻度（左）
-    ctx.textAlign = 'right';
-    ctx.font = '10px DM Mono, monospace';
-    const nTicks = 6;
-    for (let i=0; i<=nTicks; i++) {
-      const v = leftSc.min + (leftSc.max-leftSc.min)*i/nTicks;
-      const y = PT + IH - (i/nTicks)*IH;
-      ctx.strokeStyle = '#ece8e0';
-      ctx.lineWidth = 0.8;
-      ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL+IW, y); ctx.stroke();
-      ctx.fillStyle = '#888';
-      ctx.fillText(v.toFixed(2), PL-6, y+3.5);
+    const PL=58, PR=config.rightSeries?62:16, PT=50, PB=38;
+    const IW=CW-PL-PR, IH=CH-PT-PB;
+    const { dates, series, rightSeries, title, leftLabel, rightLabel } = config;
+    const n = dates.length;
+    if (n < 2) return;
+
+    const xPos = i => PL + (i / (n-1)) * IW;
+
+    function makeScale(vals, pad=0.05) {
+      const min=Math.min(...vals), max=Math.max(...vals);
+      const r=max-min||1;
+      return { min:min-r*pad, max:max+r*pad };
     }
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#888';
-    ctx.save();
-    ctx.translate(14, PT+IH/2);
-    ctx.rotate(-Math.PI/2);
-    ctx.fillText(leftLabel||'', 0, 0);
-    ctx.restore();
+    function scaleY(v, sc) { return PT + (1-(v-sc.min)/(sc.max-sc.min))*IH; }
 
-    // 右Y軸
-    if (rightSc) {
-      ctx.textAlign = 'left';
-      for (let i=0; i<=nTicks; i++) {
-        const v = rightSc.min + (rightSc.max-rightSc.min)*i/nTicks;
-        const y = PT + IH - (i/nTicks)*IH;
-        ctx.fillStyle = rightSeries.color;
-        ctx.font = '10px DM Mono, monospace';
-        ctx.fillText(rightSeries.formatTick?rightSeries.formatTick(v):v.toFixed(1), CW-PR+6, y+3.5);
-      }
-      ctx.save();
-      ctx.translate(CW-13, PT+IH/2);
-      ctx.rotate(Math.PI/2);
-      ctx.fillStyle = rightSeries.color;
-      ctx.fillText(rightLabel||'', 0, 0);
-      ctx.restore();
+    const leftVals = series.flatMap(s=>s.data.filter(v=>v!=null));
+    if (leftVals.length < 2) return;
+    const leftSc = makeScale(leftVals, 0.08);
+
+    let rightSc = null;
+    if (rightSeries) {
+      const rVals = rightSeries.data.filter(v=>v!=null);
+      if (rVals.length > 1) rightSc = makeScale(rVals, 0.06);
     }
 
-    // X軸底線
-    ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(PL, PT+IH); ctx.lineTo(PL+IW, PT+IH); ctx.stroke();
+    function draw(hoverIdx) {
+      ctx.clearRect(0, 0, CW, CH);
 
-    // X軸標籤
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#888';
-    ctx.font = '10px DM Mono, monospace';
-    const xStep = Math.floor((n-1)/6);
-    for (let k=0; k<=6; k++) {
-      const i = Math.min(k*xStep, n-1);
-      const x = xPos(i);
-      ctx.beginPath(); ctx.moveTo(x, PT+IH); ctx.lineTo(x, PT+IH+5); ctx.stroke();
-      ctx.fillText(dates[i], x, PT+IH+17);
-    }
-    ctx.fillText('日期', PL+IW/2, CH-4);
+      // 背景
+      ctx.fillStyle = '#fdfaf4';
+      ctx.fillRect(0, 0, CW, CH);
+      ctx.fillStyle = 'white';
+      ctx.fillRect(PL, PT, IW, IH);
+      ctx.strokeStyle = '#e8e0d0';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(PL, PT, IW, IH);
 
-    // 右軸面積/折線（畫在主線下方）
-    if (rightSc && rightSeries.data.filter(v=>v!=null).length>=2) {
-      const pts = rightSeries.data.map((v,i)=>({i,v})).filter(p=>p.v!=null);
-      // 面積填色
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(PL, PT, IW, IH);
-      ctx.clip();
-      const zY = scaleY(0, rightSc);
-      ctx.beginPath();
-      ctx.moveTo(xPos(pts[0].i), zY);
-      pts.forEach(p => ctx.lineTo(xPos(p.i), scaleY(p.v, rightSc)));
-      ctx.lineTo(xPos(pts.at(-1).i), zY);
-      ctx.closePath();
-      ctx.fillStyle = rightSeries.fillColor || 'rgba(44,95,138,0.1)';
-      ctx.fill();
-      // 零軸虛線
-      ctx.strokeStyle = '#c8bfaf';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5,4]);
-      ctx.beginPath(); ctx.moveTo(PL, zY); ctx.lineTo(PL+IW, zY); ctx.stroke();
-      ctx.setLineDash([]);
-      // 折線
-      ctx.strokeStyle = rightSeries.color;
-      ctx.lineWidth = 1.8;
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      pts.forEach((p,j) => j===0 ? ctx.moveTo(xPos(p.i), scaleY(p.v, rightSc)) : ctx.lineTo(xPos(p.i), scaleY(p.v, rightSc)));
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // 主折線
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(PL, PT, IW, IH);
-    ctx.clip();
-    for (const s of series) {
-      const pts = s.data.map((v,i)=>({i,v})).filter(p=>p.v!=null);
-      if (pts.length < 2) continue;
-      ctx.strokeStyle = s.color;
-      ctx.lineWidth = s.width || 2;
-      ctx.lineJoin = 'round';
-      ctx.globalAlpha = s.alpha || 1;
-      ctx.beginPath();
-      pts.forEach((p,j) => j===0 ? ctx.moveTo(xPos(p.i), scaleY(p.v, leftSc)) : ctx.lineTo(xPos(p.i), scaleY(p.v, leftSc)));
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
-    ctx.restore();
-
-    // 標題
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 13px Noto Sans TC, sans-serif';
-    ctx.fillStyle = '#2a2118';
-    ctx.fillText(title||'', CW/2, 20);
-
-    // 圖例
-    const legItems = [...series, ...(rightSeries?[rightSeries]:[])];
-    let lx = CW/2 - legItems.length*90/2;
-    for (const l of legItems) {
-      ctx.strokeStyle = l.color; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.moveTo(lx, 36); ctx.lineTo(lx+22, 36); ctx.stroke();
-      ctx.beginPath(); ctx.arc(lx+11, 36, 3, 0, Math.PI*2); ctx.fillStyle=l.color; ctx.fill();
+      // 格線 + 左Y軸
+      const nT=6;
       ctx.font = '10px DM Mono, monospace';
-      ctx.textAlign = 'left';
-      ctx.fillStyle = l.color;
-      ctx.fillText(l.label, lx+28, 40);
-      lx += 90;
-    }
-
-    // Hover 互動
-    if (hoverIdx !== null && hoverIdx >= 0 && hoverIdx < n) {
-      const hx = xPos(hoverIdx);
-
-      // 垂直虛線
-      ctx.strokeStyle = '#999';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4,4]);
-      ctx.beginPath(); ctx.moveTo(hx, PT); ctx.lineTo(hx, PT+IH); ctx.stroke();
-      ctx.setLineDash([]);
-
-      // 各線上的圓點
-      for (const s of series) {
-        const v = s.data[hoverIdx];
-        if (v==null) continue;
-        const y = scaleY(v, leftSc);
-        ctx.beginPath(); ctx.arc(hx, y, 5, 0, Math.PI*2);
-        ctx.fillStyle = s.color; ctx.fill();
-        ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.stroke();
+      for (let i=0; i<=nT; i++) {
+        const v = leftSc.min + (leftSc.max-leftSc.min)*i/nT;
+        const y = PT + IH - (i/nT)*IH;
+        ctx.strokeStyle='#ece8e0'; ctx.lineWidth=0.8;
+        ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(PL+IW,y); ctx.stroke();
+        ctx.fillStyle='#888'; ctx.textAlign='right';
+        ctx.fillText(v.toFixed(2), PL-6, y+3.5);
       }
-      if (rightSc && rightSeries) {
-        const v = rightSeries.data[hoverIdx];
-        if (v!=null) {
-          const y = scaleY(v, rightSc);
-          ctx.beginPath(); ctx.arc(hx, y, 5, 0, Math.PI*2);
-          ctx.fillStyle = rightSeries.color; ctx.fill();
-          ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.stroke();
+      // 左Y軸標題
+      ctx.save(); ctx.translate(13,PT+IH/2); ctx.rotate(-Math.PI/2);
+      ctx.fillStyle='#888'; ctx.textAlign='center';
+      ctx.fillText(leftLabel||'', 0, 0); ctx.restore();
+
+      // 右Y軸
+      if (rightSc) {
+        for (let i=0; i<=nT; i++) {
+          const v = rightSc.min+(rightSc.max-rightSc.min)*i/nT;
+          const y = PT+IH-(i/nT)*IH;
+          ctx.fillStyle=rightSeries.color; ctx.textAlign='left';
+          ctx.fillText(rightSeries.formatTick?rightSeries.formatTick(v):v.toFixed(0), CW-PR+5, y+3.5);
+        }
+        ctx.save(); ctx.translate(CW-13,PT+IH/2); ctx.rotate(Math.PI/2);
+        ctx.fillStyle=rightSeries.color; ctx.textAlign='center';
+        ctx.fillText(rightLabel||'', 0, 0); ctx.restore();
+      }
+
+      // X軸
+      ctx.strokeStyle='#ccc'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(PL,PT+IH); ctx.lineTo(PL+IW,PT+IH); ctx.stroke();
+      ctx.fillStyle='#888'; ctx.textAlign='center';
+      const xSt=Math.floor((n-1)/6);
+      for(let k=0;k<=6;k++){
+        const i=Math.min(k*xSt,n-1), x=xPos(i);
+        ctx.beginPath(); ctx.moveTo(x,PT+IH); ctx.lineTo(x,PT+IH+5); ctx.stroke();
+        ctx.fillText(dates[i],x,PT+IH+17);
+      }
+      ctx.fillText('日期',PL+IW/2,CH-4);
+
+      // clip
+      ctx.save(); ctx.beginPath(); ctx.rect(PL,PT,IW,IH); ctx.clip();
+
+      // 右軸面積+折線
+      if (rightSc) {
+        const pts=rightSeries.data.map((v,i)=>({i,v})).filter(p=>p.v!=null);
+        if (pts.length>=2) {
+          const zY=scaleY(0,rightSc);
+          // 面積
+          ctx.beginPath();
+          ctx.moveTo(xPos(pts[0].i),zY);
+          pts.forEach(p=>ctx.lineTo(xPos(p.i),scaleY(p.v,rightSc)));
+          ctx.lineTo(xPos(pts.at(-1).i),zY); ctx.closePath();
+          ctx.fillStyle=rightSeries.fillColor||'rgba(44,95,138,0.1)'; ctx.fill();
+          // 零軸虛線
+          ctx.strokeStyle='#c8bfaf'; ctx.lineWidth=1;
+          ctx.setLineDash([5,4]);
+          ctx.beginPath(); ctx.moveTo(PL,zY); ctx.lineTo(PL+IW,zY); ctx.stroke();
+          ctx.setLineDash([]);
+          // 折線
+          ctx.strokeStyle=rightSeries.color; ctx.lineWidth=1.8; ctx.lineJoin='round';
+          ctx.globalAlpha=rightSeries.alpha||1;
+          ctx.beginPath();
+          pts.forEach((p,j)=>j===0?ctx.moveTo(xPos(p.i),scaleY(p.v,rightSc)):ctx.lineTo(xPos(p.i),scaleY(p.v,rightSc)));
+          ctx.stroke(); ctx.globalAlpha=1;
         }
       }
 
-      // Tooltip 卡片
-      const lines = [`${dates[hoverIdx]}`];
-      for (const s of series) {
-        const v = s.data[hoverIdx];
-        if (v!=null) lines.push({ label:s.label, val:s.format?s.format(v):v.toFixed(3), color:s.color });
+      // 左軸折線
+      for(const s of series){
+        const pts=s.data.map((v,i)=>({i,v})).filter(p=>p.v!=null);
+        if(pts.length<2) continue;
+        ctx.strokeStyle=s.color; ctx.lineWidth=s.width||2; ctx.lineJoin='round';
+        ctx.globalAlpha=s.alpha||1;
+        ctx.beginPath();
+        pts.forEach((p,j)=>j===0?ctx.moveTo(xPos(p.i),scaleY(p.v,leftSc)):ctx.lineTo(xPos(p.i),scaleY(p.v,leftSc)));
+        ctx.stroke(); ctx.globalAlpha=1;
       }
-      if (rightSc && rightSeries) {
-        const v = rightSeries.data[hoverIdx];
-        if (v!=null) lines.push({ label:rightSeries.label, val:rightSeries.format?rightSeries.format(v):v.toFixed(0), color:rightSeries.color });
-      }
+      ctx.restore();
 
-      const bw=148, lineH=18, bh=14+lines.length*lineH+6;
-      let tx = hx+14;
-      if (tx+bw > CW-PR) tx = hx-bw-14;
-      const ty2 = PT+12;
+      // 標題
+      ctx.textAlign='center'; ctx.fillStyle='#2a2118';
+      ctx.font='bold 13px Noto Sans TC, sans-serif';
+      ctx.fillText(title||'',CW/2,20);
 
-      ctx.fillStyle='rgba(255,255,255,0.97)';
-      ctx.strokeStyle='#ccc'; ctx.lineWidth=1;
-      ctx.beginPath();
-      ctx.roundRect(tx, ty2, bw, bh, 5);
-      ctx.fill(); ctx.stroke();
-
-      ctx.font='bold 11px DM Mono, monospace';
-      ctx.fillStyle='#2a2118'; ctx.textAlign='left';
-      ctx.fillText(lines[0], tx+10, ty2+14);
-
-      for (let i=1; i<lines.length; i++) {
-        const l=lines[i];
-        const ly=ty2+14+i*lineH;
-        ctx.beginPath(); ctx.arc(tx+10, ly-3, 4, 0, Math.PI*2);
+      // 圖例
+      const legs=[...series,...(rightSeries?[rightSeries]:[])];
+      let lx=CW/2-legs.length*95/2;
+      for(const l of legs){
+        ctx.strokeStyle=l.color; ctx.lineWidth=2.5;
+        ctx.beginPath(); ctx.moveTo(lx,36); ctx.lineTo(lx+22,36); ctx.stroke();
+        ctx.beginPath(); ctx.arc(lx+11,36,3,0,Math.PI*2);
         ctx.fillStyle=l.color; ctx.fill();
-        ctx.font='10px DM Mono, monospace';
-        ctx.fillStyle='#555';
-        ctx.fillText(`${l.label}:`, tx+20, ly);
-        ctx.fillStyle='#2a2118'; ctx.font='bold 10px DM Mono, monospace';
-        ctx.textAlign='right';
-        ctx.fillText(l.val, tx+bw-8, ly);
-        ctx.textAlign='left';
+        ctx.font='10px DM Mono,monospace'; ctx.textAlign='left';
+        ctx.fillStyle=l.color; ctx.fillText(l.label,lx+28,40);
+        lx+=95;
+      }
+
+      // ─── Hover ────────────────────────────────────────────────────
+      if (hoverIdx!=null && hoverIdx>=0 && hoverIdx<n) {
+        const hx=xPos(hoverIdx);
+
+        // 垂直線
+        ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1;
+        ctx.setLineDash([4,4]);
+        ctx.beginPath(); ctx.moveTo(hx,PT); ctx.lineTo(hx,PT+IH); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 圓點
+        for(const s of series){
+          const v=s.data[hoverIdx]; if(v==null) continue;
+          const y=scaleY(v,leftSc);
+          ctx.beginPath(); ctx.arc(hx,y,5,0,Math.PI*2);
+          ctx.fillStyle=s.color; ctx.fill();
+          ctx.strokeStyle='white'; ctx.lineWidth=2; ctx.stroke();
+        }
+        if(rightSc){
+          const v=rightSeries.data[hoverIdx]; if(v!=null){
+            const y=scaleY(v,rightSc);
+            ctx.beginPath(); ctx.arc(hx,y,5,0,Math.PI*2);
+            ctx.fillStyle=rightSeries.color; ctx.fill();
+            ctx.strokeStyle='white'; ctx.lineWidth=2; ctx.stroke();
+          }
+        }
+
+        // Tooltip
+        const tLines=[dates[hoverIdx]];
+        for(const s of series){ const v=s.data[hoverIdx]; if(v!=null) tLines.push({label:s.label,val:s.format?s.format(v):v.toFixed(3),color:s.color}); }
+        if(rightSc){ const v=rightSeries.data[hoverIdx]; if(v!=null) tLines.push({label:rightSeries.label,val:rightSeries.format?rightSeries.format(v):v.toFixed(0),color:rightSeries.color}); }
+
+        const bw=155, lnH=18, bh=16+tLines.length*lnH;
+        let tx=hx+14; if(tx+bw>CW-10) tx=hx-bw-14;
+        const ty2=PT+10;
+
+        ctx.fillStyle='rgba(255,255,255,0.97)';
+        ctx.strokeStyle='#ccc'; ctx.lineWidth=1;
+        ctx.beginPath();
+        if(ctx.roundRect) ctx.roundRect(tx,ty2,bw,bh,5);
+        else ctx.rect(tx,ty2,bw,bh);
+        ctx.fill(); ctx.stroke();
+
+        ctx.font='bold 11px DM Mono,monospace';
+        ctx.fillStyle='#2a2118'; ctx.textAlign='left';
+        ctx.fillText(tLines[0],tx+10,ty2+14);
+
+        for(let i=1;i<tLines.length;i++){
+          const l=tLines[i], ly=ty2+14+i*lnH;
+          ctx.beginPath(); ctx.arc(tx+10,ly-3,4,0,Math.PI*2);
+          ctx.fillStyle=l.color; ctx.fill();
+          ctx.font='10px DM Mono,monospace'; ctx.fillStyle='#555'; ctx.textAlign='left';
+          ctx.fillText(l.label+':',tx+20,ly);
+          ctx.fillStyle='#2a2118'; ctx.font='bold 10px DM Mono,monospace';
+          ctx.textAlign='right'; ctx.fillText(l.val,tx+bw-8,ly);
+        }
       }
     }
+
+    // 初始渲染
+    draw(null);
+
+    // 滑鼠互動
+    let af=null;
+    function getIdx(cx){
+      const r=canvas.getBoundingClientRect(), mx=cx-r.left;
+      if(mx<PL||mx>PL+IW) return null;
+      return Math.round((mx-PL)/IW*(n-1));
+    }
+    canvas.addEventListener('mousemove',e=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(getIdx(e.clientX))); });
+    canvas.addEventListener('mouseleave',()=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(null)); });
+    canvas.addEventListener('touchmove',e=>{ e.preventDefault(); cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(getIdx(e.touches[0].clientX))); },{passive:false});
+    canvas.addEventListener('touchend',()=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(null)); });
+
+    // 初始渲染
+    draw(null);
+
+    // 滑鼠互動
+    let af=null;
+    function getIdx(cx){
+      const r=canvas.getBoundingClientRect(), mx=cx-r.left;
+      if(mx<PL||mx>PL+IW) return null;
+      return Math.round((mx-PL)/IW*(n-1));
+    }
+    canvas.addEventListener('mousemove',e=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(getIdx(e.clientX))); });
+    canvas.addEventListener('mouseleave',()=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(null)); });
+    canvas.addEventListener('touchmove',e=>{ e.preventDefault(); cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(getIdx(e.touches[0].clientX))); },{passive:false});
+    canvas.addEventListener('touchend',()=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(null)); });
   }
 
-  // 初始渲染
-  draw(null);
-
-  // 滑鼠互動
-  let animFrame = null;
-  function getHoverIdx(clientX) {
-    const r = canvas.getBoundingClientRect();
-    const mx = clientX - r.left;
-    if (mx < PL || mx > PL+IW) return null;
-    return Math.round((mx-PL)/IW*(n-1));
+  // 等 canvas 有寬度再建圖
+  if (canvas.offsetWidth > 10) {
+    buildChart();
+  } else {
+    const ro = new ResizeObserver(()=>{ if(canvas.offsetWidth>10){ro.disconnect();buildChart();} });
+    ro.observe(canvas.parentElement||canvas);
+    setTimeout(()=>{ if(canvas.offsetWidth>10) buildChart(); }, 300);
   }
-
-  canvas.addEventListener('mousemove', e => {
-    if (animFrame) cancelAnimationFrame(animFrame);
-    animFrame = requestAnimationFrame(() => draw(getHoverIdx(e.clientX)));
-  });
-  canvas.addEventListener('mouseleave', () => {
-    if (animFrame) cancelAnimationFrame(animFrame);
-    animFrame = requestAnimationFrame(() => draw(null));
-  });
-  canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    if (animFrame) cancelAnimationFrame(animFrame);
-    animFrame = requestAnimationFrame(() => draw(getHoverIdx(e.touches[0].clientX)));
-  }, {passive:false});
-  canvas.addEventListener('touchend', () => {
-    if (animFrame) cancelAnimationFrame(animFrame);
-    animFrame = requestAnimationFrame(() => draw(null));
-  });
-
-  return { redraw: () => draw(null) };
 }
 
 // ─── drawDualChart：匯率 + 加權指數 ─────────────────────────────────
