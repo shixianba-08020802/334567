@@ -224,33 +224,36 @@
     </div>
   </div>
 
-  <!-- 圖1：30日匯率走勢 + 加權指數（互動式） -->
+  <!-- Chart.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+  <!-- 圖1：30日匯率走勢 + 加權指數 -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
       <div class="section-title">▪ 即期匯率（30日）</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">
-        <span style="color:#2c5f8a">─</span> 本行賣出　
-        <span style="color:#c0392b">─</span> 本行買入　
-        <span style="color:#b8860b">─</span> 加權指數（右軸）
+        <span style="display:inline-block;width:18px;height:2px;background:#2c5f8a;vertical-align:middle;margin-right:3px;"></span>本行賣出　
+        <span style="display:inline-block;width:18px;height:2px;background:#c0392b;vertical-align:middle;margin-right:3px;"></span>本行買入　
+        <span style="display:inline-block;width:18px;height:2px;background:#b8860b;vertical-align:middle;margin-right:3px;border-top:2px dashed #b8860b;border-bottom:none;height:0;"></span>加權指數（右軸）
       </div>
     </div>
-    <div style="position:relative;width:100%;">
-      <canvas id="forexCanvas" style="width:100%;height:280px;display:block;cursor:crosshair;"></canvas>
+    <div style="position:relative;width:100%;height:260px;">
+      <canvas id="forexCanvas" role="img" aria-label="即期匯率30日走勢圖，含本行買入賣出及加權指數">匯率走勢圖</canvas>
     </div>
     <div id="chartStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);text-align:center;padding-top:4px;"></div>
   </div>
 
-  <!-- 圖2：加權指數 vs 三大法人淨多空（互動式） -->
+  <!-- 圖2：加權指數 vs 三大法人淨多空 -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
       <div class="section-title">▪ 加權指數 vs 三大法人未平倉淨多空</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">
-        <span style="color:#b8860b">─</span> 加權指數（左軸）　
-        <span style="color:#2c5f8a">■</span> 三大法人淨多空（右軸，口）
+        <span style="display:inline-block;width:18px;height:2px;background:#b8860b;vertical-align:middle;margin-right:3px;"></span>加權指數（左軸）　
+        <span style="display:inline-block;width:10px;height:10px;background:rgba(44,95,138,0.3);vertical-align:middle;margin-right:3px;border:1px solid #2c5f8a;"></span>三大法人淨多空（右軸，口）
       </div>
     </div>
-    <div style="position:relative;width:100%;">
-      <canvas id="oiCanvas" style="width:100%;height:280px;display:block;cursor:crosshair;"></canvas>
+    <div style="position:relative;width:100%;height:260px;">
+      <canvas id="oiCanvas" role="img" aria-label="加權指數與三大法人未平倉淨多空30日走勢圖">加權指數與三大法人圖</canvas>
     </div>
     <div id="oiChartStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);text-align:center;padding-top:4px;"></div>
   </div>
@@ -551,299 +554,112 @@ async function renderChart60() {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// Canvas 互動圖表引擎
+// Chart.js 圖表（互動式，滑鼠懸停顯示 tooltip）
 // ══════════════════════════════════════════════════════════════════════
 
-function makeInteractiveChart(canvasId, config) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-
-  const dpr = window.devicePixelRatio || 1;
-
-  function getSize() {
-    // 優先用父元素寬度，確保拿到正確值
-    const parent = canvas.parentElement;
-    const CW = (parent ? parent.clientWidth : 0) || canvas.offsetWidth || 800;
-    const CH = 280;
-    return { CW, CH };
+const CHART_DEFAULTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { mode: 'index', intersect: false },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: 'rgba(255,255,255,0.97)',
+      borderColor: '#ccc',
+      borderWidth: 1,
+      titleColor: '#2a2118',
+      bodyColor: '#555',
+      titleFont: { size: 11, weight: 'bold', family: 'DM Mono, monospace' },
+      bodyFont: { size: 10, family: 'DM Mono, monospace' },
+      padding: 10,
+      callbacks: {}
+    }
+  },
+  scales: {
+    x: {
+      grid: { color: '#ece8e0' },
+      ticks: { font: { size: 10, family: 'DM Mono, monospace' }, color: '#888', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }
+    }
   }
+};
 
-  function initCanvas() {
-    const { CW, CH } = getSize();
-    if (CW < 10) return false; // 還沒準備好
-    canvas.width  = CW * dpr;
-    canvas.height = CH * dpr;
-    canvas.style.height = CH + 'px';
-    return true;
-  }
+let forexChartInst = null;
+let oiChartInst = null;
 
-  function buildChart() {
-    if (!initCanvas()) return;
-    const { CW, CH } = getSize();
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    const PL=58, PR=config.rightSeries?62:16, PT=50, PB=38;
-    const IW=CW-PL-PR, IH=CH-PT-PB;
-    const { dates, series, rightSeries, title, leftLabel, rightLabel } = config;
-    const n = dates.length;
-    if (n < 2) return;
-
-    const xPos = i => PL + (i / (n-1)) * IW;
-
-    function makeScale(vals, pad=0.05) {
-      const min=Math.min(...vals), max=Math.max(...vals);
-      const r=max-min||1;
-      return { min:min-r*pad, max:max+r*pad };
-    }
-    function scaleY(v, sc) { return PT + (1-(v-sc.min)/(sc.max-sc.min))*IH; }
-
-    const leftVals = series.flatMap(s=>s.data.filter(v=>v!=null));
-    if (leftVals.length < 2) return;
-    const leftSc = makeScale(leftVals, 0.08);
-
-    let rightSc = null;
-    if (rightSeries) {
-      const rVals = rightSeries.data.filter(v=>v!=null);
-      if (rVals.length > 1) rightSc = makeScale(rVals, 0.06);
-    }
-
-    function draw(hoverIdx) {
-      ctx.clearRect(0, 0, CW, CH);
-
-      // 背景
-      ctx.fillStyle = '#fdfaf4';
-      ctx.fillRect(0, 0, CW, CH);
-      ctx.fillStyle = 'white';
-      ctx.fillRect(PL, PT, IW, IH);
-      ctx.strokeStyle = '#e8e0d0';
-      ctx.lineWidth = 0.5;
-      ctx.strokeRect(PL, PT, IW, IH);
-
-      // 格線 + 左Y軸
-      const nT=6;
-      ctx.font = '10px DM Mono, monospace';
-      for (let i=0; i<=nT; i++) {
-        const v = leftSc.min + (leftSc.max-leftSc.min)*i/nT;
-        const y = PT + IH - (i/nT)*IH;
-        ctx.strokeStyle='#ece8e0'; ctx.lineWidth=0.8;
-        ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(PL+IW,y); ctx.stroke();
-        ctx.fillStyle='#888'; ctx.textAlign='right';
-        ctx.fillText(v.toFixed(2), PL-6, y+3.5);
-      }
-      // 左Y軸標題
-      ctx.save(); ctx.translate(13,PT+IH/2); ctx.rotate(-Math.PI/2);
-      ctx.fillStyle='#888'; ctx.textAlign='center';
-      ctx.fillText(leftLabel||'', 0, 0); ctx.restore();
-
-      // 右Y軸
-      if (rightSc) {
-        for (let i=0; i<=nT; i++) {
-          const v = rightSc.min+(rightSc.max-rightSc.min)*i/nT;
-          const y = PT+IH-(i/nT)*IH;
-          ctx.fillStyle=rightSeries.color; ctx.textAlign='left';
-          ctx.fillText(rightSeries.formatTick?rightSeries.formatTick(v):v.toFixed(0), CW-PR+5, y+3.5);
-        }
-        ctx.save(); ctx.translate(CW-13,PT+IH/2); ctx.rotate(Math.PI/2);
-        ctx.fillStyle=rightSeries.color; ctx.textAlign='center';
-        ctx.fillText(rightLabel||'', 0, 0); ctx.restore();
-      }
-
-      // X軸
-      ctx.strokeStyle='#ccc'; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(PL,PT+IH); ctx.lineTo(PL+IW,PT+IH); ctx.stroke();
-      ctx.fillStyle='#888'; ctx.textAlign='center';
-      const xSt=Math.floor((n-1)/6);
-      for(let k=0;k<=6;k++){
-        const i=Math.min(k*xSt,n-1), x=xPos(i);
-        ctx.beginPath(); ctx.moveTo(x,PT+IH); ctx.lineTo(x,PT+IH+5); ctx.stroke();
-        ctx.fillText(dates[i],x,PT+IH+17);
-      }
-      ctx.fillText('日期',PL+IW/2,CH-4);
-
-      // clip
-      ctx.save(); ctx.beginPath(); ctx.rect(PL,PT,IW,IH); ctx.clip();
-
-      // 右軸面積+折線
-      if (rightSc) {
-        const pts=rightSeries.data.map((v,i)=>({i,v})).filter(p=>p.v!=null);
-        if (pts.length>=2) {
-          const zY=scaleY(0,rightSc);
-          // 面積
-          ctx.beginPath();
-          ctx.moveTo(xPos(pts[0].i),zY);
-          pts.forEach(p=>ctx.lineTo(xPos(p.i),scaleY(p.v,rightSc)));
-          ctx.lineTo(xPos(pts.at(-1).i),zY); ctx.closePath();
-          ctx.fillStyle=rightSeries.fillColor||'rgba(44,95,138,0.1)'; ctx.fill();
-          // 零軸虛線
-          ctx.strokeStyle='#c8bfaf'; ctx.lineWidth=1;
-          ctx.setLineDash([5,4]);
-          ctx.beginPath(); ctx.moveTo(PL,zY); ctx.lineTo(PL+IW,zY); ctx.stroke();
-          ctx.setLineDash([]);
-          // 折線
-          ctx.strokeStyle=rightSeries.color; ctx.lineWidth=1.8; ctx.lineJoin='round';
-          ctx.globalAlpha=rightSeries.alpha||1;
-          ctx.beginPath();
-          pts.forEach((p,j)=>j===0?ctx.moveTo(xPos(p.i),scaleY(p.v,rightSc)):ctx.lineTo(xPos(p.i),scaleY(p.v,rightSc)));
-          ctx.stroke(); ctx.globalAlpha=1;
-        }
-      }
-
-      // 左軸折線
-      for(const s of series){
-        const pts=s.data.map((v,i)=>({i,v})).filter(p=>p.v!=null);
-        if(pts.length<2) continue;
-        ctx.strokeStyle=s.color; ctx.lineWidth=s.width||2; ctx.lineJoin='round';
-        ctx.globalAlpha=s.alpha||1;
-        ctx.beginPath();
-        pts.forEach((p,j)=>j===0?ctx.moveTo(xPos(p.i),scaleY(p.v,leftSc)):ctx.lineTo(xPos(p.i),scaleY(p.v,leftSc)));
-        ctx.stroke(); ctx.globalAlpha=1;
-      }
-      ctx.restore();
-
-      // 標題
-      ctx.textAlign='center'; ctx.fillStyle='#2a2118';
-      ctx.font='bold 13px Noto Sans TC, sans-serif';
-      ctx.fillText(title||'',CW/2,20);
-
-      // 圖例
-      const legs=[...series,...(rightSeries?[rightSeries]:[])];
-      let lx=CW/2-legs.length*95/2;
-      for(const l of legs){
-        ctx.strokeStyle=l.color; ctx.lineWidth=2.5;
-        ctx.beginPath(); ctx.moveTo(lx,36); ctx.lineTo(lx+22,36); ctx.stroke();
-        ctx.beginPath(); ctx.arc(lx+11,36,3,0,Math.PI*2);
-        ctx.fillStyle=l.color; ctx.fill();
-        ctx.font='10px DM Mono,monospace'; ctx.textAlign='left';
-        ctx.fillStyle=l.color; ctx.fillText(l.label,lx+28,40);
-        lx+=95;
-      }
-
-      // ─── Hover ────────────────────────────────────────────────────
-      if (hoverIdx!=null && hoverIdx>=0 && hoverIdx<n) {
-        const hx=xPos(hoverIdx);
-
-        // 垂直線
-        ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1;
-        ctx.setLineDash([4,4]);
-        ctx.beginPath(); ctx.moveTo(hx,PT); ctx.lineTo(hx,PT+IH); ctx.stroke();
-        ctx.setLineDash([]);
-
-        // 圓點
-        for(const s of series){
-          const v=s.data[hoverIdx]; if(v==null) continue;
-          const y=scaleY(v,leftSc);
-          ctx.beginPath(); ctx.arc(hx,y,5,0,Math.PI*2);
-          ctx.fillStyle=s.color; ctx.fill();
-          ctx.strokeStyle='white'; ctx.lineWidth=2; ctx.stroke();
-        }
-        if(rightSc){
-          const v=rightSeries.data[hoverIdx]; if(v!=null){
-            const y=scaleY(v,rightSc);
-            ctx.beginPath(); ctx.arc(hx,y,5,0,Math.PI*2);
-            ctx.fillStyle=rightSeries.color; ctx.fill();
-            ctx.strokeStyle='white'; ctx.lineWidth=2; ctx.stroke();
-          }
-        }
-
-        // Tooltip
-        const tLines=[dates[hoverIdx]];
-        for(const s of series){ const v=s.data[hoverIdx]; if(v!=null) tLines.push({label:s.label,val:s.format?s.format(v):v.toFixed(3),color:s.color}); }
-        if(rightSc){ const v=rightSeries.data[hoverIdx]; if(v!=null) tLines.push({label:rightSeries.label,val:rightSeries.format?rightSeries.format(v):v.toFixed(0),color:rightSeries.color}); }
-
-        const bw=155, lnH=18, bh=16+tLines.length*lnH;
-        let tx=hx+14; if(tx+bw>CW-10) tx=hx-bw-14;
-        const ty2=PT+10;
-
-        ctx.fillStyle='rgba(255,255,255,0.97)';
-        ctx.strokeStyle='#ccc'; ctx.lineWidth=1;
-        ctx.beginPath();
-        if(ctx.roundRect) ctx.roundRect(tx,ty2,bw,bh,5);
-        else ctx.rect(tx,ty2,bw,bh);
-        ctx.fill(); ctx.stroke();
-
-        ctx.font='bold 11px DM Mono,monospace';
-        ctx.fillStyle='#2a2118'; ctx.textAlign='left';
-        ctx.fillText(tLines[0],tx+10,ty2+14);
-
-        for(let i=1;i<tLines.length;i++){
-          const l=tLines[i], ly=ty2+14+i*lnH;
-          ctx.beginPath(); ctx.arc(tx+10,ly-3,4,0,Math.PI*2);
-          ctx.fillStyle=l.color; ctx.fill();
-          ctx.font='10px DM Mono,monospace'; ctx.fillStyle='#555'; ctx.textAlign='left';
-          ctx.fillText(l.label+':',tx+20,ly);
-          ctx.fillStyle='#2a2118'; ctx.font='bold 10px DM Mono,monospace';
-          ctx.textAlign='right'; ctx.fillText(l.val,tx+bw-8,ly);
-        }
-      }
-    }
-
-    // 初始渲染
-    draw(null);
-
-    // 滑鼠互動
-    let af=null;
-    function getIdx(cx){
-      const r=canvas.getBoundingClientRect(), mx=cx-r.left;
-      if(mx<PL||mx>PL+IW) return null;
-      return Math.round((mx-PL)/IW*(n-1));
-    }
-    canvas.addEventListener('mousemove',e=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(getIdx(e.clientX))); });
-    canvas.addEventListener('mouseleave',()=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(null)); });
-    canvas.addEventListener('touchmove',e=>{ e.preventDefault(); cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(getIdx(e.touches[0].clientX))); },{passive:false});
-    canvas.addEventListener('touchend',()=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(null)); });
-
-    // 初始渲染
-    draw(null);
-
-    // 滑鼠互動
-    let af=null;
-    function getIdx(cx){
-      const r=canvas.getBoundingClientRect(), mx=cx-r.left;
-      if(mx<PL||mx>PL+IW) return null;
-      return Math.round((mx-PL)/IW*(n-1));
-    }
-    canvas.addEventListener('mousemove',e=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(getIdx(e.clientX))); });
-    canvas.addEventListener('mouseleave',()=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(null)); });
-    canvas.addEventListener('touchmove',e=>{ e.preventDefault(); cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(getIdx(e.touches[0].clientX))); },{passive:false});
-    canvas.addEventListener('touchend',()=>{ cancelAnimationFrame(af); af=requestAnimationFrame(()=>draw(null)); });
-  }
-
-  // 等 canvas 有寬度再建圖
-  if (canvas.offsetWidth > 10) {
-    buildChart();
-  } else {
-    const ro = new ResizeObserver(()=>{ if(canvas.offsetWidth>10){ro.disconnect();buildChart();} });
-    ro.observe(canvas.parentElement||canvas);
-    setTimeout(()=>{ if(canvas.offsetWidth>10) buildChart(); }, 300);
-  }
-}
-
-// ─── drawDualChart：匯率 + 加權指數 ─────────────────────────────────
+// ─── 匯率圖（本行買入/賣出 + 加權指數）────────────────────────────────
 function drawDualChart(dates, taiexMap, forexHist) {
   const buyMap={}, sellMap={};
   forexHist.forEach(d=>{ buyMap[d.date]=d.buy; sellMap[d.date]=d.sell; });
   staticHistory.forEach(r=>{ if(r.usdtwd&&!buyMap[r.date]){buyMap[r.date]=r.usdtwd-0.075;sellMap[r.date]=r.usdtwd+0.075;} });
 
-  const hasTaiex = taiexMap && dates.some(d=>taiexMap[d]!=null);
+  const sellData = dates.map(d=>sellMap[d]??null);
+  const buyData  = dates.map(d=>buyMap[d]??null);
+  const taiexData= dates.map(d=>taiexMap?.[d]??null);
+  const hasTaiex = taiexData.some(v=>v!=null);
 
-  makeInteractiveChart('forexCanvas', {
-    title: '即期匯率',
-    dates,
-    leftLabel: '匯率',
-    rightLabel: '加權指數',
-    series: [
-      { label:'本行賣出', color:'#2c5f8a', data:dates.map(d=>sellMap[d]??null), format:v=>v.toFixed(3) },
-      { label:'本行買入', color:'#c0392b', data:dates.map(d=>buyMap[d]??null),  format:v=>v.toFixed(3) },
-    ],
-    rightSeries: hasTaiex ? {
-      label:'加權指數', color:'#b8860b',
-      data: dates.map(d=>taiexMap?.[d]??null),
-      format: v=>(v/1000).toFixed(2)+'K',
-      formatTick: v=>(v/1000).toFixed(0)+'K',
-      fillColor:'rgba(184,134,11,0.08)',
-      alpha:0.7, width:1.8
-    } : null,
+  if (forexChartInst) { forexChartInst.destroy(); forexChartInst = null; }
+
+  const canvas = document.getElementById('forexCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const datasets = [
+    {
+      label: '本行賣出', data: sellData,
+      borderColor: '#2c5f8a', backgroundColor: 'transparent',
+      borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
+      pointHoverBackgroundColor: '#2c5f8a', tension: 0.3, yAxisID: 'y', spanGaps: true,
+    },
+    {
+      label: '本行買入', data: buyData,
+      borderColor: '#c0392b', backgroundColor: 'transparent',
+      borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
+      pointHoverBackgroundColor: '#c0392b', tension: 0.3, yAxisID: 'y', spanGaps: true,
+    },
+  ];
+
+  if (hasTaiex) {
+    datasets.push({
+      label: '加權指數', data: taiexData,
+      borderColor: '#b8860b', backgroundColor: 'transparent',
+      borderWidth: 1.8, borderDash: [4,3],
+      pointRadius: 0, pointHoverRadius: 5,
+      pointHoverBackgroundColor: '#b8860b',
+      tension: 0.3, yAxisID: 'y2', spanGaps: true,
+    });
+  }
+
+  forexChartInst = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dates, datasets },
+    options: {
+      ...CHART_DEFAULTS,
+      plugins: {
+        ...CHART_DEFAULTS.plugins,
+        tooltip: {
+          ...CHART_DEFAULTS.plugins.tooltip,
+          callbacks: {
+            label: ctx => {
+              const v = ctx.raw; if(v==null) return null;
+              if(ctx.datasetIndex===2) return ` 加權指數: ${v.toLocaleString()}`;
+              return ` ${ctx.dataset.label}: ${v.toFixed(3)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: CHART_DEFAULTS.scales.x,
+        y: {
+          position: 'left',
+          grid: { color: '#ece8e0' },
+          ticks: { font:{size:10,family:'DM Mono,monospace'}, color:'#888', callback: v=>v.toFixed(2) }
+        },
+        ...(hasTaiex ? { y2: {
+          position: 'right', grid: { display: false },
+          ticks: { font:{size:10,family:'DM Mono,monospace'}, color:'#b8860b', callback: v=>(v/1000).toFixed(0)+'K' }
+        }} : {})
+      }
+    }
   });
 }
 
@@ -855,38 +671,76 @@ function renderChartStatic() {
   drawDualChart(rows.map(r=>r.date), taiexMap, forexHist);
 }
 
-// ─── drawOIChart：加權指數 vs 三大法人淨多空 ─────────────────────────
+// ─── 加權指數 vs 三大法人 OI 圖 ──────────────────────────────────────
 function drawOIChart(dates, taiexMap, oiMap) {
-  makeInteractiveChart('oiCanvas', {
-    title: '加權指數 vs 三大法人未平倉淨多空',
-    dates,
-    leftLabel: '加權指數',
-    rightLabel: '淨多空(口)',
-    series: [
-      { label:'加權指數', color:'#b8860b', data:dates.map(d=>taiexMap[d]??null), format:v=>(v/1000).toFixed(2)+'K' },
-    ],
-    rightSeries: {
-      label:'三大法人淨多空', color:'#2c5f8a',
-      data: dates.map(d=>oiMap[d]??null),
-      format: v=>(v>=0?'+':'')+(v/1000).toFixed(1)+'K',
-      formatTick: v=>(v/1000).toFixed(0)+'K',
-      fillColor:'rgba(192,57,43,0.1)',
+  const taiexData = dates.map(d=>taiexMap[d]??null);
+  const oiData    = dates.map(d=>oiMap[d]??null);
+
+  if (oiChartInst) { oiChartInst.destroy(); oiChartInst = null; }
+
+  const canvas = document.getElementById('oiCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  oiChartInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [
+        {
+          label: '加權指數', data: taiexData,
+          borderColor: '#b8860b', backgroundColor: 'transparent',
+          borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#b8860b', tension: 0.3, yAxisID: 'y', spanGaps: true,
+          order: 2,
+        },
+        {
+          label: '三大法人淨多空', data: oiData,
+          borderColor: '#2c5f8a',
+          backgroundColor: ctx2 => {
+            const g = ctx2.chart.ctx.createLinearGradient(0,0,0,260);
+            g.addColorStop(0,'rgba(44,95,138,0.3)');
+            g.addColorStop(1,'rgba(44,95,138,0.02)');
+            return g;
+          },
+          fill: 'origin',
+          borderWidth: 1.8, pointRadius: 0, pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#2c5f8a', tension: 0.3, yAxisID: 'y2', spanGaps: true,
+          order: 1,
+        },
+      ]
     },
+    options: {
+      ...CHART_DEFAULTS,
+      plugins: {
+        ...CHART_DEFAULTS.plugins,
+        tooltip: {
+          ...CHART_DEFAULTS.plugins.tooltip,
+          callbacks: {
+            label: ctx => {
+              const v=ctx.raw; if(v==null) return null;
+              if(ctx.datasetIndex===0) return ` 加權指數: ${v.toLocaleString()}`;
+              return ` 三大法人淨多空: ${v>=0?'+':''}${v.toLocaleString()} 口`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: CHART_DEFAULTS.scales.x,
+        y: {
+          position: 'left', grid: { color: '#ece8e0' },
+          ticks: { font:{size:10,family:'DM Mono,monospace'}, color:'#b8860b', callback: v=>(v/1000).toFixed(0)+'K' }
+        },
+        y2: {
+          position: 'right', grid: { display: false },
+          ticks: { font:{size:10,family:'DM Mono,monospace'}, color:'#2c5f8a', callback: v=>(v/1000).toFixed(0)+'K' }
+        }
+      }
+    }
   });
 }
 
 // ── 主流程 ────────────────────────────────────────────────────────────
-}
-
-function renderChartStatic() {
-  const rows = [...staticHistory].reverse();
-  const taiexMap = {};
-  rows.forEach(r => { if(r.taiex) taiexMap[r.date]=r.taiex; });
-  const forexHist = rows
-    .filter(r => r.usdtwd)
-    .map(r => ({ date: r.date, buy: r.usdtwd-0.075, sell: r.usdtwd+0.075, mid: r.usdtwd }));
-  drawDualChart(rows.map(r=>r.date), taiexMap, forexHist);
-}
 
 // ── 60日走勢圖主函式 ─────────────────────────────────────────────────
 async function renderChart60() {
