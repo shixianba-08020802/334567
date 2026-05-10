@@ -4,6 +4,7 @@ exports.handler = async function(event) {
     return { statusCode: 400, body: JSON.stringify({ error: 'missing url param' }) };
   }
 
+  
   const allowed = [
     'openapi.taifex.com.tw',
     'mis.twse.com.tw',
