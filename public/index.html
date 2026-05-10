@@ -867,5 +867,44 @@ function drawOIChart(dates, taiexMap, oiMap) {
 let oiDone = false;
 
 async function refresh() {
-  document.getElementById('updateTime').innerHTML = '<span class="spinner"><
+  document.getElementById('updateTime').innerHTML = '<span class="spinner"></span>更新中...';
+
+  const [taiex, forex] = await Promise.all([fetchTaiex(), fetchBOTForex()]);
+
+  if (taiex) setCard('taiexVal','taiexArrow','taiexChg','taiexPct', taiex.price, taiex.change, taiex.pct, false);
+  else { document.getElementById('taiexVal').textContent='無法取得'; document.getElementById('taiexChg').textContent=''; }
+
+  if (forex) {
+    // 大數字顯示中間價
+    const mid = forex.mid;
+    const prev = forex.prevMid ?? mid;
+    setCard('forexVal','forexArrow','forexChg','forexPct', mid, forex.change, forex.pct, true);
+    document.getElementById('forexBuy').textContent  = forex.buy?.toFixed(3)  ?? '—';
+    document.getElementById('forexSell').textContent = forex.sell?.toFixed(3) ?? '—';
+    document.getElementById('forexTime').textContent = forex.quoteTime?.slice(-5) ?? '—';
+  } else {
+    document.getElementById('forexVal').textContent='無法取得';
+    document.getElementById('forexChg').textContent='';
+  }
+
+  if (!oiDone) {
+    fetchTaifexOI().then(oi => { renderOI(oi); oiDone=true; });
+    setTimeout(() => { oiDone=false; }, 3600000);
+  }
+
+  const ts = new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('updateTime').textContent = '更新 '+ts;
+  renderTable();
+}
+
+// 初始化
+renderChartStatic();
+refresh();
+renderChart60();
+renderOIChart();
+setInterval(refresh, 60000);
+setInterval(() => { renderChart60(); renderOIChart(); }, 3600000);
+</script>
+</body>
+</html>
 
