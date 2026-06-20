@@ -3,19 +3,18 @@ exports.handler = async function(event) {
   if (!target) {
     return { statusCode: 400, body: JSON.stringify({ error: 'missing url param' }) };
   }
-
   
   const allowed = [
     'openapi.taifex.com.tw',
     'mis.twse.com.tw',
     'www.twse.com.tw',
     'rate.bot.com.tw',
+    'query1.finance.yahoo.com',
+    'docs.google.com',
   ];
-
   if (!allowed.some(h => target.includes(h))) {
     return { statusCode: 403, body: JSON.stringify({ error: 'domain not allowed' }) };
   }
-
   try {
     const res = await fetch(target, {
       headers: {
@@ -25,11 +24,9 @@ exports.handler = async function(event) {
       },
       signal: AbortSignal.timeout(15000),
     });
-
     if (!res.ok) {
       return { statusCode: res.status, body: JSON.stringify({ error: 'upstream HTTP ' + res.status }) };
     }
-
     const data = await res.text();
     return {
       statusCode: 200,
