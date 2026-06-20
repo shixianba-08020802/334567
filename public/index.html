@@ -277,4 +277,173 @@ function setupWKHover(allH,allL){
     drawSK(_wkCtx,w,canvas.height,_wkBars,allH,allL);
     const bx=sk_i2x(idx,n,w);
     _wkCtx.strokeStyle='rgba(44,95,138,0.35)';_wkCtx.lineWidth=1;_wkCtx.setLineDash([3,3]);
-    _wkCtx.beginPath();_wkCtx.moveTo(bx,SKP.
+    _wkCtx.beginPath();_wkCtx.moveTo(bx,SKP.top);_wkCtx.lineTo(bx,canvas.height-SKP.bottom);_wkCtx.stroke();
+    _wkCtx.setLineDash([]);
+
+    document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}  (${b.days}個交易日)`;
+    document.getElementById('wkTipO').textContent=fmtI(b.o);
+    document.getElementById('wkTipH').textContent=fmtI(b.h);
+    document.getElementById('wkTipL').textContent=fmtI(b.l);
+    document.getElementById('wkTipC').textContent=fmtI(b.c);
+    const tc=document.getElementById('wkTipChg');
+    tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
+    tc.className=chg>=0?'up':'down';
+    document.getElementById('wkTipV').textContent=fmtV(b.v);
+
+    tip.style.display='block';
+    let tx=e.clientX+16, ty=e.clientY-10;
+    if(tx+185>window.innerWidth) tx=e.clientX-190;
+    tip.style.left=tx+'px';tip.style.top=ty+'px';
+  };
+  canvas.onmouseleave=()=>{
+    tip.style.display='none';
+    drawSK(_wkCtx,canvas.width,canvas.height,_wkBars,allH,allL);
+  };
+}
+
+async function loadWeeklyKline(){
+  const msgEl=document.getElementById('wkLoaderMsg');
+  if(msgEl) msgEl.textContent='載入資料…';
+  let daily=null;
+
+  try{
+    const url='https://query1.finance.yahoo.com/v8/finance/chart/%5ETWII?interval=1d&range=700d';
+    const r=await fetch(`/.netlify/functions/proxy?url=${encodeURIComponent(url)}`,{signal:AbortSignal.timeout(15000)});
+    if(r.ok){
+      const data=await r.json();
+      const res=data?.chart?.result?.[0];
+      if(res?.timestamp){
+        const q=res.indicators.quote[0];
+        daily=res.timestamp.map((ts,i)=>({
+          ts, o:q.open[i], h:q.high[i], l:q.low[i], c:q.close[i], v:q.volume[i]||0
+        })).filter(b=>b.c!=null&&b.c>0);
+      }
+    }
+  }catch(e){console.warn('WK fetch failed:',e.message);}
+
+  if(!daily||daily.length<10){
+    const loader=document.getElementById('wkLoader');
+    if(loader) loader.innerHTML=`<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">⚠ 資料載入失敗，請稍後重整</span>`;
+    return;
+  }
+
+  const allBars=buildWeeklyBars(daily);
+  const bars=allBars.slice(-20);
+  _wkBars=bars;
+
+  if(bars.length<2){
+    const loader=document.getElementById('wkLoader');
+    if(loader) loader.innerHTML=`<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">⚠ 週線資料不足</span>`;
+    return;
+  }
+
+  const last=bars[bars.length-1], prev=bars[bars.length-2];
+  const chg=last.c-prev.c, pct=(chg/prev.c*100);
+  const allH=Math.max(...bars.map(b=>b.h));
+  const allL=Math.min(...bars.map(b=>b.l));
+
+  document.getElementById('wkClose').textContent=fmtI(last.c);
+  const ce=document.getElementById('wkChg');
+  ce.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${pct.toFixed(2)}%)`;
+  ce.className='skline-stat-val '+(chg>=0?'up':'down');
+  document.getElementById('wkHigh').textContent=fmtI(allH);
+  document.getElementById('wkLow').textContent=fmtI(allL);
+  document.getElementById('wkDateRange').textContent=`${bars[0].startDate} ～ ${last.endDate}`;
+
+  document.getElementById('wkLoader').style.display='none';
+  renderWeeklyCharts();
+}
+
+window.addEventListener('resize',()=>{if(_wkBars.length)renderWeeklyCharts();});
+
+// ══════════════════════════════════════════════════════════════════
+// ██  個股關注清單（可由 Google 試算表同步）  ████████████████████
+// ══════════════════════════════════════════════════════════════════
+const WATCHLIST_CSV_URL = 'https://docs.google.com/spreadsheets/d/1o2Y994vWPlD_dgrP3y1Z5ecGrdtUIGqNAqAtsKG_zs8/export?format=csv&gid=0';
+
+const staticWatchlist = [
+  {code:'6104',name:'創惟',   price:'103', pe:'22', trend:'年減',     valuation:'偏低', yield:'4.9%', risk:'中',       note:'USB4／車用'},
+  {code:'6531',name:'愛普',   price:'1025',pe:'95', trend:'強勁成長', valuation:'極高', yield:'0.75%',risk:'最高',     note:'矽電容／VHM'},
+  {code:'4966',name:'譜瑞',   price:'696', pe:'21', trend:'回升中',   valuation:'合理', yield:'3~5%', risk:'中低',     note:'DP／車用顯示'},
+  {code:'2449',name:'京元電', price:'308', pe:'38', trend:'連13月增', valuation:'中高', yield:'約1.3%',risk:'中高',     note:'AI測試龍頭'},
+  {code:'3019',name:'亞光',   price:'160', pe:'23', trend:'DSC倍增',  valuation:'偏低', yield:'2.9%', risk:'中',       note:'液冷散熱'},
+  {code:'3152',name:'璟德',   price:'186', pe:'19', trend:'4月轉正',  valuation:'最低', yield:'近5%', risk:'中(減資後)',note:'低軌衛星／LTCC'},
+];
+
+function parseCSV(text){
+  const rows=[];
+  let row=[],cur='',inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inQ=false; }
+      else cur+=c;
+    }else{
+      if(c==='"') inQ=true;
+      else if(c===','){row.push(cur);cur='';}
+      else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur='';}
+      else if(c==='\r'){/*忽略*/}
+      else cur+=c;
+    }
+  }
+  if(cur||row.length){row.push(cur);rows.push(row);}
+  return rows.filter(r=>r.some(c=>c.trim()!==''));
+}
+
+function renderWatchlist(items,sourceLabel){
+  const tbody=document.getElementById('watchlistBody');
+  if(!tbody) return;
+  if(!items||!items.length){
+    tbody.innerHTML=`<tr><td colspan="9" style="padding:14px;text-align:center;color:var(--text-muted);">無資料</td></tr>`;
+  }else{
+    tbody.innerHTML=items.map(r=>`
+      <tr style="border-bottom:1px solid rgba(224,216,200,0.5);">
+        <td style="padding:8px 10px;color:var(--text-muted);">${r.code}</td>
+        <td style="padding:8px 10px;">${r.name}</td>
+        <td style="padding:8px 10px;text-align:right;">${r.price}</td>
+        <td style="padding:8px 10px;text-align:right;">${r.pe}</td>
+        <td style="padding:8px 10px;">${r.trend}</td>
+        <td style="padding:8px 10px;">${r.valuation}</td>
+        <td style="padding:8px 10px;text-align:right;">${r.yield}</td>
+        <td style="padding:8px 10px;">${r.risk}</td>
+        <td style="padding:8px 10px;color:var(--text-muted);">${r.note}</td>
+      </tr>`).join('');
+  }
+  const srcEl=document.getElementById('wlSrc');
+  if(srcEl) srcEl.textContent=sourceLabel;
+  const upEl=document.getElementById('wlUpdateTime');
+  if(upEl) upEl.textContent='更新 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+}
+
+async function loadWatchlist(){
+  if(!WATCHLIST_CSV_URL){
+    renderWatchlist(staticWatchlist,'資料來源：手動內建資料（尚未連結試算表）');
+    return;
+  }
+  try{
+    const r=await fetch(`/.netlify/functions/proxy?url=${encodeURIComponent(WATCHLIST_CSV_URL)}`,{signal:AbortSignal.timeout(15000)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const text=await r.text();
+    const rows=parseCSV(text);
+    if(rows.length<2) throw new Error('試算表內容為空');
+    const items=rows.slice(1).map(c=>({
+      code:(c[0]??'').trim(), name:(c[1]??'').trim(), price:(c[2]??'').trim(), pe:(c[3]??'').trim(),
+      trend:(c[4]??'').trim(), valuation:(c[5]??'').trim(), yield:(c[6]??'').trim(), risk:(c[7]??'').trim(), note:(c[8]??'').trim(),
+    })).filter(r=>r.code);
+    renderWatchlist(items,'資料來源：Google 試算表（自動同步）');
+  }catch(e){
+    console.warn('watchlist fetch failed:',e.message);
+    renderWatchlist(staticWatchlist,'⚠ 試算表讀取失敗，顯示備用資料');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 啟動
+// ══════════════════════════════════════════════════════════════════
+loadWeeklyKline();
+loadWatchlist();
+setInterval(loadWeeklyKline,300000);
+setInterval(loadWatchlist,300000);
+</script>
+</body>
+</html>
