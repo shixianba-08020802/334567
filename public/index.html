@@ -64,12 +64,12 @@
     <div class="logo"><span>shixianba</span> · 即時看板</div>
   </header>
 
-  <!-- 台指期 週K線（星期四～次週三） -->
+  <!-- 台指期 週K線（星期三盤後～次週三一般） -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
       <div class="section-title">▪ 台指期　週K線（近20週）</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:10px;">
-        <span>週期：星期四 ～ 次週三</span>
+        <span>週期：星期三盤後 ～ 次週三一般</span>
         <span id="wkDateRange" style="color:var(--text-dim)">—</span>
       </div>
     </div>
@@ -89,7 +89,7 @@
     <div class="skline-vol-wrap" id="wvWrap">
       <canvas id="wvCanvas"></canvas>
     </div>
-    <div class="skline-src" id="wkSrc">資料來源：Yahoo Finance ^TWII（加權指數替代）・每5分鐘自動更新</div>
+    <div class="skline-src" id="wkSrc">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
   </div>
 
   <!-- 個股關注清單（可由試算表同步） -->
@@ -140,38 +140,61 @@ const fmtI = n=>n==null?'—':Math.round(n).toLocaleString('zh-TW');
 const fmtV = v=>{if(!v||v===0)return'—';if(v>=1e9)return(v/1e9).toFixed(1)+'B';if(v>=1e6)return(v/1e6).toFixed(1)+'M';if(v>=1e3)return(v/1e3).toFixed(0)+'K';return String(v);};
 
 // ══════════════════════════════════════════════════════════════════
-// ██  台指期 週K線（星期四 ～ 次週三）  ███████████████████████████
+// ██  台指期 週K線（星期三盤後 ～ 次週三一般）  ████████████████████
 // ══════════════════════════════════════════════════════════════════
-function buildWeeklyBars(dailyBars){
-  if(!dailyBars.length) return [];
-  const buckets = new Map();
-  for(const b of dailyBars){
-    // 以 UTC+8（台北）換算星期幾，避免瀏覽器時區差異
-    const shifted = new Date((b.ts+8*3600)*1000);
-    const y=shifted.getUTCFullYear(), m=shifted.getUTCMonth(), day=shifted.getUTCDate(), wd=shifted.getUTCDay();
-    const diffToThu = (wd-4+7)%7; // 0=週四...6=週三，回推到本週期起始（週四）
-    const weekStart = new Date(Date.UTC(y,m,day));
-    weekStart.setUTCDate(weekStart.getUTCDate()-diffToThu);
-    const key = `${weekStart.getUTCFullYear()}-${String(weekStart.getUTCMonth()+1).padStart(2,'0')}-${String(weekStart.getUTCDate()).padStart(2,'0')}`;
-    if(!buckets.has(key)) buckets.set(key,[]);
-    buckets.get(key).push(b);
-  }
-  const keys=[...buckets.keys()].sort();
-  return keys.map(key=>{
-    const slice=buckets.get(key).sort((a,c)=>a.ts-c.ts);
-    const [y,m,day]=key.split('-').map(Number);
-    const endDt=new Date(Date.UTC(y,m-1,day));
-    endDt.setUTCDate(endDt.getUTCDate()+6); // 週四 +6天 = 次週三
-    const endKey=`${endDt.getUTCFullYear()}-${String(endDt.getUTCMonth()+1).padStart(2,'0')}-${String(endDt.getUTCDate()).padStart(2,'0')}`;
+// 資料來源：使用者維護的Google試算表（含一般/盤後場次的台指期歷史價）
+const FUTURES_CSV_URL = 'https://docs.google.com/spreadsheets/d/1IFA8S0aOafZTtMcSvx45AAtR8Q01aWxcV99xmn9qcrE/export?format=csv&gid=0';
+
+function parseFuturesCSV(text){
+  const rows = parseCSV(text);
+  return rows.slice(1).map(c=>{
+    const dateStr=(c[0]||'').trim(); // 例如 "2026/4/15"
+    const parts=dateStr.split('/').map(Number);
+    const y=parts[0], m=parts[1], d=parts[2];
+    const o=parseFloat(c[2]), h=parseFloat(c[3]), l=parseFloat(c[4]), cl=parseFloat(c[5]);
+    const v=parseFloat(String(c[8]||'0').replace(/,/g,''));
+    const session=(c[9]||'').trim();
     return{
-      label:`${String(m).padStart(2,'0')}/${String(day).padStart(2,'0')}`,
-      startDate:key, endDate:endKey,
-      o:slice[0].o,
-      h:Math.max(...slice.map(x=>x.h)),
-      l:Math.min(...slice.map(x=>x.l)),
-      c:slice[slice.length-1].c,
-      v:slice.reduce((s,x)=>s+(x.v||0),0),
-      days:slice.length,
+      y,m,d,
+      dateKey:`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
+      o,h,l,c:cl,v,session,
+    };
+  }).filter(r=>r.y && !isNaN(r.o) && !isNaN(r.c));
+}
+
+function buildWeeklySessionBars(rows){
+  // 排序：日期升冪，同一天「一般」排在「盤後」之前
+  const sorted=[...rows].sort((a,b)=>{
+    if(a.dateKey!==b.dateKey) return a.dateKey<b.dateKey?-1:1;
+    const order={'一般':0,'盤後':1};
+    return (order[a.session]??0)-(order[b.session]??0);
+  });
+
+  // 每遇到「星期三的一般」就收尾一週，下一筆開始算下一週
+  const weeks=[];
+  let cur=[];
+  for(const r of sorted){
+    cur.push(r);
+    const wd=new Date(Date.UTC(r.y,r.m-1,r.d)).getUTCDay(); // 0=日...3=三...6=六
+    if(wd===3 && r.session==='一般'){
+      weeks.push(cur);
+      cur=[];
+    }
+  }
+  if(cur.length) weeks.push(cur); // 尚未滿一週的最新資料也顯示
+
+  return weeks.map(wk=>{
+    const first=wk[0], last=wk[wk.length-1];
+    return{
+      label:`${String(first.m).padStart(2,'0')}/${String(first.d).padStart(2,'0')}`,
+      startDate:`${first.dateKey} ${first.session}`,
+      endDate:`${last.dateKey} ${last.session}`,
+      o:first.o,
+      h:Math.max(...wk.map(x=>x.h)),
+      l:Math.min(...wk.map(x=>x.l)),
+      c:last.c,
+      v:wk.reduce((s,x)=>s+(x.v||0),0),
+      days:wk.length,
     };
   });
 }
@@ -190,6 +213,7 @@ function drawSK(ctx,w,h,bars,allH,allL){
   const mn=allL-pad, mx=allH+pad;
   const bw=Math.max(3,(w-SKP.left-SKP.right)/n*0.58);
 
+  // 格線
   ctx.lineWidth=0.5;
   for(let i=0;i<=5;i++){
     const val=mn+(mx-mn)*(i/5);
@@ -199,20 +223,24 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.fillStyle='#b0a090';ctx.font='9px DM Mono,monospace';ctx.textAlign='left';
     ctx.fillText(fmtI(val),w-SKP.right+3,y+3);
   }
+  // X 標籤（每3根一個）
   ctx.fillStyle='#b0a090';ctx.font='9px DM Mono,monospace';ctx.textAlign='center';
   for(let i=0;i<n;i++){
     if(i%3===0||i===n-1){
       ctx.fillText(bars[i].label,sk_i2x(i,n,w),h-SKP.bottom+13);
     }
   }
+  // K線
   for(let i=0;i<n;i++){
     const b=bars[i], x=sk_i2x(i,n,w);
     const isUp=b.c>=b.o;
     const color=isUp?'#c0392b':'#1a7a5e';
     const yH=sk_p2y(b.h,h,mn,mx),yL=sk_p2y(b.l,h,mn,mx);
     const yO=sk_p2y(b.o,h,mn,mx),yC=sk_p2y(b.c,h,mn,mx);
+    // 上下影線
     ctx.strokeStyle=color;ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(x,yH);ctx.lineTo(x,yL);ctx.stroke();
+    // 實體
     ctx.fillStyle=color;
     ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
   }
@@ -280,7 +308,7 @@ function setupWKHover(allH,allL){
     _wkCtx.beginPath();_wkCtx.moveTo(bx,SKP.top);_wkCtx.lineTo(bx,canvas.height-SKP.bottom);_wkCtx.stroke();
     _wkCtx.setLineDash([]);
 
-    document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}  (${b.days}個交易日)`;
+    document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}  (${b.days}筆資料)`;
     document.getElementById('wkTipO').textContent=fmtI(b.o);
     document.getElementById('wkTipH').textContent=fmtI(b.h);
     document.getElementById('wkTipL').textContent=fmtI(b.l);
@@ -304,31 +332,24 @@ function setupWKHover(allH,allL){
 async function loadWeeklyKline(){
   const msgEl=document.getElementById('wkLoaderMsg');
   if(msgEl) msgEl.textContent='載入資料…';
-  let daily=null;
+  let rows=null;
 
   try{
-    const url='https://query1.finance.yahoo.com/v8/finance/chart/%5ETWII?interval=1d&range=700d';
-    const r=await fetch(`/.netlify/functions/proxy?url=${encodeURIComponent(url)}`,{signal:AbortSignal.timeout(15000)});
+    const r=await fetch(`/.netlify/functions/proxy?url=${encodeURIComponent(FUTURES_CSV_URL)}`,{signal:AbortSignal.timeout(15000)});
     if(r.ok){
-      const data=await r.json();
-      const res=data?.chart?.result?.[0];
-      if(res?.timestamp){
-        const q=res.indicators.quote[0];
-        daily=res.timestamp.map((ts,i)=>({
-          ts, o:q.open[i], h:q.high[i], l:q.low[i], c:q.close[i], v:q.volume[i]||0
-        })).filter(b=>b.c!=null&&b.c>0);
-      }
+      const text=await r.text();
+      rows=parseFuturesCSV(text);
     }
   }catch(e){console.warn('WK fetch failed:',e.message);}
 
-  if(!daily||daily.length<10){
+  if(!rows||rows.length<2){
     const loader=document.getElementById('wkLoader');
     if(loader) loader.innerHTML=`<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">⚠ 資料載入失敗，請稍後重整</span>`;
     return;
   }
 
-  const allBars=buildWeeklyBars(daily);
-  const bars=allBars.slice(-20);
+  const allBars=buildWeeklySessionBars(rows);
+  const bars=allBars.slice(-20); // 近20週
   _wkBars=bars;
 
   if(bars.length<2){
@@ -359,8 +380,13 @@ window.addEventListener('resize',()=>{if(_wkBars.length)renderWeeklyCharts();});
 // ══════════════════════════════════════════════════════════════════
 // ██  個股關注清單（可由 Google 試算表同步）  ████████████████████
 // ══════════════════════════════════════════════════════════════════
-const WATCHLIST_CSV_URL = 'https://docs.google.com/spreadsheets/d/1o2Y994vWPlD_dgrP3y1Z5ecGrdtUIGqNAqAtsKG_zs8/export?format=csv&gid=0';
+// 設定方式：
+// 1) 在 Google 試算表建立欄位（依序）：代號,名稱,現價,PE,營收趨勢,估值位置,殖利率,風險,題材
+// 2) 檔案 → 共用 → 發布到網路 → 選取該工作表 → 格式選「逗號分隔值(.csv)」→ 發布
+// 3) 把產生的連結貼到下面 WATCHLIST_CSV_URL 的單引號中間，存檔後網頁就會自動同步
+const WATCHLIST_CSV_URL = 'https://docs.google.com/spreadsheets/d/1o2Y994vWPlD_dgrP3y1Z5ecGrdtUIGqNAqAtsKG_zs8/export?format=csv&gid=0'; // ← 貼上 Google 試算表發布的 CSV 連結
 
+// 試算表尚未設定前的備用資料（也可直接在這裡手動修改數字）
 const staticWatchlist = [
   {code:'6104',name:'創惟',   price:'103', pe:'22', trend:'年減',     valuation:'偏低', yield:'4.9%', risk:'中',       note:'USB4／車用'},
   {code:'6531',name:'愛普',   price:'1025',pe:'95', trend:'強勁成長', valuation:'極高', yield:'0.75%',risk:'最高',     note:'矽電容／VHM'},
@@ -442,8 +468,8 @@ async function loadWatchlist(){
 // ══════════════════════════════════════════════════════════════════
 loadWeeklyKline();
 loadWatchlist();
-setInterval(loadWeeklyKline,300000);
-setInterval(loadWatchlist,300000);
+setInterval(loadWeeklyKline,300000);   // 台指期週K：每5分鐘自動更新
+setInterval(loadWatchlist,300000);     // 個股關注清單：每5分鐘同步試算表
 </script>
 </body>
 </html>
