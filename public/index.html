@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>shixianba</title>
+<title>台股即時看板</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -89,7 +89,7 @@
     <div class="skline-vol-wrap" id="wvWrap">
       <canvas id="wvCanvas"></canvas>
     </div>
-    <div class="skline-src" id="wkSrc">資料來源：台指期歷史試算表・每5分鐘同步試算表異動</div>
+    <div class="skline-src" id="wkSrc">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
   </div>
 
   <!-- 個股關注清單（可由試算表同步） -->
@@ -104,7 +104,6 @@
           <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);font-size:10px;letter-spacing:.05em;">
             <th style="padding:8px 10px;">代號</th>
             <th style="padding:8px 10px;">名稱</th>
-            <th style="padding:8px 10px;text-align:right;">現價</th>
             <th style="padding:8px 10px;text-align:right;">PE</th>
             <th style="padding:8px 10px;">營收趨勢</th>
             <th style="padding:8px 10px;">估值位置</th>
@@ -114,7 +113,7 @@
           </tr>
         </thead>
         <tbody id="watchlistBody">
-          <tr><td colspan="9" style="padding:14px;text-align:center;color:var(--text-muted);">載入中...</td></tr>
+          <tr><td colspan="8" style="padding:14px;text-align:center;color:var(--text-muted);">載入中...</td></tr>
         </tbody>
       </table>
     </div>
@@ -420,13 +419,12 @@ function renderWatchlist(items,sourceLabel){
   const tbody=document.getElementById('watchlistBody');
   if(!tbody) return;
   if(!items||!items.length){
-    tbody.innerHTML=`<tr><td colspan="9" style="padding:14px;text-align:center;color:var(--text-muted);">無資料</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="8" style="padding:14px;text-align:center;color:var(--text-muted);">無資料</td></tr>`;
   }else{
     tbody.innerHTML=items.map(r=>`
       <tr style="border-bottom:1px solid rgba(224,216,200,0.5);">
         <td style="padding:8px 10px;color:var(--text-muted);">${r.code}</td>
         <td style="padding:8px 10px;">${r.name}</td>
-        <td style="padding:8px 10px;text-align:right;">${r.price}</td>
         <td style="padding:8px 10px;text-align:right;">${r.pe}</td>
         <td style="padding:8px 10px;">${r.trend}</td>
         <td style="padding:8px 10px;">${r.valuation}</td>
