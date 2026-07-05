@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>shixianba看板</title>
+<metas name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hixianba看板</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -104,16 +104,17 @@
           <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);font-size:10px;letter-spacing:.05em;">
             <th style="padding:8px 10px;">代號</th>
             <th style="padding:8px 10px;">名稱</th>
-            <th style="padding:8px 10px;text-align:right;">PE</th>
             <th style="padding:8px 10px;">營收趨勢</th>
             <th style="padding:8px 10px;">估值位置</th>
-            <th style="padding:8px 10px;text-align:right;">殖利率</th>
             <th style="padding:8px 10px;">風險</th>
+            <th style="padding:8px 10px;text-align:right;">營業利益率</th>
+            <th style="padding:8px 10px;text-align:right;">毛利率</th>
+            <th style="padding:8px 10px;text-align:right;">ROE</th>
             <th style="padding:8px 10px;">題材／備註</th>
           </tr>
         </thead>
         <tbody id="watchlistBody">
-          <tr><td colspan="8" style="padding:14px;text-align:center;color:var(--text-muted);">載入中...</td></tr>
+          <tr><td colspan="9" style="padding:14px;text-align:center;color:var(--text-muted);">載入中...</td></tr>
         </tbody>
       </table>
     </div>
@@ -391,19 +392,23 @@ window.addEventListener('resize',()=>{if(_wkBars.length)renderWeeklyCharts();});
 // ██  個股關注清單（可由 Google 試算表同步）  ████████████████████
 // ══════════════════════════════════════════════════════════════════
 // 設定方式：
-// 1) 在 Google 試算表建立欄位（依序）：代號,名稱,現價,PE,營收趨勢,估值位置,殖利率,風險,題材
-// 2) 檔案 → 共用 → 發布到網路 → 選取該工作表 → 格式選「逗號分隔值(.csv)」→ 發布
-// 3) 把產生的連結貼到下面 WATCHLIST_CSV_URL 的單引號中間，存檔後網頁就會自動同步
-const WATCHLIST_CSV_URL = 'https://docs.google.com/spreadsheets/d/1o2Y994vWPlD_dgrP3y1Z5ecGrdtUIGqNAqAtsKG_zs8/export?format=csv&gid=0'; // ← 貼上 Google 試算表發布的 CSV 連結
+// 1) 在 Google 試算表建立欄位（依序）：代號,名稱,營收趨勢,估值位置,風險,營業利益率,毛利率,ROE,題材
+// 2) 試算表連結已設定於下方 WATCHLIST_CSV_URL
+const WATCHLIST_CSV_URL = 'https://docs.google.com/spreadsheets/d/1o2Y994vWPlD_dgrP3y1Z5ecGrdtUIGqNAqAtsKG_zs8/export?format=csv&gid=0';
 
-// 試算表尚未設定前的備用資料（也可直接在這裡手動修改數字）
+// 備用資料（試算表讀取失敗時顯示）
 const staticWatchlist = [
-  {code:'6104',name:'創惟',   price:'103', pe:'22', trend:'年減',     valuation:'偏低', yield:'4.9%', risk:'中',       note:'USB4／車用'},
-  {code:'6531',name:'愛普',   price:'1025',pe:'95', trend:'強勁成長', valuation:'極高', yield:'0.75%',risk:'最高',     note:'矽電容／VHM'},
-  {code:'4966',name:'譜瑞',   price:'696', pe:'21', trend:'回升中',   valuation:'合理', yield:'3~5%', risk:'中低',     note:'DP／車用顯示'},
-  {code:'2449',name:'京元電', price:'308', pe:'38', trend:'連13月增', valuation:'中高', yield:'約1.3%',risk:'中高',     note:'AI測試龍頭'},
-  {code:'3019',name:'亞光',   price:'160', pe:'23', trend:'DSC倍增',  valuation:'偏低', yield:'2.9%', risk:'中',       note:'液冷散熱'},
-  {code:'3152',name:'璟德',   price:'186', pe:'19', trend:'4月轉正',  valuation:'最低', yield:'近5%', risk:'中(減資後)',note:'低軌衛星／LTCC'},
+  {code:'6104',name:'創惟',   trend:'年減',     valuation:'偏高', risk:'中',       opmargin:'', gross:'42%',   roe:'',     note:'USB4／車用'},
+  {code:'6531',name:'愛普',   trend:'強勁成長', valuation:'極高', risk:'最高',     opmargin:'25%', gross:'47%', roe:'10%',  note:'矽電容／VHM'},
+  {code:'4966',name:'譜瑞',   trend:'回升中',   valuation:'合理', risk:'中低',     opmargin:'', gross:'',      roe:'',     note:'DP／車用顯示'},
+  {code:'2449',name:'京元電', trend:'連13月增', valuation:'中高', risk:'中高',     opmargin:'28%', gross:'36%', roe:'',    note:'AI測試龍頭'},
+  {code:'3019',name:'亞光',   trend:'DSC倍增',  valuation:'偏低', risk:'中',       opmargin:'', gross:'',      roe:'',     note:'液冷散熱'},
+  {code:'1513',name:'中興電', trend:'累計年增2.33%', valuation:'合理偏低', risk:'中', opmargin:'', gross:'',  roe:'',     note:'重電／電網／儲能'},
+  {code:'2355',name:'敬鵬',   trend:'創24月新高',valuation:'中間', risk:'中',      opmargin:'', gross:'',      roe:'',     note:'車用PCB／衛星'},
+  {code:'3034',name:'聯詠',   trend:'Q2強彈',   valuation:'偏高', risk:'中高',     opmargin:'', gross:'36%',   roe:'',     note:'驅動IC龍頭／SoC'},
+  {code:'8016',name:'矽創',   trend:'連月年增37%',valuation:'偏低',risk:'中',      opmargin:'', gross:'29%',   roe:'',     note:'TDDI／車用驅動IC'},
+  {code:'3227',name:'原相',   trend:'月營收轉正',valuation:'偏低', risk:'中',       opmargin:'', gross:'60%',   roe:'',     note:'光學感測IC／機器人感測'},
+  {code:'3152',name:'璟德',   trend:'4月轉正',  valuation:'最低', risk:'中(減資完成)',opmargin:'','gross':'',   roe:'',     note:'低軌衛星／LTCC'},
 ];
 
 function parseCSV(text){
@@ -430,17 +435,18 @@ function renderWatchlist(items,sourceLabel){
   const tbody=document.getElementById('watchlistBody');
   if(!tbody) return;
   if(!items||!items.length){
-    tbody.innerHTML=`<tr><td colspan="8" style="padding:14px;text-align:center;color:var(--text-muted);">無資料</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="9" style="padding:14px;text-align:center;color:var(--text-muted);">無資料</td></tr>`;
   }else{
     tbody.innerHTML=items.map(r=>`
       <tr style="border-bottom:1px solid rgba(224,216,200,0.5);">
         <td style="padding:8px 10px;color:var(--text-muted);">${r.code}</td>
         <td style="padding:8px 10px;">${r.name}</td>
-        <td style="padding:8px 10px;text-align:right;">${r.pe}</td>
         <td style="padding:8px 10px;">${r.trend}</td>
         <td style="padding:8px 10px;">${r.valuation}</td>
-        <td style="padding:8px 10px;text-align:right;">${r.yield}</td>
         <td style="padding:8px 10px;">${r.risk}</td>
+        <td style="padding:8px 10px;text-align:right;">${r.opmargin}</td>
+        <td style="padding:8px 10px;text-align:right;">${r.gross}</td>
+        <td style="padding:8px 10px;text-align:right;">${r.roe}</td>
         <td style="padding:8px 10px;color:var(--text-muted);">${r.note}</td>
       </tr>`).join('');
   }
@@ -462,8 +468,9 @@ async function loadWatchlist(){
     const rows=parseCSV(text);
     if(rows.length<2) throw new Error('試算表內容為空');
     const items=rows.slice(1).map(c=>({
-      code:(c[0]??'').trim(), name:(c[1]??'').trim(), price:(c[2]??'').trim(), pe:(c[3]??'').trim(),
-      trend:(c[4]??'').trim(), valuation:(c[5]??'').trim(), yield:(c[6]??'').trim(), risk:(c[7]??'').trim(), note:(c[8]??'').trim(),
+      code:(c[0]??'').trim(), name:(c[1]??'').trim(),
+      trend:(c[2]??'').trim(), valuation:(c[3]??'').trim(), risk:(c[4]??'').trim(),
+      opmargin:(c[5]??'').trim(), gross:(c[6]??'').trim(), roe:(c[7]??'').trim(), note:(c[8]??'').trim(),
     })).filter(r=>r.code);
     renderWatchlist(items,'資料來源：Google 試算表（自動同步）');
   }catch(e){
