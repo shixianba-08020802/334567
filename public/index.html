@@ -50,7 +50,55 @@
   #wkTip .stip-row{display:flex;justify-content:space-between;gap:18px;}
   #wkTip .stip-lbl{color:var(--text-muted);}
 
+  /* ── 選擇權損益試算 ── */
+  .opt-idx-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .opt-idx-lbl{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);white-space:nowrap;}
+  .opt-idx-input{font-family:var(--font-mono);font-size:15px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;background:#f0ebe0;color:var(--text-primary);width:140px;outline:none;}
+  .opt-idx-input:focus{border-color:var(--accent-blue);}
+
+  .opt-position{background:#f0ebe0;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;position:relative;}
+  .opt-pos-line1{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .opt-pos-line2{display:flex;gap:8px;align-items:center;}
+  .opt-toggle-grp{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  .opt-toggle-grp button{font-family:var(--font-mono);font-size:12px;padding:6px 12px;border:none;background:#fdfaf4;color:var(--text-muted);cursor:pointer;transition:all .15s;}
+  .opt-toggle-grp button.active{background:var(--accent-blue);color:#fff;}
+  .opt-toggle-grp button:first-child{border-right:1px solid var(--border);}
+  .opt-field{display:flex;flex-direction:column;flex:1;}
+  .opt-field label{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-bottom:3px;}
+  .opt-field input{font-family:var(--font-mono);font-size:14px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;background:#fdfaf4;color:var(--text-primary);outline:none;width:100%;}
+  .opt-field input:focus{border-color:var(--accent-blue);}
+  .opt-del{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;padding:2px 6px;line-height:1;}
+  .opt-del:hover{color:var(--accent-red);}
+
+  .opt-btn-row{display:flex;gap:8px;margin-top:4px;}
+  .opt-btn-add,.opt-btn-calc{font-family:var(--font-mono);font-size:12px;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;flex:1;}
+  .opt-btn-add{background:#f0ebe0;border:1px solid var(--border);color:var(--text-muted);}
+  .opt-btn-calc{background:var(--accent-blue);color:#fff;}
+  .opt-btn-calc:active{opacity:.85;}
+
+  .opt-summary-box{display:flex;gap:8px;flex-wrap:wrap;}
+  .opt-sum-item{background:#f0ebe0;border:1px solid var(--border);border-radius:8px;padding:8px 12px;flex:1;min-width:80px;}
+  .opt-sum-lbl{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-bottom:3px;}
+  .opt-sum-val{font-family:var(--font-mono);font-size:14px;font-weight:500;}
+
+  .opt-table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:13px;margin-top:4px;}
+  .opt-table th{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:10px;text-align:left;font-weight:400;}
+  .opt-table th:last-child,.opt-table td:last-child{text-align:right;}
+  .opt-table td{padding:7px 10px;border-bottom:1px solid rgba(224,216,200,0.4);}
+  .opt-table tr.opt-current td{background:rgba(44,95,138,0.08);font-weight:600;}
+  .opt-table tr.opt-be td{background:rgba(184,134,11,0.1);}
+  .opt-pnl-pos{color:var(--accent-green);}
+  .opt-pnl-neg{color:var(--accent-red);}
+  .opt-pnl-zero{color:var(--text-muted);}
+  .opt-current-mark{color:var(--accent-blue);margin-right:4px;}
+
   @media(max-width:640px){
+    .opt-idx-input{font-size:16px;width:130px;}
+    .opt-toggle-grp button{font-size:12px;padding:7px 10px;}
+    .opt-field input{font-size:16px;}
+    .opt-table{font-size:13px;}
+    .opt-table td,.opt-table th{padding:7px 8px;}
+  }
     body{padding:10px;}
     .container{padding:0;}
     header{margin-bottom:14px;padding-bottom:10px;}
@@ -153,6 +201,35 @@
     <div class="wl-cards" id="watchlistCards"></div>
     <div class="skline-src" id="wlSrc">資料來源：手動內建資料（尚未連結試算表）</div>
   </div>
+
+  <!-- 選擇權損益試算 -->
+  <div class="history-card" style="margin-bottom:14px;" id="optCard">
+    <div class="section-header">
+      <div class="section-title">▪ 選擇權損益試算</div>
+    </div>
+
+    <!-- 大盤指數輸入 -->
+    <div class="opt-idx-row">
+      <label class="opt-idx-lbl">目前大盤指數</label>
+      <input type="number" id="optCurrentIdx" class="opt-idx-input" placeholder="例：41600" inputmode="numeric">
+    </div>
+
+    <!-- 部位列表 -->
+    <div id="optRows"></div>
+
+    <!-- 操作按鈕 -->
+    <div class="opt-btn-row">
+      <button class="opt-btn-add" onclick="addOptRow()">＋ 新增部位</button>
+      <button class="opt-btn-calc" onclick="calcOpt()">計算損益</button>
+    </div>
+
+    <!-- 損益摘要 -->
+    <div id="optSummary" style="display:none;margin-top:12px;"></div>
+
+    <!-- 損益表 -->
+    <div id="optResult" style="margin-top:8px;"></div>
+  </div>
+
 </div>
 
 <div id="wkTip">
@@ -573,6 +650,130 @@ loadWeeklyKline();
 loadWatchlist();
 setInterval(loadWeeklyKline,300000);   // 台指期週K：每5分鐘自動更新
 setInterval(loadWatchlist,300000);     // 個股關注清單：每5分鐘同步試算表
+
+// ══════════════════════════════════════════════════════════════════
+// ██  選擇權損益試算  ██████████████████████████████████████████████
+// ══════════════════════════════════════════════════════════════════
+let optRowId=0;
+
+function addOptRow(){
+  const id=optRowId++;
+  const div=document.createElement('div');
+  div.className='opt-position';
+  div.id='optRow_'+id;
+  div.innerHTML=`
+    <button class="opt-del" onclick="document.getElementById('optRow_${id}').remove()">✕</button>
+    <div class="opt-pos-line1">
+      <div class="opt-toggle-grp" id="bs_${id}">
+        <button class="active" data-val="B" onclick="toggleOpt('bs_${id}',this)">買</button>
+        <button data-val="S" onclick="toggleOpt('bs_${id}',this)">賣</button>
+      </div>
+      <div class="opt-toggle-grp" id="cp_${id}">
+        <button class="active" data-val="C" onclick="toggleOpt('cp_${id}',this)">CALL</button>
+        <button data-val="P" onclick="toggleOpt('cp_${id}',this)">PUT</button>
+      </div>
+    </div>
+    <div class="opt-pos-line2">
+      <div class="opt-field">
+        <label>履約價</label>
+        <input type="number" class="opt-strike" inputmode="numeric" placeholder="41500">
+      </div>
+      <div class="opt-field">
+        <label>權利金</label>
+        <input type="number" class="opt-premium" inputmode="decimal" placeholder="100">
+      </div>
+      <div class="opt-field" style="max-width:64px;">
+        <label>口數</label>
+        <input type="number" class="opt-lots" inputmode="numeric" value="1" min="1">
+      </div>
+    </div>`;
+  document.getElementById('optRows').appendChild(div);
+}
+
+function toggleOpt(grpId,btn){
+  document.getElementById(grpId).querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function calcOpt(){
+  const positions=[];
+  document.querySelectorAll('.opt-position').forEach(row=>{
+    const id=row.id.replace('optRow_','');
+    const bsBtn=document.getElementById('bs_'+id)?.querySelector('button.active');
+    const cpBtn=document.getElementById('cp_'+id)?.querySelector('button.active');
+    const bs=bsBtn?.dataset.val||'B';
+    const cp=cpBtn?.dataset.val||'C';
+    const strike=parseFloat(row.querySelector('.opt-strike')?.value)||0;
+    const premium=parseFloat(row.querySelector('.opt-premium')?.value)||0;
+    const lots=parseInt(row.querySelector('.opt-lots')?.value)||1;
+    if(strike>0) positions.push({bs,cp,strike,premium,lots});
+  });
+
+  if(!positions.length){alert('請先新增部位並輸入履約價');return;}
+
+  const curRaw=parseInt(document.getElementById('optCurrentIdx').value)||0;
+  const step=50;
+  // 捨入到最近的50整數
+  const curIdx=curRaw>0?Math.round(curRaw/step)*step:0;
+
+  const strikes=positions.map(p=>p.strike);
+  const minIdx=Math.min(...strikes)-500;
+  const maxIdx=Math.max(...strikes)+500;
+
+  const results=[];
+  for(let idx=minIdx;idx<=maxIdx;idx+=step){
+    let total=0;
+    positions.forEach(p=>{
+      const isCall=p.cp==='C';
+      const isBuy=p.bs==='B';
+      const settle=isCall?Math.max(idx-p.strike,0):Math.max(p.strike-idx,0);
+      total+=(isBuy?1:-1)*(settle-p.premium)*p.lots*50;
+    });
+    results.push({idx,pnl:Math.round(total)});
+  }
+
+  // 摘要
+  const pnls=results.map(r=>r.pnl);
+  const maxP=Math.max(...pnls), maxL=Math.min(...pnls);
+  const bePts=results.filter((r,i)=>i>0&&((results[i-1].pnl<0&&r.pnl>=0)||(results[i-1].pnl>=0&&r.pnl<0))).map(r=>r.idx);
+
+  const sumEl=document.getElementById('optSummary');
+  sumEl.style.display='block';
+  sumEl.innerHTML=`<div class="opt-summary-box">
+    <div class="opt-sum-item"><div class="opt-sum-lbl">最大獲利</div><div class="opt-sum-val opt-pnl-pos">${maxP>=999999?'無上限':fmtM(maxP)}</div></div>
+    <div class="opt-sum-item"><div class="opt-sum-lbl">最大損失</div><div class="opt-sum-val opt-pnl-neg">${maxL<=-999999?'無下限':fmtM(maxL)}</div></div>
+    <div class="opt-sum-item"><div class="opt-sum-lbl">損益平衡</div><div class="opt-sum-val" style="color:var(--accent-yellow)">${bePts.length?bePts.join('、'):'—'}</div></div>
+  </div>`;
+
+  // 損益表
+  let rows='';
+  results.forEach(r=>{
+    const isCur=curIdx>0&&r.idx===curIdx;
+    const rowCls=isCur?'opt-current':'';
+    const mark=isCur?'<span class="opt-current-mark">▶</span>':'';
+    const pnlCls=r.pnl>0?'opt-pnl-pos':r.pnl<0?'opt-pnl-neg':'opt-pnl-zero';
+    rows+=`<tr class="${rowCls}"><td>${mark}${r.idx.toLocaleString()}</td><td class="${pnlCls}">${fmtM(r.pnl)}</td></tr>`;
+  });
+
+  document.getElementById('optResult').innerHTML=`
+    <div style="overflow-y:auto;max-height:400px;border:1px solid var(--border);border-radius:8px;margin-top:8px;">
+      <table class="opt-table">
+        <thead><tr><th>指數</th><th style="text-align:right;">結算損益(元)</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  setTimeout(()=>{
+    const cur=document.querySelector('.opt-table .opt-current');
+    if(cur) cur.scrollIntoView({block:'center',behavior:'smooth'});
+  },100);
+}
+
+function fmtM(n){return(n>=0?'+':'')+n.toLocaleString();}
+
+// 預設開啟兩個部位
+addOptRow();
+addOptRow();
 </script>
 </body>
 </html>
