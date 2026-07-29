@@ -240,6 +240,9 @@
   <div class="stip-row"><span class="stip-lbl">收</span><span id="wkTipC"></span></div>
   <div class="stip-row"><span class="stip-lbl">漲跌</span><span id="wkTipChg"></span></div>
   <div class="stip-row"><span class="stip-lbl">成交量</span><span id="wkTipV" style="color:var(--text-muted)"></span></div>
+  <div id="wkTipFxRow" class="stip-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;">
+    <span class="stip-lbl">買入/賣出</span><span id="wkTipFx" style="color:var(--text-muted)"></span>
+  </div>
 </div>
 
 <script>
@@ -264,10 +267,12 @@ function parseFuturesCSV(text){
     const o=parseFloat(c[2]), h=parseFloat(c[3]), l=parseFloat(c[4]), cl=parseFloat(c[5]);
     const v=parseFloat(String(c[8]||'0').replace(/,/g,''));
     const session=(c[9]||'').trim();
+    const fxBuy=parseFloat(c[10])||null;
+    const fxSell=parseFloat(c[11])||null;
     return{
       y,m,d,
       dateKey:`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
-      o,h,l,c:cl,v,session,
+      o,h,l,c:cl,v,session,fxBuy,fxSell,
     };
   }).filter(r=>r.y && !isNaN(r.o) && !isNaN(r.c));
 }
@@ -306,6 +311,11 @@ function buildWeeklySessionBars(rows){
     const endDt = new Date(Date.UTC(ky,km-1,kd));
     endDt.setUTCDate(endDt.getUTCDate()+6);
     const endKey = `${endDt.getUTCFullYear()}-${String(endDt.getUTCMonth()+1).padStart(2,'0')}-${String(endDt.getUTCDate()).padStart(2,'0')}`;
+    // 取週三一般那列的匯率（若有）
+    const wedRow=slice.find(r=>{
+      const wd=new Date(Date.UTC(r.y,r.m-1,r.d)).getUTCDay();
+      return wd===3&&r.session==='一般';
+    });
     return{
       label:`${String(km).padStart(2,'0')}/${String(kd).padStart(2,'0')}`,
       startDate:`${key}`,
@@ -316,6 +326,8 @@ function buildWeeklySessionBars(rows){
       c:last.c,
       v:slice.reduce((s,x)=>s+(x.v||0),0),
       days:slice.length,
+      fxBuy:wedRow?.fxBuy??null,
+      fxSell:wedRow?.fxSell??null,
     };
   });
 }
@@ -438,6 +450,14 @@ function setupWKHover(allH,allL){
     tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
     tc.className=chg>=0?'up':'down';
     document.getElementById('wkTipV').textContent=fmtV(b.v);
+    const fxEl=document.getElementById('wkTipFx');
+    const fxRow=document.getElementById('wkTipFxRow');
+    if(b.fxBuy||b.fxSell){
+      fxEl.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;
+      fxRow.style.display='flex';
+    }else{
+      fxRow.style.display='none';
+    }
 
     tip.style.display='block';
     let tx=e.clientX+16, ty=e.clientY-10;
@@ -476,6 +496,14 @@ function setupWKHover(allH,allL){
     tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
     tc.className=chg>=0?'up':'down';
     document.getElementById('wkTipV').textContent=fmtV(b.v);
+    const fxElT=document.getElementById('wkTipFx');
+    const fxRowT=document.getElementById('wkTipFxRow');
+    if(b.fxBuy||b.fxSell){
+      fxElT.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;
+      fxRowT.style.display='flex';
+    }else{
+      fxRowT.style.display='none';
+    }
 
     tip.style.display='block';
     const tx=Math.min(touch.clientX+16, window.innerWidth-195);
