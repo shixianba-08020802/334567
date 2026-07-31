@@ -376,34 +376,42 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
   }
 
-  // ── 趨勢線（線性迴歸）──────────────────────────────────────────
-  function linReg(vals){
-    const n=vals.length;
-    let sx=0,sy=0,sxy=0,sxx=0;
-    for(let i=0;i<n;i++){sx+=i;sy+=vals[i];sxy+=i*vals[i];sxx+=i*i;}
-    const slope=(n*sxy-sx*sy)/(n*sxx-sx*sx);
-    const intercept=(sy-slope*sx)/n;
-    return{slope,intercept};
+  // ── 趨勢線（Swing Point 波段高低點連線）──────────────────────────
+  function findSwings(arr,type){
+    const pts=[];
+    for(let i=1;i<arr.length-1;i++){
+      const p=arr[i-1],c=arr[i],nx=arr[i+1];
+      if(type==='high'&&c>p&&c>nx) pts.push({i,v:c});
+      if(type==='low' &&c<p&&c<nx) pts.push({i,v:c});
+    }
+    return pts;
   }
-  function drawTrendLine(vals,color,dash){
-    const r=linReg(vals);
-    const y0=r.intercept;
-    const y1=r.intercept+r.slope*(n-1);
-    const px0=sk_i2x(0,n,w);
-    const px1=sk_i2x(n-1,n,w);
-    const py0=sk_p2y(y0,h,mn,mx);
-    const py1=sk_p2y(y1,h,mn,mx);
+  function drawSwingLine(pts,color){
+    if(pts.length<2) return;
+    // 取最後兩個波段點連線並延伸到圖右邊
+    const p1=pts[pts.length-2], p2=pts[pts.length-1];
+    const x1=sk_i2x(p1.i,n,w), x2=sk_i2x(p2.i,n,w);
+    const y1=sk_p2y(p1.v,h,mn,mx), y2=sk_p2y(p2.v,h,mn,mx);
+    // 延伸到圖右
+    const xR=sk_i2x(n-1,n,w);
+    const slope=(y2-y1)/(x2-x1);
+    const yR=y2+slope*(xR-x2);
     ctx.save();
-    ctx.strokeStyle=color;ctx.lineWidth=1.5;
-    ctx.setLineDash(dash||[5,4]);
-    ctx.beginPath();ctx.moveTo(px0,py0);ctx.lineTo(px1,py1);ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
+    ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(xR,yR);ctx.stroke();
+    // 標點
+    [p1,p2].forEach(p=>{
+      const px=sk_i2x(p.i,n,w), py=sk_p2y(p.v,h,mn,mx);
+      ctx.beginPath();ctx.arc(px,py,3,0,Math.PI*2);
+      ctx.fillStyle=color;ctx.fill();
+    });
+    ctx.setLineDash([]);ctx.restore();
   }
-  // 壓力線：高點迴歸（紅色虛線）
-  drawTrendLine(bars.map(b=>b.h),'rgba(192,57,43,0.7)',[6,4]);
-  // 支撐線：低點迴歸（綠色虛線）
-  drawTrendLine(bars.map(b=>b.l),'rgba(26,122,94,0.7)',[6,4]);
+
+  const hiPts=findSwings(bars.map(b=>b.h),'high');
+  const loPts=findSwings(bars.map(b=>b.l),'low');
+  if(hiPts.length>=2) drawSwingLine(hiPts,'rgba(192,57,43,0.75)');
+  if(loPts.length>=2) drawSwingLine(loPts,'rgba(26,122,94,0.75)');
 }
 
 function drawSV(ctx,w,h,bars){
