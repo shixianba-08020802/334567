@@ -370,13 +370,40 @@ function drawSK(ctx,w,h,bars,allH,allL){
     const color=isUp?'#c0392b':'#1a7a5e';
     const yH=sk_p2y(b.h,h,mn,mx),yL=sk_p2y(b.l,h,mn,mx);
     const yO=sk_p2y(b.o,h,mn,mx),yC=sk_p2y(b.c,h,mn,mx);
-    // 上下影線
     ctx.strokeStyle=color;ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(x,yH);ctx.lineTo(x,yL);ctx.stroke();
-    // 實體
     ctx.fillStyle=color;
     ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
   }
+
+  // ── 趨勢線（線性迴歸）──────────────────────────────────────────
+  function linReg(vals){
+    const n=vals.length;
+    let sx=0,sy=0,sxy=0,sxx=0;
+    for(let i=0;i<n;i++){sx+=i;sy+=vals[i];sxy+=i*vals[i];sxx+=i*i;}
+    const slope=(n*sxy-sx*sy)/(n*sxx-sx*sx);
+    const intercept=(sy-slope*sx)/n;
+    return{slope,intercept};
+  }
+  function drawTrendLine(vals,color,dash){
+    const r=linReg(vals);
+    const y0=r.intercept;
+    const y1=r.intercept+r.slope*(n-1);
+    const px0=sk_i2x(0,n,w);
+    const px1=sk_i2x(n-1,n,w);
+    const py0=sk_p2y(y0,h,mn,mx);
+    const py1=sk_p2y(y1,h,mn,mx);
+    ctx.save();
+    ctx.strokeStyle=color;ctx.lineWidth=1.5;
+    ctx.setLineDash(dash||[5,4]);
+    ctx.beginPath();ctx.moveTo(px0,py0);ctx.lineTo(px1,py1);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+  // 壓力線：高點迴歸（紅色虛線）
+  drawTrendLine(bars.map(b=>b.h),'rgba(192,57,43,0.7)',[6,4]);
+  // 支撐線：低點迴歸（綠色虛線）
+  drawTrendLine(bars.map(b=>b.l),'rgba(26,122,94,0.7)',[6,4]);
 }
 
 function drawSV(ctx,w,h,bars){
