@@ -38,6 +38,12 @@
   .skline-vol-wrap{position:relative;height:80px;width:100%;margin-top:6px;}
   .skline-loader{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:var(--surface);border-radius:6px;z-index:5;}
   .skline-src{font-family:var(--font-mono);font-size:10px;color:var(--text-dim);text-align:right;margin-top:6px;}
+
+  /* ── 手繪線工具列 ── */
+  .wk-toolbar{display:flex;align-items:center;gap:8px;margin:8px 0 6px;}
+  .wk-tool-btn{font-family:var(--font-mono);font-size:11px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;background:#f0ebe0;color:var(--text-muted);cursor:pointer;transition:all .15s;}
+  .wk-tool-btn.active{background:var(--accent-blue);color:#fff;border-color:var(--accent-blue);}
+  .wk-line-count{font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-left:auto;}
   #wkTip{
     position:fixed;display:none;
     background:rgba(253,250,244,0.97);
@@ -161,6 +167,13 @@
       <div class="skline-stat"><div class="skline-stat-label">本週漲跌</div><div class="skline-stat-val neutral" id="wkChg">—</div></div>
       <div class="skline-stat"><div class="skline-stat-label">區間最高</div><div class="skline-stat-val up" id="wkHigh">—</div></div>
       <div class="skline-stat"><div class="skline-stat-label">區間最低</div><div class="skline-stat-val down" id="wkLow">—</div></div>
+    </div>
+
+    <!-- 畫線工具列 -->
+    <div class="wk-toolbar">
+      <button class="wk-tool-btn" id="wkBtnDraw" onclick="setWKMode('draw')">✏ 畫線</button>
+      <button class="wk-tool-btn" id="wkBtnDel" onclick="setWKMode('delete')">✕ 刪線</button>
+      <span class="wk-line-count" id="wkLineCount">0 / 5</span>
     </div>
     <div class="skline-canvas-wrap" id="wkWrap">
       <div class="skline-loader" id="wkLoader">
@@ -335,6 +348,50 @@ function buildWeeklySessionBars(rows){
 // ── Canvas 繪圖 ────────────────────────────────────────────────────
 const SKP = {top:10, right:58, bottom:32, left:4};
 let _wkBars=[], _wkCtx=null, _wvCtx=null;
+// 手繪線相關
+let _userLines=[], _wkMode=null, _wkDrawing=false, _wkStart=null, _wkPrev=null;
+let _wkMn=0, _wkMx=0, _wkN=0, _wkW=0, _wkH=0;
+
+// 座標轉換
+function touchToCanvasXY(touch){
+  const canvas=document.getElementById('wkCanvas');
+  const rect=canvas.getBoundingClientRect();
+  const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+  return{cx:(touch.clientX-rect.left)*sx, cy:(touch.clientY-rect.top)*sy};
+}
+function canvasToData(cx,cy){
+  const barW=(_wkW-SKP.left-SKP.right)/_wkN;
+  const i=Math.max(0,Math.min(_wkN-1,Math.round((cx-SKP.left)/barW-0.5)));
+  const v=_wkMn+(1-(cy-SKP.top)/(_wkH-SKP.top-SKP.bottom))*(_wkMx-_wkMn);
+  return{i,v};
+}
+function distPtToSeg(px,py,x1,y1,x2,y2){
+  const dx=x2-x1,dy=y2-y1,len2=dx*dx+dy*dy;
+  if(len2===0) return Math.hypot(px-x1,py-y1);
+  const t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/len2));
+  return Math.hypot(px-(x1+t*dx),py-(y1+t*dy));
+}
+
+function setWKMode(mode){
+  if(_wkMode===mode){_wkMode=null;}else{_wkMode=mode;}
+  _wkDrawing=false;_wkStart=null;_wkPrev=null;
+  document.getElementById('wkBtnDraw').classList.toggle('active',_wkMode==='draw');
+  document.getElementById('wkBtnDel').classList.toggle('active',_wkMode==='delete');
+  // 提示文字
+  const src=document.getElementById('wkSrc');
+  if(_wkMode==='draw') src.textContent='畫線模式：按住拖曳畫線，最多5條';
+  else if(_wkMode==='delete') src.textContent='刪線模式：點一條線刪除它';
+  else src.textContent='資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動';
+}
+function updateLineCount(){
+  document.getElementById('wkLineCount').textContent=`${_userLines.length} / 5`;
+}
+function redrawWK(){
+  if(!_wkBars.length||!_wkCtx) return;
+  const allH=Math.max(..._wkBars.map(b=>b.h));
+  const allL=Math.min(..._wkBars.map(b=>b.l));
+  drawSK(_wkCtx,_wkW,_wkH,_wkBars,allH,allL);
+}
 
 function sk_p2y(p,h,mn,mx){return SKP.top+(1-(p-mn)/(mx-mn))*(h-SKP.top-SKP.bottom);}
 function sk_i2x(i,n,w){return SKP.left+(i+0.5)*((w-SKP.left-SKP.right)/n);}
@@ -376,42 +433,32 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
   }
 
-  // ── 趨勢線（Swing Point 波段高低點連線）──────────────────────────
-  function findSwings(arr,type){
-    const pts=[];
-    for(let i=1;i<arr.length-1;i++){
-      const p=arr[i-1],c=arr[i],nx=arr[i+1];
-      if(type==='high'&&c>p&&c>nx) pts.push({i,v:c});
-      if(type==='low' &&c<p&&c<nx) pts.push({i,v:c});
-    }
-    return pts;
-  }
-  function drawSwingLine(pts,color){
-    if(pts.length<2) return;
-    // 取最後兩個波段點連線並延伸到圖右邊
-    const p1=pts[pts.length-2], p2=pts[pts.length-1];
-    const x1=sk_i2x(p1.i,n,w), x2=sk_i2x(p2.i,n,w);
-    const y1=sk_p2y(p1.v,h,mn,mx), y2=sk_p2y(p2.v,h,mn,mx);
-    // 延伸到圖右
-    const xR=sk_i2x(n-1,n,w);
-    const slope=(y2-y1)/(x2-x1);
-    const yR=y2+slope*(xR-x2);
-    ctx.save();
-    ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.setLineDash([6,4]);
-    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(xR,yR);ctx.stroke();
-    // 標點
-    [p1,p2].forEach(p=>{
-      const px=sk_i2x(p.i,n,w), py=sk_p2y(p.v,h,mn,mx);
-      ctx.beginPath();ctx.arc(px,py,3,0,Math.PI*2);
-      ctx.fillStyle=color;ctx.fill();
-    });
-    ctx.setLineDash([]);ctx.restore();
-  }
+  // 儲存座標參數供手繪線使用
+  if(ctx===_wkCtx){_wkMn=mn;_wkMx=mx;_wkN=n;_wkW=w;_wkH=h;}
 
-  const hiPts=findSwings(bars.map(b=>b.h),'high');
-  const loPts=findSwings(bars.map(b=>b.l),'low');
-  if(hiPts.length>=2) drawSwingLine(hiPts,'rgba(192,57,43,0.75)');
-  if(loPts.length>=2) drawSwingLine(loPts,'rgba(26,122,94,0.75)');
+  // 繪製使用者手繪線
+  _userLines.forEach((l,idx)=>{
+    const x1=sk_i2x(l.i1,n,w), y1=sk_p2y(l.v1,h,mn,mx);
+    const x2=sk_i2x(l.i2,n,w), y2=sk_p2y(l.v2,h,mn,mx);
+    ctx.save();
+    ctx.strokeStyle=l.color||'rgba(44,95,138,0.9)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    ctx.fillStyle=l.color||'rgba(44,95,138,0.9)';
+    [[x1,y1],[x2,y2]].forEach(([px,py])=>{
+      ctx.beginPath();ctx.arc(px,py,4,0,Math.PI*2);ctx.fill();
+    });
+    ctx.restore();
+  });
+
+  // 預覽線（畫線模式拖曳中）
+  if(ctx===_wkCtx&&_wkDrawing&&_wkPrev){
+    ctx.save();
+    ctx.strokeStyle='rgba(44,95,138,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+    ctx.beginPath();
+    ctx.moveTo(sk_i2x(_wkStart.i,n,w),sk_p2y(_wkStart.v,h,mn,mx));
+    ctx.lineTo(sk_i2x(_wkPrev.i,n,w),sk_p2y(_wkPrev.v,h,mn,mx));
+    ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  }
 }
 
 function drawSV(ctx,w,h,bars){
@@ -504,54 +551,96 @@ function setupWKHover(allH,allL){
     drawSK(_wkCtx,canvas.width,canvas.height,_wkBars,allH,allL);
   };
 
-  // ── 手機touch支援 ──
-  function handleTouch(e){
-    e.preventDefault();
-    const touch=e.touches[0]||e.changedTouches[0];
-    const rect=canvas.getBoundingClientRect();
-    const x=touch.clientX-rect.left;
-    const w=canvas.width;
-    const area=w-SKP.left-SKP.right;
-    const idx=Math.min(n-1,Math.max(0,Math.floor((x-SKP.left)/(area/n))));
-    const b=_wkBars[idx];
-    const chg=b.c-b.o, pct=(chg/b.o*100).toFixed(2);
-
-    drawSK(_wkCtx,w,canvas.height,_wkBars,allH,allL);
-    const bx=sk_i2x(idx,n,w);
-    _wkCtx.strokeStyle='rgba(44,95,138,0.35)';_wkCtx.lineWidth=1;_wkCtx.setLineDash([3,3]);
-    _wkCtx.beginPath();_wkCtx.moveTo(bx,SKP.top);_wkCtx.lineTo(bx,canvas.height-SKP.bottom);_wkCtx.stroke();
-    _wkCtx.setLineDash([]);
-
-    document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
-    document.getElementById('wkTipO').textContent=fmtI(b.o);
-    document.getElementById('wkTipH').textContent=fmtI(b.h);
-    document.getElementById('wkTipL').textContent=fmtI(b.l);
-    document.getElementById('wkTipC').textContent=fmtI(b.c);
-    const tc=document.getElementById('wkTipChg');
-    tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
-    tc.className=chg>=0?'up':'down';
-    document.getElementById('wkTipV').textContent=fmtV(b.v);
-    const fxElT=document.getElementById('wkTipFx');
-    const fxRowT=document.getElementById('wkTipFxRow');
-    if(b.fxBuy||b.fxSell){
-      fxElT.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;
-      fxRowT.style.display='flex';
+  // ── 手機touch：畫線/刪線/tooltip三模式統一處理 ──
+  canvas.addEventListener('touchstart',e=>{
+    if(_wkMode==='draw'){
+      e.preventDefault();
+      if(_userLines.length>=5) return;
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      _wkStart=canvasToData(cx,cy);
+      _wkDrawing=true;
+    }else if(_wkMode==='delete'){
+      // touchstart只記位置
     }else{
-      fxRowT.style.display='none';
+      // tooltip模式：不處理（touchmove裡處理）
     }
+  },{passive:false});
 
-    tip.style.display='block';
-    const tx=Math.min(touch.clientX+16, window.innerWidth-195);
-    const ty=Math.max(10, touch.clientY-120);
-    tip.style.left=tx+'px';tip.style.top=ty+'px';
-  }
-  canvas.addEventListener('touchmove',handleTouch,{passive:false});
-  canvas.addEventListener('touchend',()=>{
-    setTimeout(()=>{
-      tip.style.display='none';
-      drawSK(_wkCtx,canvas.width,canvas.height,_wkBars,allH,allL);
-    },1500);
-  },{passive:true});
+  canvas.addEventListener('touchmove',e=>{
+    if(_wkMode==='draw'){
+      e.preventDefault();
+      if(!_wkDrawing||!_wkStart) return;
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      _wkPrev=canvasToData(cx,cy);
+      redrawWK();
+    }else if(_wkMode==='delete'){
+      // 不處理移動
+    }else{
+      // 原本的tooltip邏輯
+      e.preventDefault();
+      const touch=e.touches[0]||e.changedTouches[0];
+      const rect=canvas.getBoundingClientRect();
+      const x=touch.clientX-rect.left;
+      const w=canvas.width;
+      const area=w-SKP.left-SKP.right;
+      const idx=Math.min(n-1,Math.max(0,Math.floor((x-SKP.left)/(area/n))));
+      const b=_wkBars[idx];
+      const chg=b.c-b.o, pct=(chg/b.o*100).toFixed(2);
+      drawSK(_wkCtx,w,canvas.height,_wkBars,allH,allL);
+      const bx=sk_i2x(idx,n,w);
+      _wkCtx.strokeStyle='rgba(44,95,138,0.35)';_wkCtx.lineWidth=1;_wkCtx.setLineDash([3,3]);
+      _wkCtx.beginPath();_wkCtx.moveTo(bx,SKP.top);_wkCtx.lineTo(bx,canvas.height-SKP.bottom);_wkCtx.stroke();
+      _wkCtx.setLineDash([]);
+      document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
+      document.getElementById('wkTipO').textContent=fmtI(b.o);
+      document.getElementById('wkTipH').textContent=fmtI(b.h);
+      document.getElementById('wkTipL').textContent=fmtI(b.l);
+      document.getElementById('wkTipC').textContent=fmtI(b.c);
+      const tc=document.getElementById('wkTipChg');
+      tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
+      tc.className=chg>=0?'up':'down';
+      document.getElementById('wkTipV').textContent=fmtV(b.v);
+      const fxElT=document.getElementById('wkTipFx');
+      const fxRowT=document.getElementById('wkTipFxRow');
+      if(b.fxBuy||b.fxSell){fxElT.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;fxRowT.style.display='flex';}
+      else fxRowT.style.display='none';
+      tip.style.display='block';
+      const tx=Math.min(touch.clientX+16,window.innerWidth-195);
+      const ty=Math.max(10,touch.clientY-120);
+      tip.style.left=tx+'px';tip.style.top=ty+'px';
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchend',e=>{
+    if(_wkMode==='draw'){
+      e.preventDefault();
+      if(!_wkDrawing||!_wkStart||!_wkPrev) {_wkDrawing=false;return;}
+      // 兩點距離夠才存線
+      const x1=sk_i2x(_wkStart.i,_wkN,_wkW), y1=sk_p2y(_wkStart.v,_wkH,_wkMn,_wkMx);
+      const x2=sk_i2x(_wkPrev.i,_wkN,_wkW), y2=sk_p2y(_wkPrev.v,_wkH,_wkMn,_wkMx);
+      if(Math.hypot(x2-x1,y2-y1)>20){
+        _userLines.push({i1:_wkStart.i,v1:_wkStart.v,i2:_wkPrev.i,v2:_wkPrev.v,color:'rgba(44,95,138,0.9)'});
+        updateLineCount();
+      }
+      _wkDrawing=false;_wkStart=null;_wkPrev=null;
+      redrawWK();
+    }else if(_wkMode==='delete'){
+      e.preventDefault();
+      const touch=e.changedTouches[0];
+      const {cx,cy}=touchToCanvasXY(touch);
+      let minDist=30,delIdx=-1;
+      _userLines.forEach((l,idx)=>{
+        const x1=sk_i2x(l.i1,_wkN,_wkW),y1=sk_p2y(l.v1,_wkH,_wkMn,_wkMx);
+        const x2=sk_i2x(l.i2,_wkN,_wkW),y2=sk_p2y(l.v2,_wkH,_wkMn,_wkMx);
+        const d=distPtToSeg(cx,cy,x1,y1,x2,y2);
+        if(d<minDist){minDist=d;delIdx=idx;}
+      });
+      if(delIdx>=0){_userLines.splice(delIdx,1);updateLineCount();redrawWK();}
+    }else{
+      // tooltip模式：隱藏tip
+      setTimeout(()=>{tip.style.display='none';redrawWK();},1500);
+    }
+  },{passive:false});
 }
 
 async function loadWeeklyKline(){
