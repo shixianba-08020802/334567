@@ -386,6 +386,16 @@ function setWKMode(mode){
 function updateLineCount(){
   document.getElementById('wkLineCount').textContent=`${_userLines.length} / 5`;
 }
+function saveLines(){
+  try{localStorage.setItem('wkUserLines',JSON.stringify(_userLines));}catch(e){}
+}
+function loadLines(){
+  try{
+    const d=localStorage.getItem('wkUserLines');
+    if(d) _userLines=JSON.parse(d).filter(l=>l.i1!=null&&l.v1!=null);
+    updateLineCount();
+  }catch(e){_userLines=[];}
+}
 function redrawWK(){
   if(!_wkBars.length||!_wkCtx) return;
   const allH=Math.max(..._wkBars.map(b=>b.h));
@@ -508,12 +518,74 @@ function setupWKHover(allH,allL){
   const tip=document.getElementById('wkTip');
   const n=_wkBars.length;
 
-  canvas.onmousemove=e=>{
+  // 電腦座標轉換
+  function mouseToCanvasXY(e){
     const rect=canvas.getBoundingClientRect();
-    const x=e.clientX-rect.left;
+    const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+    return{cx:(e.clientX-rect.left)*sx, cy:(e.clientY-rect.top)*sy};
+  }
+
+  // mousedown：開始畫線 或 刪線
+  canvas.onmousedown=e=>{
+    if(_wkMode==='draw'){
+      if(_userLines.length>=5) return;
+      const {cx,cy}=mouseToCanvasXY(e);
+      _wkStart=canvasToData(cx,cy);
+      _wkDrawing=true;
+      canvas.style.cursor='crosshair';
+    }else if(_wkMode==='delete'){
+      const {cx,cy}=mouseToCanvasXY(e);
+      let minDist=20,delIdx=-1;
+      _userLines.forEach((l,idx)=>{
+        const x1=sk_i2x(l.i1,_wkN,_wkW),y1=sk_p2y(l.v1,_wkH,_wkMn,_wkMx);
+        const x2=sk_i2x(l.i2,_wkN,_wkW),y2=sk_p2y(l.v2,_wkH,_wkMn,_wkMx);
+        const d=distPtToSeg(cx,cy,x1,y1,x2,y2);
+        if(d<minDist){minDist=d;delIdx=idx;}
+      });
+      if(delIdx>=0){_userLines.splice(delIdx,1);updateLineCount();saveLines();redrawWK();}
+    }
+  };
+
+  // mouseup：完成畫線
+  canvas.onmouseup=e=>{
+    if(_wkMode==='draw'&&_wkDrawing&&_wkStart&&_wkPrev){
+      const x1=sk_i2x(_wkStart.i,_wkN,_wkW),y1=sk_p2y(_wkStart.v,_wkH,_wkMn,_wkMx);
+      const x2=sk_i2x(_wkPrev.i,_wkN,_wkW),y2=sk_p2y(_wkPrev.v,_wkH,_wkMn,_wkMx);
+      if(Math.hypot(x2-x1,y2-y1)>15){
+        _userLines.push({i1:_wkStart.i,v1:_wkStart.v,i2:_wkPrev.i,v2:_wkPrev.v,color:'rgba(44,95,138,0.9)'});
+        updateLineCount();saveLines();
+      }
+      _wkDrawing=false;_wkStart=null;_wkPrev=null;
+      redrawWK();
+    }
+  };
+  window.addEventListener('mouseup',()=>{
+    if(_wkDrawing){_wkDrawing=false;_wkStart=null;_wkPrev=null;redrawWK();}
+  });
+
+  canvas.onmousemove=e=>{
+    const {cx,cy}=mouseToCanvasXY(e);
+
+    if(_wkMode==='draw'){
+      canvas.style.cursor='crosshair';
+      if(_wkDrawing&&_wkStart){
+        _wkPrev=canvasToData(cx,cy);
+        redrawWK();
+      }
+      tip.style.display='none';
+      return;
+    }
+    if(_wkMode==='delete'){
+      canvas.style.cursor='pointer';
+      tip.style.display='none';
+      return;
+    }
+
+    // tooltip模式
+    canvas.style.cursor='default';
     const w=canvas.width;
     const area=w-SKP.left-SKP.right;
-    const idx=Math.min(n-1,Math.max(0,Math.floor((x-SKP.left)/(area/n))));
+    const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/(area/n))));
     const b=_wkBars[idx];
     const chg=b.c-b.o, pct=(chg/b.o*100).toFixed(2);
 
@@ -546,7 +618,9 @@ function setupWKHover(allH,allL){
     if(tx+185>window.innerWidth) tx=e.clientX-190;
     tip.style.left=tx+'px';tip.style.top=ty+'px';
   };
+
   canvas.onmouseleave=()=>{
+    if(_wkMode) return; // 畫線/刪線模式不隱藏
     tip.style.display='none';
     drawSK(_wkCtx,canvas.width,canvas.height,_wkBars,allH,allL);
   };
@@ -620,7 +694,7 @@ function setupWKHover(allH,allL){
       const x2=sk_i2x(_wkPrev.i,_wkN,_wkW), y2=sk_p2y(_wkPrev.v,_wkH,_wkMn,_wkMx);
       if(Math.hypot(x2-x1,y2-y1)>20){
         _userLines.push({i1:_wkStart.i,v1:_wkStart.v,i2:_wkPrev.i,v2:_wkPrev.v,color:'rgba(44,95,138,0.9)'});
-        updateLineCount();
+        updateLineCount();saveLines();
       }
       _wkDrawing=false;_wkStart=null;_wkPrev=null;
       redrawWK();
@@ -635,7 +709,7 @@ function setupWKHover(allH,allL){
         const d=distPtToSeg(cx,cy,x1,y1,x2,y2);
         if(d<minDist){minDist=d;delIdx=idx;}
       });
-      if(delIdx>=0){_userLines.splice(delIdx,1);updateLineCount();redrawWK();}
+      if(delIdx>=0){_userLines.splice(delIdx,1);updateLineCount();saveLines();redrawWK();}
     }else{
       // tooltip模式：隱藏tip
       setTimeout(()=>{tip.style.display='none';redrawWK();},1500);
@@ -798,6 +872,7 @@ async function loadWatchlist(){
 // ══════════════════════════════════════════════════════════════════
 // 啟動
 // ══════════════════════════════════════════════════════════════════
+loadLines();
 loadWeeklyKline();
 loadWatchlist();
 setInterval(loadWeeklyKline,300000);   // 台指期週K：每5分鐘自動更新
