@@ -422,7 +422,7 @@ function redrawWK(){
 }
 
 function sk_p2y(p,h,mn,mx){return SKP.top+(1-(p-mn)/(mx-mn))*(h-SKP.top-SKP.bottom);}
-function sk_i2x(i,n,w){return SKP.left+(i+0.5)*((w-SKP.left-SKP.right)/n);}
+function sk_i2x(i,n,w){return SKP.left+(i+0.5)*((w-SKP.left-SKP.right)/(n+1));}
 
 function drawSK(ctx,w,h,bars,allH,allL){
   ctx.clearRect(0,0,w,h);
@@ -468,10 +468,27 @@ function drawSK(ctx,w,h,bars,allH,allL){
   _userLines.forEach((l,idx)=>{
     const x1=sk_i2x(l.i1,n,w), y1=sk_p2y(l.v1,h,mn,mx);
     const x2=sk_i2x(l.i2,n,w), y2=sk_p2y(l.v2,h,mn,mx);
+    const color=l.color||'rgba(44,95,138,0.9)';
     ctx.save();
-    ctx.strokeStyle=l.color||'rgba(44,95,138,0.9)';ctx.lineWidth=2;
+    ctx.strokeStyle=color;ctx.lineWidth=2;
+
+    // 實線：兩點之間
+    ctx.setLineDash([]);
     ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-    ctx.fillStyle=l.color||'rgba(44,95,138,0.9)';
+
+    // 虛線延伸：從第二點延伸到圖右邊
+    const xEdge=w-SKP.right+2;
+    if(Math.abs(x2-x1)>1){
+      const slope=(y2-y1)/(x2-x1);
+      const yEdge=y2+slope*(xEdge-x2);
+      ctx.setLineDash([5,4]);
+      ctx.globalAlpha=0.55;
+      ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(xEdge,yEdge);ctx.stroke();
+      ctx.setLineDash([]);ctx.globalAlpha=1;
+    }
+
+    // 端點圓
+    ctx.fillStyle=color;
     [[x1,y1],[x2,y2]].forEach(([px,py])=>{
       ctx.beginPath();ctx.arc(px,py,4,0,Math.PI*2);ctx.fill();
     });
