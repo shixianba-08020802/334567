@@ -351,6 +351,24 @@ let _wkBars=[], _wkCtx=null, _wvCtx=null;
 // 手繪線相關
 let _userLines=[], _wkMode=null, _wkDrawing=false, _wkStart=null, _wkPrev=null;
 let _wkMn=0, _wkMx=0, _wkN=0, _wkW=0, _wkH=0;
+let _wkSnapPoint=null; // 目前吸附點
+
+// 吸附函式：找最近的K棒高/低點，距離在閾值內就吸附
+function snapToKLine(cx,cy){
+  const threshold=22; // pixel距離閾值
+  let best=threshold, snap=null;
+  for(let i=0;i<_wkN;i++){
+    const b=_wkBars[i];
+    const bx=sk_i2x(i,_wkN,_wkW);
+    const hy=sk_p2y(b.h,_wkH,_wkMn,_wkMx);
+    const ly=sk_p2y(b.l,_wkH,_wkMn,_wkMx);
+    const dH=Math.hypot(cx-bx,cy-hy);
+    const dL=Math.hypot(cx-bx,cy-ly);
+    if(dH<best){best=dH;snap={i,v:b.h,x:bx,y:hy,type:'high'};}
+    if(dL<best){best=dL;snap={i,v:b.l,x:bx,y:ly,type:'low'};}
+  }
+  return snap;
+}
 
 // 座標轉換
 function touchToCanvasXY(touch){
@@ -469,6 +487,15 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.lineTo(sk_i2x(_wkPrev.i,n,w),sk_p2y(_wkPrev.v,h,mn,mx));
     ctx.stroke();ctx.setLineDash([]);ctx.restore();
   }
+
+  // 吸附點指示圈
+  if(ctx===_wkCtx&&_wkMode==='draw'&&_wkSnapPoint){
+    ctx.save();
+    ctx.strokeStyle='rgba(44,95,138,0.9)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(_wkSnapPoint.x,_wkSnapPoint.y,7,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='rgba(44,95,138,0.25)';ctx.fill();
+    ctx.restore();
+  }
 }
 
 function drawSV(ctx,w,h,bars){
@@ -530,7 +557,8 @@ function setupWKHover(allH,allL){
     if(_wkMode==='draw'){
       if(_userLines.length>=5) return;
       const {cx,cy}=mouseToCanvasXY(e);
-      _wkStart=canvasToData(cx,cy);
+      const snap=snapToKLine(cx,cy);
+      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
       _wkDrawing=true;
       canvas.style.cursor='crosshair';
     }else if(_wkMode==='delete'){
@@ -569,8 +597,14 @@ function setupWKHover(allH,allL){
     if(_wkMode==='draw'){
       canvas.style.cursor='crosshair';
       if(_wkDrawing&&_wkStart){
-        _wkPrev=canvasToData(cx,cy);
+        const snap=snapToKLine(cx,cy);
+        _wkSnapPoint=snap||null;
+        _wkPrev=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
         redrawWK();
+      }else{
+        // 未開始畫，只顯示吸附指示
+        const snap=snapToKLine(cx,cy);
+        if(snap!==_wkSnapPoint){_wkSnapPoint=snap;redrawWK();}
       }
       tip.style.display='none';
       return;
@@ -620,7 +654,7 @@ function setupWKHover(allH,allL){
   };
 
   canvas.onmouseleave=()=>{
-    if(_wkMode) return; // 畫線/刪線模式不隱藏
+    if(_wkMode){_wkSnapPoint=null;redrawWK();return;}
     tip.style.display='none';
     drawSK(_wkCtx,canvas.width,canvas.height,_wkBars,allH,allL);
   };
@@ -631,7 +665,9 @@ function setupWKHover(allH,allL){
       e.preventDefault();
       if(_userLines.length>=5) return;
       const {cx,cy}=touchToCanvasXY(e.touches[0]);
-      _wkStart=canvasToData(cx,cy);
+      const snap=snapToKLine(cx,cy);
+      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
+      _wkSnapPoint=snap||null;
       _wkDrawing=true;
     }else if(_wkMode==='delete'){
       // touchstart只記位置
@@ -645,7 +681,9 @@ function setupWKHover(allH,allL){
       e.preventDefault();
       if(!_wkDrawing||!_wkStart) return;
       const {cx,cy}=touchToCanvasXY(e.touches[0]);
-      _wkPrev=canvasToData(cx,cy);
+      const snap=snapToKLine(cx,cy);
+      _wkSnapPoint=snap||null;
+      _wkPrev=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
       redrawWK();
     }else if(_wkMode==='delete'){
       // 不處理移動
