@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shixianba看板</title>
+<title>台股即時看板</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -127,23 +127,8 @@
 
     /* 個股清單：手機改卡片式 */
     .wl-table-wrap{display:none;}
-    .wl-cards{display:block;}
-    .wl-card{
-      background:#f0ebe0;border:1px solid var(--border);border-radius:8px;
-      padding:10px 12px;margin-bottom:8px;
-    }
-    .wl-card-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
-    .wl-card-code{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
-    .wl-card-name{font-size:15px;font-weight:700;}
-    .wl-card-risk{font-family:var(--font-mono);font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(44,95,138,.1);color:var(--accent-blue);}
-    .wl-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-bottom:6px;}
-    .wl-card-item{font-family:var(--font-mono);font-size:10px;}
-    .wl-card-lbl{color:var(--text-muted);font-size:9px;margin-bottom:1px;}
-    .wl-card-note{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:5px;margin-top:4px;}
-  }
   @media(min-width:641px){
-    .wl-cards{display:none;}
-    .wl-table-wrap{display:block;overflow-x:auto;}
+    .wk-toolbar button{font-size:12px;}
   }
 </style>
 </head>
@@ -188,31 +173,37 @@
     <div class="skline-src" id="wkSrc">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
   </div>
 
-  <!-- 個股關注清單（可由試算表同步） -->
+  <!-- 台指期 週K線（星期一 ～ 星期五） -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
-      <div class="section-title">▪ 個股關注清單</div>
-      <div class="oi-date" id="wlUpdateTime"><span class="spinner"></span>載入中...</div>
+      <div class="section-title">▪ 台指期　週K線（近20週）</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:10px;">
+        <span>週期：星期一 ～ 星期五</span>
+        <span id="mfDateRange" style="color:var(--text-dim)">—</span>
+      </div>
     </div>
-    <div class="wl-table-wrap">
-      <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;">
-        <thead>
-          <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);font-size:10px;letter-spacing:.05em;">
-            <th style="padding:8px 10px;">代號</th>
-            <th style="padding:8px 10px;">名稱</th>
-            <th style="padding:8px 10px;">營收趨勢</th>
-            <th style="padding:8px 10px;">估值位置</th>
-            <th style="padding:8px 10px;">風險</th>
-            <th style="padding:8px 10px;">題材／備註</th>
-          </tr>
-        </thead>
-        <tbody id="watchlistBody">
-          <tr><td colspan="6" style="padding:14px;text-align:center;color:var(--text-muted);">載入中...</td></tr>
-        </tbody>
-      </table>
+    <div class="skline-stats">
+      <div class="skline-stat"><div class="skline-stat-label">最新收盤</div><div class="skline-stat-val neutral" id="mfClose">—</div></div>
+      <div class="skline-stat"><div class="skline-stat-label">本週漲跌</div><div class="skline-stat-val neutral" id="mfChg">—</div></div>
+      <div class="skline-stat"><div class="skline-stat-label">區間最高</div><div class="skline-stat-val up" id="mfHigh">—</div></div>
+      <div class="skline-stat"><div class="skline-stat-label">區間最低</div><div class="skline-stat-val down" id="mfLow">—</div></div>
     </div>
-    <div class="wl-cards" id="watchlistCards"></div>
-    <div class="skline-src" id="wlSrc">資料來源：手動內建資料（尚未連結試算表）</div>
+    <div class="wk-toolbar">
+      <button class="wk-tool-btn" id="mfBtnDraw" onclick="setMFMode('draw')">✏ 畫線</button>
+      <button class="wk-tool-btn" id="mfBtnDel" onclick="setMFMode('delete')">✕ 刪線</button>
+      <span class="wk-line-count" id="mfLineCount">0 / 5</span>
+    </div>
+    <div class="skline-canvas-wrap" id="mfWrap">
+      <div class="skline-loader" id="mfLoader">
+        <span class="spinner"></span>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)" id="mfLoaderMsg">載入資料…</span>
+      </div>
+      <canvas id="mfCanvas"></canvas>
+    </div>
+    <div class="skline-vol-wrap" id="mvWrap2">
+      <canvas id="mvCanvas2"></canvas>
+    </div>
+    <div class="skline-src">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
   </div>
 
   <!-- 選擇權損益試算 -->
@@ -353,15 +344,14 @@ let _userLines=[], _wkMode=null, _wkDrawing=false, _wkStart=null, _wkPrev=null;
 let _wkMn=0, _wkMx=0, _wkN=0, _wkW=0, _wkH=0;
 let _wkSnapPoint=null; // 目前吸附點
 
-// 吸附函式：找最近的K棒高/低點，距離在閾值內就吸附
-function snapToKLine(cx,cy){
-  const threshold=22; // pixel距離閾值
+function snapToChart(cx,cy,bars,N,W,H,Mn,Mx){
+  const threshold=22;
   let best=threshold, snap=null;
-  for(let i=0;i<_wkN;i++){
-    const b=_wkBars[i];
-    const bx=sk_i2x(i,_wkN,_wkW);
-    const hy=sk_p2y(b.h,_wkH,_wkMn,_wkMx);
-    const ly=sk_p2y(b.l,_wkH,_wkMn,_wkMx);
+  for(let i=0;i<N;i++){
+    const b=bars[i];
+    const bx=sk_i2x(i,N,W);
+    const hy=sk_p2y(b.h,H,Mn,Mx);
+    const ly=sk_p2y(b.l,H,Mn,Mx);
     const dH=Math.hypot(cx-bx,cy-hy);
     const dL=Math.hypot(cx-bx,cy-ly);
     if(dH<best){best=dH;snap={i,v:b.h,x:bx,y:hy,type:'high'};}
@@ -369,6 +359,8 @@ function snapToKLine(cx,cy){
   }
   return snap;
 }
+function snapToKLine(cx,cy){return snapToChart(cx,cy,_wkBars,_wkN,_wkW,_wkH,_wkMn,_wkMx);}
+function snapToMFLine(cx,cy){return snapToChart(cx,cy,_mfBars,_mfN,_mfW,_mfH,_mfMn,_mfMx);}
 
 // 座標轉換
 function touchToCanvasXY(touch){
@@ -463,31 +455,31 @@ function drawSK(ctx,w,h,bars,allH,allL){
 
   // 儲存座標參數供手繪線使用
   if(ctx===_wkCtx){_wkMn=mn;_wkMx=mx;_wkN=n;_wkW=w;_wkH=h;}
+  if(ctx===_mfCtx){_mfMn=mn;_mfMx=mx;_mfN=n;_mfW=w;_mfH=h;}
 
-  // 繪製使用者手繪線
-  _userLines.forEach((l,idx)=>{
+  // 根據ctx選用對應的線/狀態
+  const _al=ctx===_mfCtx?_mfUserLines:_userLines;
+  const _ad=ctx===_mfCtx?_mfDrawing:_wkDrawing;
+  const _as=ctx===_mfCtx?_mfStart:_wkStart;
+  const _ap=ctx===_mfCtx?_mfPrev:_wkPrev;
+  const _asn=ctx===_mfCtx?_mfSnapPoint:_wkSnapPoint;
+  const _am=ctx===_mfCtx?_mfMode:_wkMode;
+
+  // 繪製手繪線
+  _al.forEach(l=>{
     const x1=sk_i2x(l.i1,n,w), y1=sk_p2y(l.v1,h,mn,mx);
     const x2=sk_i2x(l.i2,n,w), y2=sk_p2y(l.v2,h,mn,mx);
     const color=l.color||'rgba(44,95,138,0.9)';
-    ctx.save();
-    ctx.strokeStyle=color;ctx.lineWidth=2;
-
-    // 實線：兩點之間
+    ctx.save();ctx.strokeStyle=color;ctx.lineWidth=2;
     ctx.setLineDash([]);
     ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-
-    // 虛線延伸：從第二點延伸到圖右邊
     const xEdge=w-SKP.right+2;
     if(Math.abs(x2-x1)>1){
-      const slope=(y2-y1)/(x2-x1);
-      const yEdge=y2+slope*(xEdge-x2);
-      ctx.setLineDash([5,4]);
-      ctx.globalAlpha=0.55;
+      const slope=(y2-y1)/(x2-x1),yEdge=y2+slope*(xEdge-x2);
+      ctx.setLineDash([5,4]);ctx.globalAlpha=0.55;
       ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(xEdge,yEdge);ctx.stroke();
       ctx.setLineDash([]);ctx.globalAlpha=1;
     }
-
-    // 端點圓
     ctx.fillStyle=color;
     [[x1,y1],[x2,y2]].forEach(([px,py])=>{
       ctx.beginPath();ctx.arc(px,py,4,0,Math.PI*2);ctx.fill();
@@ -495,21 +487,21 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.restore();
   });
 
-  // 預覽線（畫線模式拖曳中）
-  if(ctx===_wkCtx&&_wkDrawing&&_wkPrev){
+  // 預覽線
+  if(_ad&&_ap){
     ctx.save();
     ctx.strokeStyle='rgba(44,95,138,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
     ctx.beginPath();
-    ctx.moveTo(sk_i2x(_wkStart.i,n,w),sk_p2y(_wkStart.v,h,mn,mx));
-    ctx.lineTo(sk_i2x(_wkPrev.i,n,w),sk_p2y(_wkPrev.v,h,mn,mx));
+    ctx.moveTo(sk_i2x(_as.i,n,w),sk_p2y(_as.v,h,mn,mx));
+    ctx.lineTo(sk_i2x(_ap.i,n,w),sk_p2y(_ap.v,h,mn,mx));
     ctx.stroke();ctx.setLineDash([]);ctx.restore();
   }
 
   // 吸附點指示圈
-  if(ctx===_wkCtx&&_wkMode==='draw'&&_wkSnapPoint){
+  if(_am==='draw'&&_asn){
     ctx.save();
     ctx.strokeStyle='rgba(44,95,138,0.9)';ctx.lineWidth=2;
-    ctx.beginPath();ctx.arc(_wkSnapPoint.x,_wkSnapPoint.y,7,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.arc(_asn.x,_asn.y,7,0,Math.PI*2);ctx.stroke();
     ctx.fillStyle='rgba(44,95,138,0.25)';ctx.fill();
     ctx.restore();
   }
@@ -816,32 +808,28 @@ async function loadWeeklyKline(){
 
   document.getElementById('wkLoader').style.display='none';
   renderWeeklyCharts();
+
+  // 同份資料建立 Mon-Fri 週K
+  const mfAllBars=buildWeekly_MF(rows);
+  _mfBars=mfAllBars.slice(-20);
+  if(_mfBars.length>=2){
+    const mfLast=_mfBars[_mfBars.length-1], mfPrev=_mfBars[_mfBars.length-2];
+    const mfChg=mfLast.c-mfPrev.c, mfPct=(mfChg/mfPrev.c*100);
+    document.getElementById('mfClose').textContent=fmtI(mfLast.c);
+    const mfCe=document.getElementById('mfChg');
+    mfCe.textContent=`${mfChg>=0?'+':''}${fmtI(mfChg)} (${mfPct.toFixed(2)}%)`;
+    mfCe.className='skline-stat-val '+(mfChg>=0?'up':'down');
+    document.getElementById('mfHigh').textContent=fmtI(Math.max(..._mfBars.map(b=>b.h)));
+    document.getElementById('mfLow').textContent=fmtI(Math.min(..._mfBars.map(b=>b.l)));
+    document.getElementById('mfDateRange').textContent=`${_mfBars[0].startDate} ～ ${mfLast.endDate}`;
+    document.getElementById('mfLoader').style.display='none';
+    renderMFCharts();
+  }
 }
 
 window.addEventListener('resize',()=>{if(_wkBars.length)renderWeeklyCharts();});
 
-// ══════════════════════════════════════════════════════════════════
-// ██  個股關注清單（可由 Google 試算表同步）  ████████████████████
-// ══════════════════════════════════════════════════════════════════
-// 設定方式：
-// 1) Google 試算表欄位（依序）：代號,名稱,營收趨勢,估值位置,風險,題材
-const WATCHLIST_CSV_URL = 'https://docs.google.com/spreadsheets/d/1o2Y994vWPlD_dgrP3y1Z5ecGrdtUIGqNAqAtsKG_zs8/export?format=csv&gid=0';
-
-const staticWatchlist = [
-  {code:'6104',name:'創惟',   trend:'年減',         valuation:'偏高',     risk:'中',          note:'USB4／車用'},
-  {code:'6531',name:'愛普',   trend:'強勁成長',     valuation:'極高',     risk:'最高',        note:'矽電容／VHM'},
-  {code:'4966',name:'譜瑞',   trend:'回升中',       valuation:'合理',     risk:'中低',        note:'DP／車用顯示'},
-  {code:'2449',name:'京元電', trend:'連13月增',     valuation:'中高',     risk:'中高',        note:'AI測試龍頭'},
-  {code:'3019',name:'亞光',   trend:'DSC倍增',      valuation:'偏低',     risk:'中',          note:'液冷散熱'},
-  {code:'1513',name:'中興電', trend:'累計年增2.33%',valuation:'合理偏低', risk:'中',          note:'重電／電網／儲能'},
-  {code:'2355',name:'敬鵬',   trend:'創24月新高',   valuation:'中間',     risk:'中',          note:'車用PCB／衛星'},
-  {code:'3034',name:'聯詠',   trend:'Q2強彈',       valuation:'偏高',     risk:'中高',        note:'驅動IC龍頭／SoC'},
-  {code:'8016',name:'矽創',   trend:'連月年增37%',  valuation:'偏低',     risk:'中',          note:'TDDI／車用驅動IC'},
-  {code:'3227',name:'原相',   trend:'月營收轉正',   valuation:'偏低',     risk:'中',          note:'光學感測IC／機器人感測'},
-  {code:'3152',name:'璟德',   trend:'4月轉正',      valuation:'最低',     risk:'中(減資完成)',note:'低軌衛星／LTCC'},
-  {code:'2454',name:'聯發科', trend:'AI ASIC成長',  valuation:'偏高',     risk:'中高',        note:'手機晶片／AI ASIC'},
-];
-
+// parseCSV（保留，供期貨CSV使用）
 function parseCSV(text){
   const rows=[];
   let row=[],cur='',inQ=false;
@@ -862,76 +850,282 @@ function parseCSV(text){
   return rows.filter(r=>r.some(c=>c.trim()!==''));
 }
 
-function renderWatchlist(items,sourceLabel){
-  const tbody=document.getElementById('watchlistBody');
-  const cards=document.getElementById('watchlistCards');
-  if(!items||!items.length){
-    if(tbody) tbody.innerHTML=`<tr><td colspan="6" style="padding:14px;text-align:center;color:var(--text-muted);">無資料</td></tr>`;
-    if(cards) cards.innerHTML='';
-  }else{
-    // 桌機table
-    if(tbody) tbody.innerHTML=items.map(r=>`
-      <tr style="border-bottom:1px solid rgba(224,216,200,0.5);">
-        <td style="padding:8px 10px;color:var(--text-muted);">${r.code}</td>
-        <td style="padding:8px 10px;">${r.name}</td>
-        <td style="padding:8px 10px;">${r.trend}</td>
-        <td style="padding:8px 10px;">${r.valuation}</td>
-        <td style="padding:8px 10px;">${r.risk}</td>
-        <td style="padding:8px 10px;color:var(--text-muted);">${r.note}</td>
-      </tr>`).join('');
-    // 手機卡片
-    if(cards) cards.innerHTML=items.map(r=>`
-      <div class="wl-card">
-        <div class="wl-card-top">
-          <div>
-            <span class="wl-card-code">${r.code}　</span>
-            <span class="wl-card-name">${r.name}</span>
-          </div>
-          <span class="wl-card-risk">${r.risk}</span>
-        </div>
-        <div class="wl-card-grid">
-          <div class="wl-card-item"><div class="wl-card-lbl">營收趨勢</div>${r.trend}</div>
-          <div class="wl-card-item"><div class="wl-card-lbl">估值位置</div>${r.valuation}</div>
-        </div>
-        <div class="wl-card-note">▸ ${r.note}</div>
-      </div>`).join('');
+// ══════════════════════════════════════════════════════════════════
+// ██  Mon-Fri 週K線（星期一 ～ 星期五）  ██████████████████████████
+// ══════════════════════════════════════════════════════════════════
+let _mfBars=[], _mfCtx=null;
+let _mfUserLines=[], _mfMode=null, _mfDrawing=false, _mfStart=null, _mfPrev=null;
+let _mfMn=0, _mfMx=0, _mfN=0, _mfW=0, _mfH=0;
+let _mfSnapPoint=null;
+
+function buildWeekly_MF(rows){
+  const sessionOrder={'盤後':0,'一般':1};
+  function getWeekKey(y,m,d){
+    const wd=new Date(Date.UTC(y,m-1,d)).getUTCDay(); // 0=日,1=一...5=五,6=六
+    const diffToMon=(wd-1+7)%7;
+    const mon=new Date(Date.UTC(y,m-1,d));
+    mon.setUTCDate(mon.getUTCDate()-diffToMon);
+    return`${mon.getUTCFullYear()}-${String(mon.getUTCMonth()+1).padStart(2,'0')}-${String(mon.getUTCDate()).padStart(2,'0')}`;
   }
-  const srcEl=document.getElementById('wlSrc');
-  if(srcEl) srcEl.textContent=sourceLabel;
-  const upEl=document.getElementById('wlUpdateTime');
-  if(upEl) upEl.textContent='更新 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+  const buckets=new Map();
+  for(const r of rows){
+    const key=getWeekKey(r.y,r.m,r.d);
+    if(!buckets.has(key)) buckets.set(key,[]);
+    buckets.get(key).push(r);
+  }
+  const keys=[...buckets.keys()].sort();
+  return keys.map(key=>{
+    const slice=buckets.get(key).sort((a,b)=>{
+      if(a.dateKey!==b.dateKey) return a.dateKey<b.dateKey?-1:1;
+      return(sessionOrder[a.session]??0)-(sessionOrder[b.session]??0);
+    });
+    const first=slice[0],last=slice[slice.length-1];
+    const [ky,km,kd]=key.split('-').map(Number);
+    const fri=new Date(Date.UTC(ky,km-1,kd));
+    fri.setUTCDate(fri.getUTCDate()+4);
+    const endKey=`${fri.getUTCFullYear()}-${String(fri.getUTCMonth()+1).padStart(2,'0')}-${String(fri.getUTCDate()).padStart(2,'0')}`;
+    return{
+      label:`${String(km).padStart(2,'0')}/${String(kd).padStart(2,'0')}`,
+      startDate:key, endDate:endKey,
+      o:first.o,
+      h:Math.max(...slice.map(x=>x.h)),
+      l:Math.min(...slice.map(x=>x.l)),
+      c:last.c,
+      v:slice.reduce((s,x)=>s+(x.v||0),0),
+      days:slice.length,
+      fxBuy:null, fxSell:null,
+    };
+  });
 }
 
-async function loadWatchlist(){
-  if(!WATCHLIST_CSV_URL){
-    renderWatchlist(staticWatchlist,'資料來源：手動內建資料（尚未連結試算表）');
-    return;
-  }
-  try{
-    const r=await fetch(`/.netlify/functions/proxy?url=${encodeURIComponent(WATCHLIST_CSV_URL)}`,{signal:AbortSignal.timeout(15000)});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const text=await r.text();
-    const rows=parseCSV(text);
-    if(rows.length<2) throw new Error('試算表內容為空');
-    const items=rows.slice(1).map(c=>({
-      code:(c[0]??'').trim(), name:(c[1]??'').trim(),
-      trend:(c[2]??'').trim(), valuation:(c[3]??'').trim(), risk:(c[4]??'').trim(), note:(c[5]??'').trim(),
-    })).filter(r=>r.code);
-    renderWatchlist(items,'資料來源：Google 試算表（自動同步）');
-  }catch(e){
-    console.warn('watchlist fetch failed:',e.message);
-    renderWatchlist(staticWatchlist,'⚠ 試算表讀取失敗，顯示備用資料');
-  }
+function setMFMode(mode){
+  if(_mfMode===mode){_mfMode=null;}else{_mfMode=mode;}
+  _mfDrawing=false;_mfStart=null;_mfPrev=null;
+  document.getElementById('mfBtnDraw').classList.toggle('active',_mfMode==='draw');
+  document.getElementById('mfBtnDel').classList.toggle('active',_mfMode==='delete');
 }
+function updateMFLineCount(){
+  document.getElementById('mfLineCount').textContent=`${_mfUserLines.length} / 5`;
+}
+function saveMFLines(){try{localStorage.setItem('mfUserLines',JSON.stringify(_mfUserLines));}catch(e){}}
+function loadMFLines(){
+  try{
+    const d=localStorage.getItem('mfUserLines');
+    if(d) _mfUserLines=JSON.parse(d).filter(l=>l.i1!=null&&l.v1!=null);
+    updateMFLineCount();
+  }catch(e){_mfUserLines=[];}
+}
+function redrawMF(){
+  if(!_mfBars.length||!_mfCtx) return;
+  const allH=Math.max(..._mfBars.map(b=>b.h));
+  const allL=Math.min(..._mfBars.map(b=>b.l));
+  drawSK(_mfCtx,_mfW,_mfH,_mfBars,allH,allL);
+}
+
+function renderMFCharts(){
+  if(!_mfBars.length) return;
+  const kC=document.getElementById('mfCanvas');
+  const vC=document.getElementById('mvCanvas2');
+  kC.width=document.getElementById('mfWrap').offsetWidth;
+  kC.height=document.getElementById('mfWrap').offsetHeight;
+  vC.width=document.getElementById('mvWrap2').offsetWidth;
+  vC.height=document.getElementById('mvWrap2').offsetHeight;
+  _mfCtx=kC.getContext('2d');
+  const allH=Math.max(..._mfBars.map(b=>b.h));
+  const allL=Math.min(..._mfBars.map(b=>b.l));
+  drawSK(_mfCtx,kC.width,kC.height,_mfBars,allH,allL);
+  drawSV(vC.getContext('2d'),vC.width,vC.height,_mfBars);
+  setupMFHover(allH,allL);
+}
+
+function setupMFHover(allH,allL){
+  const canvas=document.getElementById('mfCanvas');
+  const tip=document.getElementById('wkTip');
+  const n=_mfBars.length;
+
+  function mfCanvasXY(e){
+    const rect=canvas.getBoundingClientRect();
+    const sx=canvas.width/rect.width,sy=canvas.height/rect.height;
+    return{cx:(e.clientX-rect.left)*sx,cy:(e.clientY-rect.top)*sy};
+  }
+  function mfCanvasXYTouch(touch){
+    const rect=canvas.getBoundingClientRect();
+    const sx=canvas.width/rect.width,sy=canvas.height/rect.height;
+    return{cx:(touch.clientX-rect.left)*sx,cy:(touch.clientY-rect.top)*sy};
+  }
+  function mfCd(cx,cy){
+    const barW=(_mfW-SKP.left-SKP.right)/(_mfN+1);
+    const i=Math.max(0,Math.min(_mfN-1,Math.round((cx-SKP.left)/barW-0.5)));
+    const v=_mfMn+(1-(cy-SKP.top)/(_mfH-SKP.top-SKP.bottom))*(_mfMx-_mfMn);
+    return{i,v};
+  }
+
+  // 滑鼠
+  canvas.onmousedown=e=>{
+    if(_mfMode==='draw'){
+      if(_mfUserLines.length>=5) return;
+      const {cx,cy}=mfCanvasXY(e);
+      const snap=snapToMFLine(cx,cy);
+      _mfStart=snap?{i:snap.i,v:snap.v}:mfCd(cx,cy);
+      _mfDrawing=true;canvas.style.cursor='crosshair';
+    }else if(_mfMode==='delete'){
+      const {cx,cy}=mfCanvasXY(e);
+      let minDist=20,delIdx=-1;
+      _mfUserLines.forEach((l,idx)=>{
+        const x1=sk_i2x(l.i1,_mfN,_mfW),y1=sk_p2y(l.v1,_mfH,_mfMn,_mfMx);
+        const x2=sk_i2x(l.i2,_mfN,_mfW),y2=sk_p2y(l.v2,_mfH,_mfMn,_mfMx);
+        const d=distPtToSeg(cx,cy,x1,y1,x2,y2);
+        if(d<minDist){minDist=d;delIdx=idx;}
+      });
+      if(delIdx>=0){_mfUserLines.splice(delIdx,1);updateMFLineCount();saveMFLines();redrawMF();}
+    }
+  };
+  canvas.onmouseup=e=>{
+    if(_mfMode==='draw'&&_mfDrawing&&_mfStart&&_mfPrev){
+      const x1=sk_i2x(_mfStart.i,_mfN,_mfW),y1=sk_p2y(_mfStart.v,_mfH,_mfMn,_mfMx);
+      const x2=sk_i2x(_mfPrev.i,_mfN,_mfW),y2=sk_p2y(_mfPrev.v,_mfH,_mfMn,_mfMx);
+      if(Math.hypot(x2-x1,y2-y1)>15){
+        _mfUserLines.push({i1:_mfStart.i,v1:_mfStart.v,i2:_mfPrev.i,v2:_mfPrev.v,color:'rgba(44,95,138,0.9)'});
+        updateMFLineCount();saveMFLines();
+      }
+      _mfDrawing=false;_mfStart=null;_mfPrev=null;redrawMF();
+    }
+  };
+  window.addEventListener('mouseup',()=>{
+    if(_mfDrawing){_mfDrawing=false;_mfStart=null;_mfPrev=null;redrawMF();}
+  });
+
+  canvas.onmousemove=e=>{
+    const {cx,cy}=mfCanvasXY(e);
+    if(_mfMode==='draw'){
+      canvas.style.cursor='crosshair';
+      if(_mfDrawing&&_mfStart){
+        const snap=snapToMFLine(cx,cy);
+        _mfSnapPoint=snap||null;
+        _mfPrev=snap?{i:snap.i,v:snap.v}:mfCd(cx,cy);
+        redrawMF();
+      }else{
+        const snap=snapToMFLine(cx,cy);
+        if(snap!==_mfSnapPoint){_mfSnapPoint=snap;redrawMF();}
+      }
+      tip.style.display='none';return;
+    }
+    if(_mfMode==='delete'){canvas.style.cursor='pointer';tip.style.display='none';return;}
+    canvas.style.cursor='default';
+    const area=canvas.width-SKP.left-SKP.right;
+    const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/(area/(n+1)))));
+    const b=_mfBars[idx]; if(!b) return;
+    const chg=b.c-b.o,pct=(chg/b.o*100).toFixed(2);
+    drawSK(_mfCtx,canvas.width,canvas.height,_mfBars,allH,allL);
+    const bx=sk_i2x(idx,n,canvas.width);
+    _mfCtx.strokeStyle='rgba(44,95,138,0.35)';_mfCtx.lineWidth=1;_mfCtx.setLineDash([3,3]);
+    _mfCtx.beginPath();_mfCtx.moveTo(bx,SKP.top);_mfCtx.lineTo(bx,canvas.height-SKP.bottom);_mfCtx.stroke();
+    _mfCtx.setLineDash([]);
+    document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
+    document.getElementById('wkTipO').textContent=fmtI(b.o);
+    document.getElementById('wkTipH').textContent=fmtI(b.h);
+    document.getElementById('wkTipL').textContent=fmtI(b.l);
+    document.getElementById('wkTipC').textContent=fmtI(b.c);
+    const tc=document.getElementById('wkTipChg');
+    tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
+    tc.className=chg>=0?'up':'down';
+    document.getElementById('wkTipV').textContent=fmtV(b.v);
+    document.getElementById('wkTipFxRow').style.display='none';
+    tip.style.display='block';
+    let tx=e.clientX+16,ty=e.clientY-10;
+    if(tx+185>window.innerWidth) tx=e.clientX-190;
+    tip.style.left=tx+'px';tip.style.top=ty+'px';
+  };
+  canvas.onmouseleave=()=>{
+    if(_mfMode){_mfSnapPoint=null;redrawMF();return;}
+    tip.style.display='none';
+    drawSK(_mfCtx,canvas.width,canvas.height,_mfBars,allH,allL);
+  };
+
+  // touch
+  canvas.addEventListener('touchstart',e=>{
+    if(_mfMode==='draw'){
+      e.preventDefault();
+      if(_mfUserLines.length>=5) return;
+      const {cx,cy}=mfCanvasXYTouch(e.touches[0]);
+      const snap=snapToMFLine(cx,cy);
+      _mfStart=snap?{i:snap.i,v:snap.v}:mfCd(cx,cy);
+      _mfSnapPoint=snap||null;_mfDrawing=true;
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchmove',e=>{
+    if(_mfMode==='draw'){
+      e.preventDefault();
+      if(!_mfDrawing||!_mfStart) return;
+      const {cx,cy}=mfCanvasXYTouch(e.touches[0]);
+      const snap=snapToMFLine(cx,cy);
+      _mfSnapPoint=snap||null;
+      _mfPrev=snap?{i:snap.i,v:snap.v}:mfCd(cx,cy);
+      redrawMF();
+    }else if(_mfMode==='delete'){
+    }else{
+      e.preventDefault();
+      const touch=e.touches[0];
+      const {cx}=mfCanvasXYTouch(touch);
+      const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
+      const b=_mfBars[idx]; if(!b) return;
+      const chg=b.c-b.o,pct=(chg/b.o*100).toFixed(2);
+      drawSK(_mfCtx,canvas.width,canvas.height,_mfBars,allH,allL);
+      document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
+      document.getElementById('wkTipO').textContent=fmtI(b.o);
+      document.getElementById('wkTipH').textContent=fmtI(b.h);
+      document.getElementById('wkTipL').textContent=fmtI(b.l);
+      document.getElementById('wkTipC').textContent=fmtI(b.c);
+      const tc=document.getElementById('wkTipChg');
+      tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
+      tc.className=chg>=0?'up':'down';
+      document.getElementById('wkTipV').textContent=fmtV(b.v);
+      document.getElementById('wkTipFxRow').style.display='none';
+      tip.style.display='block';
+      const tx=Math.min(touch.clientX+16,window.innerWidth-195);
+      const ty=Math.max(10,touch.clientY-120);
+      tip.style.left=tx+'px';tip.style.top=ty+'px';
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchend',e=>{
+    if(_mfMode==='draw'){
+      e.preventDefault();
+      if(!_mfDrawing||!_mfStart||!_mfPrev){_mfDrawing=false;return;}
+      const x1=sk_i2x(_mfStart.i,_mfN,_mfW),y1=sk_p2y(_mfStart.v,_mfH,_mfMn,_mfMx);
+      const x2=sk_i2x(_mfPrev.i,_mfN,_mfW),y2=sk_p2y(_mfPrev.v,_mfH,_mfMn,_mfMx);
+      if(Math.hypot(x2-x1,y2-y1)>20){
+        _mfUserLines.push({i1:_mfStart.i,v1:_mfStart.v,i2:_mfPrev.i,v2:_mfPrev.v,color:'rgba(44,95,138,0.9)'});
+        updateMFLineCount();saveMFLines();
+      }
+      _mfDrawing=false;_mfStart=null;_mfPrev=null;redrawMF();
+    }else if(_mfMode==='delete'){
+      e.preventDefault();
+      const {cx,cy}=mfCanvasXYTouch(e.changedTouches[0]);
+      let minDist=30,delIdx=-1;
+      _mfUserLines.forEach((l,idx)=>{
+        const x1=sk_i2x(l.i1,_mfN,_mfW),y1=sk_p2y(l.v1,_mfH,_mfMn,_mfMx);
+        const x2=sk_i2x(l.i2,_mfN,_mfW),y2=sk_p2y(l.v2,_mfH,_mfMn,_mfMx);
+        const d=distPtToSeg(cx,cy,x1,y1,x2,y2);
+        if(d<minDist){minDist=d;delIdx=idx;}
+      });
+      if(delIdx>=0){_mfUserLines.splice(delIdx,1);updateMFLineCount();saveMFLines();redrawMF();}
+    }else{
+      setTimeout(()=>{tip.style.display='none';redrawMF();},1500);
+    }
+  },{passive:false});
+}
+
+window.addEventListener('resize',()=>{if(_mfBars.length) renderMFCharts();});
 
 // ══════════════════════════════════════════════════════════════════
 // 啟動
 // ══════════════════════════════════════════════════════════════════
 loadLines();
+loadMFLines();
 loadWeeklyKline();
-loadWatchlist();
 setInterval(loadWeeklyKline,300000);   // 台指期週K：每5分鐘自動更新
-setInterval(loadWatchlist,300000);     // 個股關注清單：每5分鐘同步試算表
 
 // ══════════════════════════════════════════════════════════════════
 // ██  選擇權損益試算  ██████████████████████████████████████████████
