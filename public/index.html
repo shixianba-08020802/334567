@@ -248,10 +248,10 @@
     <span class="stip-lbl">買入/賣出</span><span id="wkTipFx" style="color:var(--text-muted)"></span>
   </div>
   <div id="wkTipP1Row" class="stip-row" style="display:none;">
-    <span class="stip-lbl" style="color:#b8900a;">價1</span><span id="wkTipP1" style="color:#b8900a;"></span>
+    <span class="stip-lbl" style="color:#2196F3;">價1</span><span id="wkTipP1" style="color:#2196F3;"></span>
   </div>
   <div id="wkTipP2Row" class="stip-row" style="display:none;">
-    <span class="stip-lbl" style="color:#cc5500;">價2</span><span id="wkTipP2" style="color:#cc5500;"></span>
+    <span class="stip-lbl" style="color:#9C27B0;">價2</span><span id="wkTipP2" style="color:#9C27B0;"></span>
   </div>
 </div>
 
@@ -473,14 +473,14 @@ function drawSK(ctx,w,h,bars,allH,allL){
     if(prev.p1){
       const py=sk_p2y(prev.p1,h,mn,mx);
       if(py>=SKP.top&&py<=h-SKP.bottom){
-        ctx.strokeStyle='#D4A800';
+        ctx.strokeStyle='#2196F3';
         ctx.beginPath();ctx.moveTo(bx-hw,py);ctx.lineTo(bx+hw,py);ctx.stroke();
       }
     }
     if(prev.p2){
       const py=sk_p2y(prev.p2,h,mn,mx);
       if(py>=SKP.top&&py<=h-SKP.bottom){
-        ctx.strokeStyle='#CC5500';
+        ctx.strokeStyle='#9C27B0';
         ctx.beginPath();ctx.moveTo(bx-hw,py);ctx.lineTo(bx+hw,py);ctx.stroke();
       }
     }
