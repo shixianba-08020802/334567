@@ -463,7 +463,8 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
   }
 
-  // 價1/價2 水平標記線（前一根K棒的值，顯示在本根上）
+  // 價1/價2 水平標記線（只在Thu-Wed圖顯示）
+  if(ctx===_wkCtx){
   for(let i=1;i<n;i++){
     const prev=bars[i-1];
     if(!prev.p1&&!prev.p2) continue;
@@ -486,6 +487,8 @@ function drawSK(ctx,w,h,bars,allH,allL){
     }
     ctx.restore();
   }
+  } // end if(ctx===_wkCtx)
+
   if(ctx===_wkCtx){_wkMn=mn;_wkMx=mx;_wkN=n;_wkW=w;_wkH=h;}
   if(ctx===_mfCtx){_mfMn=mn;_mfMx=mx;_mfN=n;_mfW=w;_mfH=h;}
 
