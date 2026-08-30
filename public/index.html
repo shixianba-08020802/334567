@@ -247,6 +247,12 @@
   <div id="wkTipFxRow" class="stip-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;">
     <span class="stip-lbl">買入/賣出</span><span id="wkTipFx" style="color:var(--text-muted)"></span>
   </div>
+  <div id="wkTipP1Row" class="stip-row" style="display:none;">
+    <span class="stip-lbl" style="color:#b8900a;">價1</span><span id="wkTipP1" style="color:#b8900a;"></span>
+  </div>
+  <div id="wkTipP2Row" class="stip-row" style="display:none;">
+    <span class="stip-lbl" style="color:#cc5500;">價2</span><span id="wkTipP2" style="color:#cc5500;"></span>
+  </div>
 </div>
 
 <script>
@@ -273,10 +279,12 @@ function parseFuturesCSV(text){
     const session=(c[9]||'').trim();
     const fxBuy=parseFloat(c[10])||null;
     const fxSell=parseFloat(c[11])||null;
+    const p1=parseFloat(c[12])||null;
+    const p2=parseFloat(c[13])||null;
     return{
       y,m,d,
       dateKey:`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
-      o,h,l,c:cl,v,session,fxBuy,fxSell,
+      o,h,l,c:cl,v,session,fxBuy,fxSell,p1,p2,
     };
   }).filter(r=>r.y && !isNaN(r.o) && !isNaN(r.c));
 }
@@ -332,6 +340,8 @@ function buildWeeklySessionBars(rows){
       days:slice.length,
       fxBuy:wedRow?.fxBuy??null,
       fxSell:wedRow?.fxSell??null,
+      p1:wedRow?.p1??null,
+      p2:wedRow?.p2??null,
     };
   });
 }
@@ -453,7 +463,29 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
   }
 
-  // 儲存座標參數供手繪線使用
+  // 價1/價2 水平標記線（前一根K棒的值，顯示在本根上）
+  for(let i=1;i<n;i++){
+    const prev=bars[i-1];
+    if(!prev.p1&&!prev.p2) continue;
+    const bx=sk_i2x(i,n,w);
+    const hw=bw*1.0; // 橫線半寬
+    ctx.save();ctx.lineWidth=2.5;
+    if(prev.p1){
+      const py=sk_p2y(prev.p1,h,mn,mx);
+      if(py>=SKP.top&&py<=h-SKP.bottom){
+        ctx.strokeStyle='#D4A800';
+        ctx.beginPath();ctx.moveTo(bx-hw,py);ctx.lineTo(bx+hw,py);ctx.stroke();
+      }
+    }
+    if(prev.p2){
+      const py=sk_p2y(prev.p2,h,mn,mx);
+      if(py>=SKP.top&&py<=h-SKP.bottom){
+        ctx.strokeStyle='#CC5500';
+        ctx.beginPath();ctx.moveTo(bx-hw,py);ctx.lineTo(bx+hw,py);ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
   if(ctx===_wkCtx){_wkMn=mn;_wkMx=mx;_wkN=n;_wkW=w;_wkH=h;}
   if(ctx===_mfCtx){_mfMn=mn;_mfMx=mx;_mfN=n;_mfW=w;_mfH=h;}
 
@@ -655,6 +687,14 @@ function setupWKHover(allH,allL){
     }else{
       fxRow.style.display='none';
     }
+    // 價1/價2：顯示前一根bar的值
+    const prevB=_wkBars[idx-1];
+    const p1El=document.getElementById('wkTipP1');
+    const p2El=document.getElementById('wkTipP2');
+    const p1Row=document.getElementById('wkTipP1Row');
+    const p2Row=document.getElementById('wkTipP2Row');
+    if(prevB?.p1){p1El.textContent=fmtI(prevB.p1);p1Row.style.display='flex';}else p1Row.style.display='none';
+    if(prevB?.p2){p2El.textContent=fmtI(prevB.p2);p2Row.style.display='flex';}else p2Row.style.display='none';
 
     tip.style.display='block';
     let tx=e.clientX+16, ty=e.clientY-10;
@@ -725,6 +765,9 @@ function setupWKHover(allH,allL){
       const fxRowT=document.getElementById('wkTipFxRow');
       if(b.fxBuy||b.fxSell){fxElT.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;fxRowT.style.display='flex';}
       else fxRowT.style.display='none';
+      const prevBT=_wkBars[idx-1];
+      if(prevBT?.p1){document.getElementById('wkTipP1').textContent=fmtI(prevBT.p1);document.getElementById('wkTipP1Row').style.display='flex';}else document.getElementById('wkTipP1Row').style.display='none';
+      if(prevBT?.p2){document.getElementById('wkTipP2').textContent=fmtI(prevBT.p2);document.getElementById('wkTipP2Row').style.display='flex';}else document.getElementById('wkTipP2Row').style.display='none';
       tip.style.display='block';
       const tx=Math.min(touch.clientX+16,window.innerWidth-195);
       const ty=Math.max(10,touch.clientY-120);
@@ -894,6 +937,8 @@ function buildWeekly_MF(rows){
       v:slice.reduce((s,x)=>s+(x.v||0),0),
       days:slice.length,
       fxBuy:null, fxSell:null,
+      p1:(()=>{const w3=slice.find(r=>{const wd=new Date(Date.UTC(r.y,r.m-1,r.d)).getUTCDay();return wd===3&&r.session==='一般';});return w3?.p1??null;})(),
+      p2:(()=>{const w3=slice.find(r=>{const wd=new Date(Date.UTC(r.y,r.m-1,r.d)).getUTCDay();return wd===3&&r.session==='一般';});return w3?.p2??null;})(),
     };
   });
 }
@@ -1031,6 +1076,9 @@ function setupMFHover(allH,allL){
     tc.className=chg>=0?'up':'down';
     document.getElementById('wkTipV').textContent=fmtV(b.v);
     document.getElementById('wkTipFxRow').style.display='none';
+    const mfPrevB=_mfBars[idx-1];
+    if(mfPrevB?.p1){document.getElementById('wkTipP1').textContent=fmtI(mfPrevB.p1);document.getElementById('wkTipP1Row').style.display='flex';}else document.getElementById('wkTipP1Row').style.display='none';
+    if(mfPrevB?.p2){document.getElementById('wkTipP2').textContent=fmtI(mfPrevB.p2);document.getElementById('wkTipP2Row').style.display='flex';}else document.getElementById('wkTipP2Row').style.display='none';
     tip.style.display='block';
     let tx=e.clientX+16,ty=e.clientY-10;
     if(tx+185>window.innerWidth) tx=e.clientX-190;
