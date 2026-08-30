@@ -248,10 +248,10 @@
     <span class="stip-lbl">買入/賣出</span><span id="wkTipFx" style="color:var(--text-muted)"></span>
   </div>
   <div id="wkTipP1Row" class="stip-row" style="display:none;">
-    <span class="stip-lbl" style="color:#2196F3;">價1</span><span id="wkTipP1" style="color:#2196F3;"></span>
+    <span class="stip-lbl" style="color:#2196F3;">空價</span><span id="wkTipP1" style="color:#2196F3;"></span>
   </div>
   <div id="wkTipP2Row" class="stip-row" style="display:none;">
-    <span class="stip-lbl" style="color:#9C27B0;">價2</span><span id="wkTipP2" style="color:#9C27B0;"></span>
+    <span class="stip-lbl" style="color:#9C27B0;">多價</span><span id="wkTipP2" style="color:#9C27B0;"></span>
   </div>
 </div>
 
@@ -277,10 +277,10 @@ function parseFuturesCSV(text){
     const o=parseFloat(c[2]), h=parseFloat(c[3]), l=parseFloat(c[4]), cl=parseFloat(c[5]);
     const v=parseFloat(String(c[8]||'0').replace(/,/g,''));
     const session=(c[9]||'').trim();
-    const fxBuy=parseFloat(c[10])||null;
-    const fxSell=parseFloat(c[11])||null;
-    const p1=parseFloat(c[12])||null;
-    const p2=parseFloat(c[13])||null;
+    const fxBuy=parseFloat(c[12])||null;
+    const fxSell=parseFloat(c[13])||null;
+    const p1=parseFloat(c[14])||null;
+    const p2=parseFloat(c[15])||null;
     return{
       y,m,d,
       dateKey:`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
