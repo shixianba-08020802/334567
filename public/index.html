@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>台股即時看板</title>
+<title>shixianba看板</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -135,7 +135,7 @@
 <body>
 <div class="container">
   <header>
-    <div class="logo"><span>shixianba</span> · 即時看板</div>
+    <div class="logo">shixianba看板</div>
   </header>
 
   <!-- 台指期 週K線（星期三盤後～次週三一般） -->
@@ -1077,8 +1077,8 @@ function setupMFHover(allH,allL){
     document.getElementById('wkTipV').textContent=fmtV(b.v);
     document.getElementById('wkTipFxRow').style.display='none';
     const mfPrevB=_mfBars[idx-1];
-    if(mfPrevB?.p1){document.getElementById('wkTipP1').textContent=fmtI(mfPrevB.p1);document.getElementById('wkTipP1Row').style.display='flex';}else document.getElementById('wkTipP1Row').style.display='none';
-    if(mfPrevB?.p2){document.getElementById('wkTipP2').textContent=fmtI(mfPrevB.p2);document.getElementById('wkTipP2Row').style.display='flex';}else document.getElementById('wkTipP2Row').style.display='none';
+    document.getElementById('wkTipP1Row').style.display='none';
+    document.getElementById('wkTipP2Row').style.display='none';
     tip.style.display='block';
     let tx=e.clientX+16,ty=e.clientY-10;
     if(tx+185>window.innerWidth) tx=e.clientX-190;
@@ -1130,6 +1130,8 @@ function setupMFHover(allH,allL){
       tc.className=chg>=0?'up':'down';
       document.getElementById('wkTipV').textContent=fmtV(b.v);
       document.getElementById('wkTipFxRow').style.display='none';
+      document.getElementById('wkTipP1Row').style.display='none';
+      document.getElementById('wkTipP2Row').style.display='none';
       tip.style.display='block';
       const tx=Math.min(touch.clientX+16,window.innerWidth-195);
       const ty=Math.max(10,touch.clientY-120);
