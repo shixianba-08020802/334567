@@ -468,8 +468,8 @@ function drawSK(ctx,w,h,bars,allH,allL){
     const prev=bars[i-1];
     if(!prev.p1&&!prev.p2) continue;
     const bx=sk_i2x(i,n,w);
-    const hw=bw*1.0; // 橫線半寬
-    ctx.save();ctx.lineWidth=2.5;
+    const hw=bw/2; // K線同寬
+    ctx.save();ctx.lineWidth=1.5;
     if(prev.p1){
       const py=sk_p2y(prev.p1,h,mn,mx);
       if(py>=SKP.top&&py<=h-SKP.bottom){
