@@ -462,37 +462,29 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
   }
 
-  // 上關價/中間價/下關價 連續折線（前一根K棒H/L計算，只在Thu-Wed圖顯示）
+  // 上關價/中間價/下關價 水平短線（前一根K棒H/L計算，只在Thu-Wed圖顯示）
   if(ctx===_wkCtx){
     const calcMid=(H,L)=>(H+L)/2;
-    const calcUpper=(H,L)=>H+(H-calcMid(H,L));   // (3H-L)/2
-    const calcLower=(H,L)=>L-(calcMid(H,L)-L);   // (3L-H)/2
-
-    function drawCalcLine(fn,color){
-      ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.5;
-      ctx.beginPath();
-      let started=false,lastX=null,lastY=null;
-      for(let i=1;i<n;i++){
-        const prev=bars[i-1];
-        const val=fn(prev.h,prev.l);
-        const bx=sk_i2x(i,n,w);
+    const calcUpper=(H,L)=>H+(H-calcMid(H,L));
+    const calcLower=(H,L)=>L-(calcMid(H,L)-L);
+    for(let i=1;i<n;i++){
+      const prev=bars[i-1];
+      const bx=sk_i2x(i,n,w);
+      const hw=bw/2;
+      ctx.save();ctx.lineWidth=1.5;
+      [
+        {val:calcUpper(prev.h,prev.l), color:'#FF5722'},
+        {val:calcMid(prev.h,prev.l),   color:'#FFC107'},
+        {val:calcLower(prev.h,prev.l), color:'#00BCD4'},
+      ].forEach(({val,color})=>{
         const py=sk_p2y(val,h,mn,mx);
-        if(!started){ctx.moveTo(bx,py);started=true;}
-        else ctx.lineTo(bx,py);
-        lastX=bx;lastY=py;
-      }
-      if(started) ctx.stroke();
-      if(lastX!=null){
-        const xEdge=w-SKP.right+2;
-        ctx.setLineDash([5,4]);ctx.globalAlpha=0.6;
-        ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(xEdge,lastY);ctx.stroke();
-        ctx.setLineDash([]);ctx.globalAlpha=1;
-      }
+        if(py>=SKP.top&&py<=h-SKP.bottom){
+          ctx.strokeStyle=color;
+          ctx.beginPath();ctx.moveTo(bx-hw,py);ctx.lineTo(bx+hw,py);ctx.stroke();
+        }
+      });
       ctx.restore();
     }
-    drawCalcLine(calcUpper,'#FF5722'); // 上關價（橘紅）
-    drawCalcLine(calcMid,  '#FFC107'); // 中間價（琥珀）
-    drawCalcLine(calcLower,'#00BCD4'); // 下關價（青）
   } // end if(ctx===_wkCtx)
 
   if(ctx===_wkCtx){_wkMn=mn;_wkMx=mx;_wkN=n;_wkW=w;_wkH=h;}
