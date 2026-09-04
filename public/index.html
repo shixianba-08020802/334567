@@ -247,11 +247,14 @@
   <div id="wkTipFxRow" class="stip-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;">
     <span class="stip-lbl">買入/賣出</span><span id="wkTipFx" style="color:var(--text-muted)"></span>
   </div>
-  <div id="wkTipP1Row" class="stip-row" style="display:none;">
-    <span class="stip-lbl" style="color:#2196F3;">空價</span><span id="wkTipP1" style="color:#2196F3;"></span>
+  <div id="wkTipP1Row" class="stip-row" style="display:none;border-top:1px solid var(--border);margin-top:4px;padding-top:4px;">
+    <span class="stip-lbl" style="color:#FF5722;">上關價</span><span id="wkTipP1" style="color:#FF5722;"></span>
+  </div>
+  <div id="wkTipP3Row" class="stip-row" style="display:none;">
+    <span class="stip-lbl" style="color:#FFC107;">中間價</span><span id="wkTipP3" style="color:#FFC107;"></span>
   </div>
   <div id="wkTipP2Row" class="stip-row" style="display:none;">
-    <span class="stip-lbl" style="color:#9C27B0;">多價</span><span id="wkTipP2" style="color:#9C27B0;"></span>
+    <span class="stip-lbl" style="color:#00BCD4;">下關價</span><span id="wkTipP2" style="color:#00BCD4;"></span>
   </div>
 </div>
 
@@ -279,12 +282,10 @@ function parseFuturesCSV(text){
     const session=(c[9]||'').trim();
     const fxBuy=parseFloat(c[12])||null;
     const fxSell=parseFloat(c[13])||null;
-    const p1=parseFloat(c[14])||null;
-    const p2=parseFloat(c[15])||null;
     return{
       y,m,d,
       dateKey:`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
-      o,h,l,c:cl,v,session,fxBuy,fxSell,p1,p2,
+      o,h,l,c:cl,v,session,fxBuy,fxSell,
     };
   }).filter(r=>r.y && !isNaN(r.o) && !isNaN(r.c));
 }
@@ -340,8 +341,6 @@ function buildWeeklySessionBars(rows){
       days:slice.length,
       fxBuy:wedRow?.fxBuy??null,
       fxSell:wedRow?.fxSell??null,
-      p1:wedRow?.p1??null,
-      p2:wedRow?.p2??null,
     };
   });
 }
@@ -463,17 +462,19 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
   }
 
-  // 空價/多價 連續折線（只在Thu-Wed圖顯示）
+  // 上關價/中間價/下關價 連續折線（前一根K棒H/L計算，只在Thu-Wed圖顯示）
   if(ctx===_wkCtx){
-    function drawPriceLine(getVal, color){
-      ctx.save();
-      ctx.strokeStyle=color;ctx.lineWidth=1.5;
-      // 實線：連接所有有資料的點
+    const calcMid=(H,L)=>(H+L)/2;
+    const calcUpper=(H,L)=>H+(H-calcMid(H,L));   // (3H-L)/2
+    const calcLower=(H,L)=>L-(calcMid(H,L)-L);   // (3L-H)/2
+
+    function drawCalcLine(fn,color){
+      ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.5;
       ctx.beginPath();
-      let started=false, lastX=null, lastY=null;
+      let started=false,lastX=null,lastY=null;
       for(let i=1;i<n;i++){
-        const val=getVal(bars[i]);
-        if(val==null) continue;
+        const prev=bars[i-1];
+        const val=fn(prev.h,prev.l);
         const bx=sk_i2x(i,n,w);
         const py=sk_p2y(val,h,mn,mx);
         if(!started){ctx.moveTo(bx,py);started=true;}
@@ -481,7 +482,6 @@ function drawSK(ctx,w,h,bars,allH,allL){
         lastX=bx;lastY=py;
       }
       if(started) ctx.stroke();
-      // 虛線延伸：從最後一個點水平延伸到圖右邊
       if(lastX!=null){
         const xEdge=w-SKP.right+2;
         ctx.setLineDash([5,4]);ctx.globalAlpha=0.6;
@@ -490,8 +490,9 @@ function drawSK(ctx,w,h,bars,allH,allL){
       }
       ctx.restore();
     }
-    drawPriceLine(b=>b.p1,'#2196F3'); // 空價（藍）
-    drawPriceLine(b=>b.p2,'#9C27B0'); // 多價（紫）
+    drawCalcLine(calcUpper,'#FF5722'); // 上關價（橘紅）
+    drawCalcLine(calcMid,  '#FFC107'); // 中間價（琥珀）
+    drawCalcLine(calcLower,'#00BCD4'); // 下關價（青）
   } // end if(ctx===_wkCtx)
 
   if(ctx===_wkCtx){_wkMn=mn;_wkMx=mx;_wkN=n;_wkW=w;_wkH=h;}
@@ -697,12 +698,15 @@ function setupWKHover(allH,allL){
     }
     // 價1/價2：顯示前一根bar的值
     const prevB=_wkBars[idx-1];
-    const p1El=document.getElementById('wkTipP1');
-    const p2El=document.getElementById('wkTipP2');
     const p1Row=document.getElementById('wkTipP1Row');
     const p2Row=document.getElementById('wkTipP2Row');
-    if(prevB?.p1){p1El.textContent=fmtI(prevB.p1);p1Row.style.display='flex';}else p1Row.style.display='none';
-    if(prevB?.p2){p2El.textContent=fmtI(prevB.p2);p2Row.style.display='flex';}else p2Row.style.display='none';
+    const p3Row=document.getElementById('wkTipP3Row');
+    if(prevB){
+      const _mid=(prevB.h+prevB.l)/2;
+      document.getElementById('wkTipP1').textContent=fmtI(prevB.h+(prevB.h-_mid));p1Row.style.display='flex';
+      document.getElementById('wkTipP3').textContent=fmtI(_mid);p3Row.style.display='flex';
+      document.getElementById('wkTipP2').textContent=fmtI(prevB.l-((_mid)-prevB.l));p2Row.style.display='flex';
+    }else{p1Row.style.display='none';p2Row.style.display='none';p3Row.style.display='none';}
 
     tip.style.display='block';
     let tx=e.clientX+16, ty=e.clientY-10;
@@ -774,8 +778,12 @@ function setupWKHover(allH,allL){
       if(b.fxBuy||b.fxSell){fxElT.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;fxRowT.style.display='flex';}
       else fxRowT.style.display='none';
       const prevBT=_wkBars[idx-1];
-      if(prevBT?.p1){document.getElementById('wkTipP1').textContent=fmtI(prevBT.p1);document.getElementById('wkTipP1Row').style.display='flex';}else document.getElementById('wkTipP1Row').style.display='none';
-      if(prevBT?.p2){document.getElementById('wkTipP2').textContent=fmtI(prevBT.p2);document.getElementById('wkTipP2Row').style.display='flex';}else document.getElementById('wkTipP2Row').style.display='none';
+      if(prevBT){
+        const _mid2=(prevBT.h+prevBT.l)/2;
+        document.getElementById('wkTipP1').textContent=fmtI(prevBT.h+(prevBT.h-_mid2));document.getElementById('wkTipP1Row').style.display='flex';
+        document.getElementById('wkTipP3').textContent=fmtI(_mid2);document.getElementById('wkTipP3Row').style.display='flex';
+        document.getElementById('wkTipP2').textContent=fmtI(prevBT.l-(_mid2-prevBT.l));document.getElementById('wkTipP2Row').style.display='flex';
+      }else{document.getElementById('wkTipP1Row').style.display='none';document.getElementById('wkTipP2Row').style.display='none';document.getElementById('wkTipP3Row').style.display='none';}
       tip.style.display='block';
       const tx=Math.min(touch.clientX+16,window.innerWidth-195);
       const ty=Math.max(10,touch.clientY-120);
@@ -945,8 +953,6 @@ function buildWeekly_MF(rows){
       v:slice.reduce((s,x)=>s+(x.v||0),0),
       days:slice.length,
       fxBuy:null, fxSell:null,
-      p1:(()=>{const w3=slice.find(r=>{const wd=new Date(Date.UTC(r.y,r.m-1,r.d)).getUTCDay();return wd===3&&r.session==='一般';});return w3?.p1??null;})(),
-      p2:(()=>{const w3=slice.find(r=>{const wd=new Date(Date.UTC(r.y,r.m-1,r.d)).getUTCDay();return wd===3&&r.session==='一般';});return w3?.p2??null;})(),
     };
   });
 }
@@ -1087,6 +1093,7 @@ function setupMFHover(allH,allL){
     const mfPrevB=_mfBars[idx-1];
     document.getElementById('wkTipP1Row').style.display='none';
     document.getElementById('wkTipP2Row').style.display='none';
+    document.getElementById('wkTipP3Row').style.display='none';
     tip.style.display='block';
     let tx=e.clientX+16,ty=e.clientY-10;
     if(tx+185>window.innerWidth) tx=e.clientX-190;
@@ -1140,6 +1147,7 @@ function setupMFHover(allH,allL){
       document.getElementById('wkTipFxRow').style.display='none';
       document.getElementById('wkTipP1Row').style.display='none';
       document.getElementById('wkTipP2Row').style.display='none';
+      document.getElementById('wkTipP3Row').style.display='none';
       tip.style.display='block';
       const tx=Math.min(touch.clientX+16,window.innerWidth-195);
       const ty=Math.max(10,touch.clientY-120);
