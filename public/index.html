@@ -138,6 +138,26 @@
     <div class="logo">shixianba看板</div>
   </header>
 
+  <!-- 近5根週K線（最新視覺） -->
+  <div class="history-card" style="margin-bottom:14px;">
+    <div class="section-header">
+      <div class="section-title">▪ 台指期　近5根週K線</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
+        <span id="s5DateRange">—</span>
+      </div>
+    </div>
+    <div class="skline-canvas-wrap" id="s5Wrap" style="height:220px;">
+      <div class="skline-loader" id="s5Loader">
+        <span class="spinner"></span>
+      </div>
+      <canvas id="s5Canvas"></canvas>
+    </div>
+    <div class="skline-vol-wrap" id="s5VolWrap" style="height:52px;margin-top:4px;">
+      <canvas id="s5VolCanvas"></canvas>
+    </div>
+    <div class="skline-src">資料來源：台指期歷史試算表（手動維護）</div>
+  </div>
+
   <!-- 台指期 週K線（星期三盤後～次週三一般） -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
@@ -250,8 +270,14 @@
   <div id="wkTipP1Row" class="stip-row" style="display:none;border-top:1px solid var(--border);margin-top:4px;padding-top:4px;">
     <span class="stip-lbl" style="color:#FF5722;">上關價</span><span id="wkTipP1" style="color:#FF5722;"></span>
   </div>
+  <div id="wkTipP4Row" class="stip-row" style="display:none;">
+    <span class="stip-lbl" style="color:#FF9800;">上中價</span><span id="wkTipP4" style="color:#FF9800;"></span>
+  </div>
   <div id="wkTipP3Row" class="stip-row" style="display:none;">
     <span class="stip-lbl" style="color:#FFC107;">中間價</span><span id="wkTipP3" style="color:#FFC107;"></span>
+  </div>
+  <div id="wkTipP5Row" class="stip-row" style="display:none;">
+    <span class="stip-lbl" style="color:#8BC34A;">中下價</span><span id="wkTipP5" style="color:#8BC34A;"></span>
   </div>
   <div id="wkTipP2Row" class="stip-row" style="display:none;">
     <span class="stip-lbl" style="color:#00BCD4;">下關價</span><span id="wkTipP2" style="color:#00BCD4;"></span>
@@ -351,6 +377,28 @@ let _wkBars=[], _wkCtx=null, _wvCtx=null;
 // 手繪線相關
 let _userLines=[], _wkMode=null, _wkDrawing=false, _wkStart=null, _wkPrev=null;
 let _wkMn=0, _wkMx=0, _wkN=0, _wkW=0, _wkH=0;
+let _s5Bars=[], _s5Ctx=null;
+
+// 5條價格計算（共用）
+function _calcPrices(H,L){
+  const mid=(H+L)/2;
+  const upper=H+(H-mid);
+  const lower=L-(mid-L);
+  return{upper,upMid:(upper+mid)/2,mid,lowMid:(mid+lower)/2,lower};
+}
+
+// 共用：更新tooltip的5條價格列
+function _showPriceTip(prevBar){
+  const rows=['wkTipP1Row','wkTipP4Row','wkTipP3Row','wkTipP5Row','wkTipP2Row'];
+  const els=['wkTipP1','wkTipP4','wkTipP3','wkTipP5','wkTipP2'];
+  if(prevBar){
+    const p=_calcPrices(prevBar.h,prevBar.l);
+    const vals=[p.upper,p.upMid,p.mid,p.lowMid,p.lower];
+    rows.forEach((r,i)=>{document.getElementById(r).style.display='flex';document.getElementById(els[i]).textContent=fmtI(vals[i]);});
+  }else{
+    rows.forEach(r=>document.getElementById(r).style.display='none');
+  }
+}
 let _wkSnapPoint=null; // 目前吸附點
 
 function snapToChart(cx,cy,bars,N,W,H,Mn,Mx){
@@ -462,22 +510,27 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
   }
 
-  // 上關價/中間價/下關價 水平短線（前一根K棒H/L計算，只在Thu-Wed圖顯示）
-  if(ctx===_wkCtx){
+  // 5條價格短線（只在Thu-Wed圖和近5根圖顯示）
+  if(ctx===_wkCtx||ctx===_s5Ctx){
+    const _n=bars.length;
     const calcMid=(H,L)=>(H+L)/2;
     const calcUpper=(H,L)=>H+(H-calcMid(H,L));
     const calcLower=(H,L)=>L-(calcMid(H,L)-L);
-    for(let i=1;i<n;i++){
+    const calcUpMid=(H,L)=>(calcUpper(H,L)+calcMid(H,L))/2;
+    const calcLowMid=(H,L)=>(calcMid(H,L)+calcLower(H,L))/2;
+    for(let i=1;i<_n;i++){
       const prev=bars[i-1];
-      const bx=sk_i2x(i,n,w);
+      const bx=sk_i2x(i,_n,w);
       const hw=bw/2;
       ctx.save();ctx.lineWidth=1.5;
       [
-        {val:calcUpper(prev.h,prev.l), color:'#FF5722'},
-        {val:calcMid(prev.h,prev.l),   color:'#FFC107'},
-        {val:calcLower(prev.h,prev.l), color:'#00BCD4'},
-      ].forEach(({val,color})=>{
-        const py=sk_p2y(val,h,mn,mx);
+        {fn:calcUpper,  color:'#FF5722'},
+        {fn:calcUpMid,  color:'#FF9800'},
+        {fn:calcMid,    color:'#FFC107'},
+        {fn:calcLowMid, color:'#8BC34A'},
+        {fn:calcLower,  color:'#00BCD4'},
+      ].forEach(({fn,color})=>{
+        const py=sk_p2y(fn(prev.h,prev.l),h,mn,mx);
         if(py>=SKP.top&&py<=h-SKP.bottom){
           ctx.strokeStyle=color;
           ctx.beginPath();ctx.moveTo(bx-hw,py);ctx.lineTo(bx+hw,py);ctx.stroke();
@@ -485,7 +538,7 @@ function drawSK(ctx,w,h,bars,allH,allL){
       });
       ctx.restore();
     }
-  } // end if(ctx===_wkCtx)
+  } // end price lines
 
   if(ctx===_wkCtx){_wkMn=mn;_wkMx=mx;_wkN=n;_wkW=w;_wkH=h;}
   if(ctx===_mfCtx){_mfMn=mn;_mfMx=mx;_mfN=n;_mfW=w;_mfH=h;}
@@ -569,6 +622,82 @@ function resizeWK(){
   vC.width=document.getElementById('wvWrap').offsetWidth;
   vC.height=document.getElementById('wvWrap').offsetHeight;
 }
+
+// ── 近5根週K線 ─────────────────────────────────────────────────────
+function renderS5Charts(){
+  if(!_s5Bars.length) return;
+  const kC=document.getElementById('s5Canvas');
+  const vC=document.getElementById('s5VolCanvas');
+  kC.width=document.getElementById('s5Wrap').offsetWidth;
+  kC.height=document.getElementById('s5Wrap').offsetHeight;
+  vC.width=document.getElementById('s5VolWrap').offsetWidth;
+  vC.height=document.getElementById('s5VolWrap').offsetHeight;
+  _s5Ctx=kC.getContext('2d');
+  const allH=Math.max(..._s5Bars.map(b=>b.h));
+  const allL=Math.min(..._s5Bars.map(b=>b.l));
+  drawSK(_s5Ctx,kC.width,kC.height,_s5Bars,allH,allL);
+  drawSV(vC.getContext('2d'),vC.width,vC.height,_s5Bars);
+  setupS5Hover(allH,allL);
+}
+function setupS5Hover(allH,allL){
+  const canvas=document.getElementById('s5Canvas');
+  const tip=document.getElementById('wkTip');
+  const n=_s5Bars.length;
+  canvas.onmousemove=e=>{
+    const rect=canvas.getBoundingClientRect();
+    const cx=(e.clientX-rect.left)*canvas.width/rect.width;
+    const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
+    const b=_s5Bars[idx];if(!b)return;
+    const chg=b.c-b.o,pct=(chg/b.o*100).toFixed(2);
+    drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);
+    const bx=sk_i2x(idx,n,canvas.width);
+    _s5Ctx.strokeStyle='rgba(44,95,138,0.35)';_s5Ctx.lineWidth=1;_s5Ctx.setLineDash([3,3]);
+    _s5Ctx.beginPath();_s5Ctx.moveTo(bx,SKP.top);_s5Ctx.lineTo(bx,canvas.height-SKP.bottom);_s5Ctx.stroke();
+    _s5Ctx.setLineDash([]);
+    document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
+    document.getElementById('wkTipO').textContent=fmtI(b.o);
+    document.getElementById('wkTipH').textContent=fmtI(b.h);
+    document.getElementById('wkTipL').textContent=fmtI(b.l);
+    document.getElementById('wkTipC').textContent=fmtI(b.c);
+    const tc=document.getElementById('wkTipChg');
+    tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
+    tc.className=chg>=0?'up':'down';
+    document.getElementById('wkTipV').textContent=fmtV(b.v);
+    document.getElementById('wkTipFxRow').style.display='none';
+    _showPriceTip(_s5Bars[idx-1]);
+    tip.style.display='block';
+    let tx=e.clientX+16,ty=e.clientY-10;
+    if(tx+185>window.innerWidth)tx=e.clientX-190;
+    tip.style.left=tx+'px';tip.style.top=ty+'px';
+  };
+  canvas.onmouseleave=()=>{tip.style.display='none';drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);};
+  canvas.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    const touch=e.touches[0];
+    const rect=canvas.getBoundingClientRect();
+    const cx=(touch.clientX-rect.left)*canvas.width/rect.width;
+    const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
+    const b=_s5Bars[idx];if(!b)return;
+    const chg=b.c-b.o,pct=(chg/b.o*100).toFixed(2);
+    document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
+    document.getElementById('wkTipO').textContent=fmtI(b.o);
+    document.getElementById('wkTipH').textContent=fmtI(b.h);
+    document.getElementById('wkTipL').textContent=fmtI(b.l);
+    document.getElementById('wkTipC').textContent=fmtI(b.c);
+    const tc=document.getElementById('wkTipChg');
+    tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
+    tc.className=chg>=0?'up':'down';
+    document.getElementById('wkTipV').textContent=fmtV(b.v);
+    document.getElementById('wkTipFxRow').style.display='none';
+    _showPriceTip(_s5Bars[idx-1]);
+    tip.style.display='block';
+    const tx=Math.min(touch.clientX+16,window.innerWidth-195);
+    const ty=Math.max(10,touch.clientY-120);
+    tip.style.left=tx+'px';tip.style.top=ty+'px';
+  },{passive:false});
+  canvas.addEventListener('touchend',()=>setTimeout(()=>{tip.style.display='none';drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);},1500),{passive:true});
+}
+window.addEventListener('resize',()=>{if(_s5Bars.length)renderS5Charts();});
 
 function renderWeeklyCharts(){
   if(!_wkBars.length) return;
@@ -689,16 +818,7 @@ function setupWKHover(allH,allL){
       fxRow.style.display='none';
     }
     // 價1/價2：顯示前一根bar的值
-    const prevB=_wkBars[idx-1];
-    const p1Row=document.getElementById('wkTipP1Row');
-    const p2Row=document.getElementById('wkTipP2Row');
-    const p3Row=document.getElementById('wkTipP3Row');
-    if(prevB){
-      const _mid=(prevB.h+prevB.l)/2;
-      document.getElementById('wkTipP1').textContent=fmtI(prevB.h+(prevB.h-_mid));p1Row.style.display='flex';
-      document.getElementById('wkTipP3').textContent=fmtI(_mid);p3Row.style.display='flex';
-      document.getElementById('wkTipP2').textContent=fmtI(prevB.l-((_mid)-prevB.l));p2Row.style.display='flex';
-    }else{p1Row.style.display='none';p2Row.style.display='none';p3Row.style.display='none';}
+    _showPriceTip(_wkBars[idx-1]);
 
     tip.style.display='block';
     let tx=e.clientX+16, ty=e.clientY-10;
@@ -769,13 +889,7 @@ function setupWKHover(allH,allL){
       const fxRowT=document.getElementById('wkTipFxRow');
       if(b.fxBuy||b.fxSell){fxElT.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;fxRowT.style.display='flex';}
       else fxRowT.style.display='none';
-      const prevBT=_wkBars[idx-1];
-      if(prevBT){
-        const _mid2=(prevBT.h+prevBT.l)/2;
-        document.getElementById('wkTipP1').textContent=fmtI(prevBT.h+(prevBT.h-_mid2));document.getElementById('wkTipP1Row').style.display='flex';
-        document.getElementById('wkTipP3').textContent=fmtI(_mid2);document.getElementById('wkTipP3Row').style.display='flex';
-        document.getElementById('wkTipP2').textContent=fmtI(prevBT.l-(_mid2-prevBT.l));document.getElementById('wkTipP2Row').style.display='flex';
-      }else{document.getElementById('wkTipP1Row').style.display='none';document.getElementById('wkTipP2Row').style.display='none';document.getElementById('wkTipP3Row').style.display='none';}
+      _showPriceTip(_wkBars[idx-1]);
       tip.style.display='block';
       const tx=Math.min(touch.clientX+16,window.innerWidth-195);
       const ty=Math.max(10,touch.clientY-120);
@@ -859,6 +973,15 @@ async function loadWeeklyKline(){
 
   document.getElementById('wkLoader').style.display='none';
   renderWeeklyCharts();
+
+  // 近5根K線圖
+  _s5Bars=allBars.slice(-5);
+  if(_s5Bars.length>=1){
+    const s5Last=_s5Bars[_s5Bars.length-1];
+    document.getElementById('s5DateRange').textContent=`${_s5Bars[0].startDate} ～ ${s5Last.endDate}`;
+    document.getElementById('s5Loader').style.display='none';
+    renderS5Charts();
+  }
 
   // 同份資料建立 Mon-Fri 週K
   const mfAllBars=buildWeekly_MF(rows);
@@ -1083,9 +1206,7 @@ function setupMFHover(allH,allL){
     document.getElementById('wkTipV').textContent=fmtV(b.v);
     document.getElementById('wkTipFxRow').style.display='none';
     const mfPrevB=_mfBars[idx-1];
-    document.getElementById('wkTipP1Row').style.display='none';
-    document.getElementById('wkTipP2Row').style.display='none';
-    document.getElementById('wkTipP3Row').style.display='none';
+    _showPriceTip(null);
     tip.style.display='block';
     let tx=e.clientX+16,ty=e.clientY-10;
     if(tx+185>window.innerWidth) tx=e.clientX-190;
@@ -1137,9 +1258,7 @@ function setupMFHover(allH,allL){
       tc.className=chg>=0?'up':'down';
       document.getElementById('wkTipV').textContent=fmtV(b.v);
       document.getElementById('wkTipFxRow').style.display='none';
-      document.getElementById('wkTipP1Row').style.display='none';
-      document.getElementById('wkTipP2Row').style.display='none';
-      document.getElementById('wkTipP3Row').style.display='none';
+      _showPriceTip(null);
       tip.style.display='block';
       const tx=Math.min(touch.clientX+16,window.innerWidth-195);
       const ty=Math.max(10,touch.clientY-120);
