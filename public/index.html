@@ -463,30 +463,26 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
   }
 
-  // 價1/價2 水平標記線（只在Thu-Wed圖顯示）
+  // 空價/多價 連續折線（只在Thu-Wed圖顯示）
   if(ctx===_wkCtx){
-  for(let i=1;i<n;i++){
-    const prev=bars[i-1];
-    if(!prev.p1&&!prev.p2) continue;
-    const bx=sk_i2x(i,n,w);
-    const hw=bw/2; // K線同寬
-    ctx.save();ctx.lineWidth=1.5;
-    if(prev.p1){
-      const py=sk_p2y(prev.p1,h,mn,mx);
-      if(py>=SKP.top&&py<=h-SKP.bottom){
-        ctx.strokeStyle='#2196F3';
-        ctx.beginPath();ctx.moveTo(bx-hw,py);ctx.lineTo(bx+hw,py);ctx.stroke();
+    function drawPriceLine(getVal, color){
+      ctx.save();
+      ctx.strokeStyle=color;ctx.lineWidth=1.5;
+      ctx.beginPath();
+      let started=false;
+      for(let i=1;i<n;i++){
+        const val=getVal(bars[i]);
+        if(val==null) continue;
+        const bx=sk_i2x(i,n,w);
+        const py=sk_p2y(val,h,mn,mx);
+        if(!started){ctx.moveTo(bx,py);started=true;}
+        else ctx.lineTo(bx,py);
       }
+      if(started) ctx.stroke();
+      ctx.restore();
     }
-    if(prev.p2){
-      const py=sk_p2y(prev.p2,h,mn,mx);
-      if(py>=SKP.top&&py<=h-SKP.bottom){
-        ctx.strokeStyle='#9C27B0';
-        ctx.beginPath();ctx.moveTo(bx-hw,py);ctx.lineTo(bx+hw,py);ctx.stroke();
-      }
-    }
-    ctx.restore();
-  }
+    drawPriceLine(b=>b.p1,'#2196F3'); // 空價（藍）
+    drawPriceLine(b=>b.p2,'#9C27B0'); // 多價（紫）
   } // end if(ctx===_wkCtx)
 
   if(ctx===_wkCtx){_wkMn=mn;_wkMx=mx;_wkN=n;_wkW=w;_wkH=h;}
