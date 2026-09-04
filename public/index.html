@@ -468,8 +468,9 @@ function drawSK(ctx,w,h,bars,allH,allL){
     function drawPriceLine(getVal, color){
       ctx.save();
       ctx.strokeStyle=color;ctx.lineWidth=1.5;
+      // 實線：連接所有有資料的點
       ctx.beginPath();
-      let started=false;
+      let started=false, lastX=null, lastY=null;
       for(let i=1;i<n;i++){
         const val=getVal(bars[i]);
         if(val==null) continue;
@@ -477,8 +478,16 @@ function drawSK(ctx,w,h,bars,allH,allL){
         const py=sk_p2y(val,h,mn,mx);
         if(!started){ctx.moveTo(bx,py);started=true;}
         else ctx.lineTo(bx,py);
+        lastX=bx;lastY=py;
       }
       if(started) ctx.stroke();
+      // 虛線延伸：從最後一個點水平延伸到圖右邊
+      if(lastX!=null){
+        const xEdge=w-SKP.right+2;
+        ctx.setLineDash([5,4]);ctx.globalAlpha=0.6;
+        ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(xEdge,lastY);ctx.stroke();
+        ctx.setLineDash([]);ctx.globalAlpha=1;
+      }
       ctx.restore();
     }
     drawPriceLine(b=>b.p1,'#2196F3'); // 空價（藍）
