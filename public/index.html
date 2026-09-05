@@ -532,7 +532,7 @@ function drawSK(ctx,w,h,bars,allH,allL){
 
   // 預覽線
   if(_ad&&_as){
-    const isTrend=(_am==='draw');
+    const isTrend=(_am==='draw')&&(ctx===_wkCtx||ctx===_mfCtx);
     const py_s=sk_p2y(_as.v,h,mn,mx);
     ctx.save();ctx.strokeStyle='rgba(44,95,138,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
     if(isTrend){
@@ -654,9 +654,10 @@ function setupS5Hover(allH,allL){
   canvas.onmousedown=e=>{
     if(_s5Mode==='draw'){
       if(_s5UserLines.length>=5)return;
-      const {cx,cy}=s5XY(e);const snap=s5Snap(cx,cy);
-      _s5Start=snap?{i:snap.i,v:snap.v}:{i:0,v:s5CdV(cy)};
-      _s5SnapPoint=snap||null;_s5Drawing=true;canvas.style.cursor='crosshair';
+      const {cx,cy}=s5XY(e);
+      _s5Start={i:0,v:s5CdV(cy)};
+      _s5SnapPoint=null;_s5Drawing=true;canvas.style.cursor='crosshair';
+      redrawS5(); // 立即顯示預覽線
     }else if(_s5Mode==='delete'){
       const {cx,cy}=s5XY(e);let minDist=15,delIdx=-1;
       _s5UserLines.forEach((l,i)=>{const d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));if(d<minDist){minDist=d;delIdx=i;}});
@@ -675,10 +676,10 @@ function setupS5Hover(allH,allL){
     const {cx,cy}=s5XY(e);
     if(_s5Mode==='draw'){
       canvas.style.cursor='crosshair';
-      const snap=s5Snap(cx,cy);
-      _s5SnapPoint=snap||null;
-      _s5Start=snap?{i:snap.i,v:snap.v}:{i:0,v:s5CdV(cy)};
-      redrawS5();tip.style.display='none';return;
+      _s5SnapPoint=null;
+      _s5Start={i:0,v:s5CdV(cy)};
+      if(_s5Drawing) redrawS5();
+      tip.style.display='none';return;
     }
     if(_s5Mode==='delete'){canvas.style.cursor='pointer';tip.style.display='none';return;}
     canvas.style.cursor='default';
@@ -689,15 +690,16 @@ function setupS5Hover(allH,allL){
   canvas.addEventListener('touchstart',e=>{
     if(_s5Mode==='draw'){
       e.preventDefault();if(_s5UserLines.length>=5)return;
-      const {cx,cy}=s5XYT(e.touches[0]);const snap=s5Snap(cx,cy);
-      _s5Start=snap?{i:snap.i,v:snap.v}:{i:0,v:s5CdV(cy)};
-      _s5SnapPoint=snap||null;_s5Drawing=true;
+      const {cx,cy}=s5XYT(e.touches[0]);
+      _s5Start={i:0,v:s5CdV(cy)};
+      _s5SnapPoint=null;_s5Drawing=true;
+      redrawS5();
     }
   },{passive:false});
   canvas.addEventListener('touchmove',e=>{
     if(_s5Mode==='draw'&&_s5Drawing){
-      e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);const snap=s5Snap(cx,cy);
-      _s5Start=snap?{i:snap.i,v:snap.v}:{i:0,v:s5CdV(cy)};_s5SnapPoint=snap||null;redrawS5();
+      e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);
+      _s5Start={i:0,v:s5CdV(cy)};_s5SnapPoint=null;redrawS5();
     }else if(!_s5Mode){
       e.preventDefault();const t=e.touches[0];const {cx}=s5XYT(t);
       const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
@@ -754,10 +756,9 @@ function setupWKHover(allH,allL){
     }else if(_wkMode==='drawH'){
       if(_userLines.length>=5) return;
       const {cx,cy}=mouseToCanvasXY(e);
-      const snap=snapToKLine(cx,cy);
-      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
+      _wkStart=canvasToData(cx,cy);
       _wkDrawing=true;canvas.style.cursor='crosshair';
-      redrawWK(); // 立即顯示預覽線
+      redrawWK();
     }else if(_wkMode==='delete'){
       const {cx,cy}=mouseToCanvasXY(e);
       let minDist=20,delIdx=-1;
@@ -807,10 +808,8 @@ function setupWKHover(allH,allL){
     }
     if(_wkMode==='drawH'){
       canvas.style.cursor='crosshair';
-      const snap=snapToKLine(cx,cy);
-      _wkSnapPoint=snap||null;
-      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
-      if(_wkDrawing) redrawWK(); // 拖曳中才重繪（避免hover閃爍）
+      _wkStart=canvasToData(cx,cy);
+      if(_wkDrawing) redrawWK();
       tip.style.display='none';return;
     }
     if(_wkMode==='delete'){
@@ -876,10 +875,9 @@ function setupWKHover(allH,allL){
       e.preventDefault();
       if(_userLines.length>=5) return;
       const {cx,cy}=touchToCanvasXY(e.touches[0]);
-      const snap=snapToKLine(cx,cy);
-      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
-      _wkSnapPoint=snap||null;_wkDrawing=true;
-      redrawWK(); // 立即顯示預覽線
+      _wkStart=canvasToData(cx,cy);
+      _wkSnapPoint=null;_wkDrawing=true;
+      redrawWK();
     }else if(_wkMode==='delete'){
       // touchstart只記位置
     }else{
@@ -898,8 +896,7 @@ function setupWKHover(allH,allL){
     }else if(_wkMode==='drawH'&&_wkDrawing){
       e.preventDefault();
       const {cx,cy}=touchToCanvasXY(e.touches[0]);
-      const snap=snapToKLine(cx,cy);
-      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);_wkSnapPoint=snap||null;
+      _wkStart=canvasToData(cx,cy);_wkSnapPoint=null;
       redrawWK();
     }else if(_wkMode==='delete'){
       // 不處理移動
