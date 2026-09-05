@@ -155,6 +155,11 @@
     <div class="skline-vol-wrap" id="s5VolWrap" style="height:52px;margin-top:4px;">
       <canvas id="s5VolCanvas"></canvas>
     </div>
+    <div class="wk-toolbar">
+      <button class="wk-tool-btn" id="s5BtnDraw" onclick="setS5Mode('draw')">─ 水平線</button>
+      <button class="wk-tool-btn" id="s5BtnDel" onclick="setS5Mode('delete')">✕ 刪線</button>
+      <span class="wk-line-count" id="s5LineCount">0 / 5</span>
+    </div>
     <div class="skline-src">資料來源：台指期歷史試算表（手動維護）</div>
   </div>
 
@@ -176,7 +181,8 @@
 
     <!-- 畫線工具列 -->
     <div class="wk-toolbar">
-      <button class="wk-tool-btn" id="wkBtnDraw" onclick="setWKMode('draw')">✏ 畫線</button>
+      <button class="wk-tool-btn" id="wkBtnDraw" onclick="setWKMode('draw')">↗ 趨勢線</button>
+      <button class="wk-tool-btn" id="wkBtnDrawH" onclick="setWKMode('drawH')">─ 水平線</button>
       <button class="wk-tool-btn" id="wkBtnDel" onclick="setWKMode('delete')">✕ 刪線</button>
       <span class="wk-line-count" id="wkLineCount">0 / 5</span>
     </div>
@@ -209,7 +215,7 @@
       <div class="skline-stat"><div class="skline-stat-label">區間最低</div><div class="skline-stat-val down" id="mfLow">—</div></div>
     </div>
     <div class="wk-toolbar">
-      <button class="wk-tool-btn" id="mfBtnDraw" onclick="setMFMode('draw')">✏ 畫線</button>
+      <button class="wk-tool-btn" id="mfBtnDraw" onclick="setMFMode('draw')">↗ 趨勢線</button>
       <button class="wk-tool-btn" id="mfBtnDel" onclick="setMFMode('delete')">✕ 刪線</button>
       <span class="wk-line-count" id="mfLineCount">0 / 5</span>
     </div>
@@ -266,21 +272,6 @@
   <div class="stip-row"><span class="stip-lbl">成交量</span><span id="wkTipV" style="color:var(--text-muted)"></span></div>
   <div id="wkTipFxRow" class="stip-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;">
     <span class="stip-lbl">買入/賣出</span><span id="wkTipFx" style="color:var(--text-muted)"></span>
-  </div>
-  <div id="wkTipP1Row" class="stip-row" style="display:none;border-top:1px solid var(--border);margin-top:4px;padding-top:4px;">
-    <span class="stip-lbl" style="color:#FF5722;">上關價</span><span id="wkTipP1" style="color:#FF5722;"></span>
-  </div>
-  <div id="wkTipP4Row" class="stip-row" style="display:none;">
-    <span class="stip-lbl" style="color:#FF9800;">上中價</span><span id="wkTipP4" style="color:#FF9800;"></span>
-  </div>
-  <div id="wkTipP3Row" class="stip-row" style="display:none;">
-    <span class="stip-lbl" style="color:#FFC107;">中間價</span><span id="wkTipP3" style="color:#FFC107;"></span>
-  </div>
-  <div id="wkTipP5Row" class="stip-row" style="display:none;">
-    <span class="stip-lbl" style="color:#8BC34A;">中下價</span><span id="wkTipP5" style="color:#8BC34A;"></span>
-  </div>
-  <div id="wkTipP2Row" class="stip-row" style="display:none;">
-    <span class="stip-lbl" style="color:#00BCD4;">下關價</span><span id="wkTipP2" style="color:#00BCD4;"></span>
   </div>
 </div>
 
@@ -378,27 +369,12 @@ let _wkBars=[], _wkCtx=null, _wvCtx=null;
 let _userLines=[], _wkMode=null, _wkDrawing=false, _wkStart=null, _wkPrev=null;
 let _wkMn=0, _wkMx=0, _wkN=0, _wkW=0, _wkH=0;
 let _s5Bars=[], _s5Ctx=null;
+let _s5UserLines=[], _s5Mode=null, _s5Drawing=false, _s5Start=null, _s5Prev=null, _s5SnapPoint=null;
+let _s5Mn=0, _s5Mx=0, _s5N=0, _s5W=0, _s5H=0;
 
-// 5條價格計算（共用）
-function _calcPrices(H,L){
-  const mid=(H+L)/2;
-  const upper=H+(H-mid);
-  const lower=L-(mid-L);
-  return{upper,upMid:(upper+mid)/2,mid,lowMid:(mid+lower)/2,lower};
-}
 
-// 共用：更新tooltip的5條價格列
-function _showPriceTip(prevBar){
-  const rows=['wkTipP1Row','wkTipP4Row','wkTipP3Row','wkTipP5Row','wkTipP2Row'];
-  const els=['wkTipP1','wkTipP4','wkTipP3','wkTipP5','wkTipP2'];
-  if(prevBar){
-    const p=_calcPrices(prevBar.h,prevBar.l);
-    const vals=[p.upper,p.upMid,p.mid,p.lowMid,p.lower];
-    rows.forEach((r,i)=>{document.getElementById(r).style.display='flex';document.getElementById(els[i]).textContent=fmtI(vals[i]);});
-  }else{
-    rows.forEach(r=>document.getElementById(r).style.display='none');
-  }
-}
+
+
 let _wkSnapPoint=null; // 目前吸附點
 
 function snapToChart(cx,cy,bars,N,W,H,Mn,Mx){
@@ -441,8 +417,9 @@ function distPtToSeg(px,py,x1,y1,x2,y2){
 
 function setWKMode(mode){
   if(_wkMode===mode){_wkMode=null;}else{_wkMode=mode;}
-  _wkDrawing=false;_wkStart=null;_wkPrev=null;
+  _wkDrawing=false;_wkStart=null;_wkPrev=null;_wkSnapPoint=null;
   document.getElementById('wkBtnDraw').classList.toggle('active',_wkMode==='draw');
+  document.getElementById('wkBtnDrawH').classList.toggle('active',_wkMode==='drawH');
   document.getElementById('wkBtnDel').classList.toggle('active',_wkMode==='delete');
   // 提示文字
   const src=document.getElementById('wkSrc');
@@ -509,87 +486,74 @@ function drawSK(ctx,w,h,bars,allH,allL){
     ctx.fillStyle=color;
     ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
   }
-
-  // 5條價格短線（只在Thu-Wed圖和近5根圖顯示）
-  if(ctx===_wkCtx||ctx===_s5Ctx){
-    const _n=bars.length;
-    const calcMid=(H,L)=>(H+L)/2;
-    const calcUpper=(H,L)=>H+(H-calcMid(H,L));
-    const calcLower=(H,L)=>L-(calcMid(H,L)-L);
-    const calcUpMid=(H,L)=>(calcUpper(H,L)+calcMid(H,L))/2;
-    const calcLowMid=(H,L)=>(calcMid(H,L)+calcLower(H,L))/2;
-    for(let i=1;i<_n;i++){
-      const prev=bars[i-1];
-      const bx=sk_i2x(i,_n,w);
-      const hw=bw/2;
-      ctx.save();ctx.lineWidth=1.5;
-      [
-        {fn:calcUpper,  color:'#FF5722'},
-        {fn:calcUpMid,  color:'#FF9800'},
-        {fn:calcMid,    color:'#FFC107'},
-        {fn:calcLowMid, color:'#8BC34A'},
-        {fn:calcLower,  color:'#00BCD4'},
-      ].forEach(({fn,color})=>{
-        const py=sk_p2y(fn(prev.h,prev.l),h,mn,mx);
-        if(py>=SKP.top&&py<=h-SKP.bottom){
-          ctx.strokeStyle=color;
-          ctx.beginPath();ctx.moveTo(bx-hw,py);ctx.lineTo(bx+hw,py);ctx.stroke();
-        }
-      });
-      ctx.restore();
-    }
-  } // end price lines
-
+  // 座標儲存
   if(ctx===_wkCtx){_wkMn=mn;_wkMx=mx;_wkN=n;_wkW=w;_wkH=h;}
   if(ctx===_mfCtx){_mfMn=mn;_mfMx=mx;_mfN=n;_mfW=w;_mfH=h;}
+  if(ctx===_s5Ctx){_s5Mn=mn;_s5Mx=mx;_s5N=n;_s5W=w;_s5H=h;}
 
-  // 根據ctx選用對應的線/狀態
-  const _al=ctx===_mfCtx?_mfUserLines:_userLines;
-  const _ad=ctx===_mfCtx?_mfDrawing:_wkDrawing;
-  const _as=ctx===_mfCtx?_mfStart:_wkStart;
-  const _ap=ctx===_mfCtx?_mfPrev:_wkPrev;
-  const _asn=ctx===_mfCtx?_mfSnapPoint:_wkSnapPoint;
-  const _am=ctx===_mfCtx?_mfMode:_wkMode;
+  // 對應狀態
+  const _al=ctx===_mfCtx?_mfUserLines:ctx===_s5Ctx?_s5UserLines:_userLines;
+  const _ad=ctx===_mfCtx?_mfDrawing:ctx===_s5Ctx?_s5Drawing:_wkDrawing;
+  const _as=ctx===_mfCtx?_mfStart:ctx===_s5Ctx?_s5Start:_wkStart;
+  const _asn=ctx===_mfCtx?_mfSnapPoint:ctx===_s5Ctx?_s5SnapPoint:_wkSnapPoint;
+  const _am=ctx===_mfCtx?_mfMode:ctx===_s5Ctx?_s5Mode:_wkMode;
 
-  // 繪製手繪線
+  // 繪製手繪線（趨勢線/水平線）
   _al.forEach(l=>{
-    const x1=sk_i2x(l.i1,n,w), y1=sk_p2y(l.v1,h,mn,mx);
-    const x2=sk_i2x(l.i2,n,w), y2=sk_p2y(l.v2,h,mn,mx);
     const color=l.color||'rgba(44,95,138,0.9)';
     ctx.save();ctx.strokeStyle=color;ctx.lineWidth=2;
-    ctx.setLineDash([]);
-    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-    const xEdge=w-SKP.right+2;
-    if(Math.abs(x2-x1)>1){
-      const slope=(y2-y1)/(x2-x1),yEdge=y2+slope*(xEdge-x2);
-      ctx.setLineDash([5,4]);ctx.globalAlpha=0.55;
-      ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(xEdge,yEdge);ctx.stroke();
-      ctx.setLineDash([]);ctx.globalAlpha=1;
+    if(l.type==='h'){
+      // 水平線
+      const py=sk_p2y(l.v,h,mn,mx);
+      if(py<SKP.top-2||py>h-SKP.bottom+2){ctx.restore();return;}
+      ctx.beginPath();ctx.moveTo(SKP.left,py);ctx.lineTo(w-SKP.right,py);ctx.stroke();
+      ctx.fillStyle=color;
+      ctx.beginPath();ctx.arc(SKP.left+4,py,3,0,Math.PI*2);ctx.fill();
+      ctx.font='9px DM Mono,monospace';ctx.textAlign='left';
+      ctx.fillText(fmtI(l.v),w-SKP.right+3,py+3);
+    }else{
+      // 趨勢線
+      const x1=sk_i2x(l.i1,n,w),y1=sk_p2y(l.v1,h,mn,mx);
+      const x2=sk_i2x(l.i2,n,w),y2=sk_p2y(l.v2,h,mn,mx);
+      ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+      const xEdge=w-SKP.right+2;
+      if(Math.abs(x2-x1)>1){
+        const slope=(y2-y1)/(x2-x1),yEdge=y2+slope*(xEdge-x2);
+        ctx.setLineDash([5,4]);ctx.globalAlpha=0.55;
+        ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(xEdge,yEdge);ctx.stroke();
+        ctx.setLineDash([]);ctx.globalAlpha=1;
+      }
+      ctx.fillStyle=color;
+      [[x1,y1],[x2,y2]].forEach(([px,py])=>{ctx.beginPath();ctx.arc(px,py,4,0,Math.PI*2);ctx.fill();});
     }
-    ctx.fillStyle=color;
-    [[x1,y1],[x2,y2]].forEach(([px,py])=>{
-      ctx.beginPath();ctx.arc(px,py,4,0,Math.PI*2);ctx.fill();
-    });
     ctx.restore();
   });
 
   // 預覽線
-  if(_ad&&_ap){
-    ctx.save();
-    ctx.strokeStyle='rgba(44,95,138,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
-    ctx.beginPath();
-    ctx.moveTo(sk_i2x(_as.i,n,w),sk_p2y(_as.v,h,mn,mx));
-    ctx.lineTo(sk_i2x(_ap.i,n,w),sk_p2y(_ap.v,h,mn,mx));
-    ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  if(_ad&&_as){
+    const isTrend=(_am==='draw');
+    const py_s=sk_p2y(_as.v,h,mn,mx);
+    ctx.save();ctx.strokeStyle='rgba(44,95,138,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+    if(isTrend){
+      const _ap2=ctx===_mfCtx?_mfPrev:ctx===_s5Ctx?_s5Prev:_wkPrev;
+      if(_ap2){
+        ctx.beginPath();
+        ctx.moveTo(sk_i2x(_as.i,n,w),py_s);
+        ctx.lineTo(sk_i2x(_ap2.i,n,w),sk_p2y(_ap2.v,h,mn,mx));
+        ctx.stroke();
+      }
+    }else{
+      ctx.beginPath();ctx.moveTo(SKP.left,py_s);ctx.lineTo(w-SKP.right,py_s);ctx.stroke();
+    }
+    ctx.setLineDash([]);ctx.restore();
   }
 
-  // 吸附點指示圈
-  if(_am==='draw'&&_asn){
-    ctx.save();
-    ctx.strokeStyle='rgba(44,95,138,0.9)';ctx.lineWidth=2;
+  // 吸附指示圈
+  if((_am==='draw'||_am==='drawH')&&_asn){
+    ctx.save();ctx.strokeStyle='rgba(44,95,138,0.9)';ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(_asn.x,_asn.y,7,0,Math.PI*2);ctx.stroke();
-    ctx.fillStyle='rgba(44,95,138,0.25)';ctx.fill();
-    ctx.restore();
+    ctx.fillStyle='rgba(44,95,138,0.25)';ctx.fill();ctx.restore();
   }
 }
 
@@ -623,6 +587,22 @@ function resizeWK(){
   vC.height=document.getElementById('wvWrap').offsetHeight;
 }
 
+function setS5Mode(mode){
+  if(_s5Mode===mode)_s5Mode=null; else _s5Mode=mode;
+  _s5Drawing=false;_s5Start=null;_s5Prev=null;_s5SnapPoint=null;
+  document.getElementById('s5BtnDraw').classList.toggle('active',_s5Mode==='draw');
+  document.getElementById('s5BtnDel').classList.toggle('active',_s5Mode==='delete');
+}
+function updateS5LineCount(){document.getElementById('s5LineCount').textContent=`${_s5UserLines.length} / 5`;}
+function saveS5Lines(){try{localStorage.setItem('s5UserLines',JSON.stringify(_s5UserLines));}catch(e){}}
+function loadS5Lines(){try{const d=localStorage.getItem('s5UserLines');if(d)_s5UserLines=JSON.parse(d);updateS5LineCount();}catch(e){_s5UserLines=[];}}
+function redrawS5(){
+  if(!_s5Bars.length||!_s5Ctx)return;
+  const allH=Math.max(..._s5Bars.map(b=>b.h));
+  const allL=Math.min(..._s5Bars.map(b=>b.l));
+  drawSK(_s5Ctx,_s5W,_s5H,_s5Bars,allH,allL);
+}
+
 // ── 近5根週K線 ─────────────────────────────────────────────────────
 function renderS5Charts(){
   if(!_s5Bars.length) return;
@@ -643,59 +623,79 @@ function setupS5Hover(allH,allL){
   const canvas=document.getElementById('s5Canvas');
   const tip=document.getElementById('wkTip');
   const n=_s5Bars.length;
-  canvas.onmousemove=e=>{
-    const rect=canvas.getBoundingClientRect();
-    const cx=(e.clientX-rect.left)*canvas.width/rect.width;
-    const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
+  function s5XY(e){const r=canvas.getBoundingClientRect();return{cx:(e.clientX-r.left)*canvas.width/r.width,cy:(e.clientY-r.top)*canvas.height/r.height};}
+  function s5XYT(t){const r=canvas.getBoundingClientRect();return{cx:(t.clientX-r.left)*canvas.width/r.width,cy:(t.clientY-r.top)*canvas.height/r.height};}
+  function s5Snap(cx,cy){return snapToChart(cx,cy,_s5Bars,_s5N,_s5W,_s5H,_s5Mn,_s5Mx);}
+  function s5CdV(cy){return _s5Mn+(1-(cy-SKP.top)/(_s5H-SKP.top-SKP.bottom))*(_s5Mx-_s5Mn);}
+  function s5ShowTip(idx,ex,ey){
     const b=_s5Bars[idx];if(!b)return;
     const chg=b.c-b.o,pct=(chg/b.o*100).toFixed(2);
     drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);
     const bx=sk_i2x(idx,n,canvas.width);
     _s5Ctx.strokeStyle='rgba(44,95,138,0.35)';_s5Ctx.lineWidth=1;_s5Ctx.setLineDash([3,3]);
-    _s5Ctx.beginPath();_s5Ctx.moveTo(bx,SKP.top);_s5Ctx.lineTo(bx,canvas.height-SKP.bottom);_s5Ctx.stroke();
-    _s5Ctx.setLineDash([]);
+    _s5Ctx.beginPath();_s5Ctx.moveTo(bx,SKP.top);_s5Ctx.lineTo(bx,canvas.height-SKP.bottom);_s5Ctx.stroke();_s5Ctx.setLineDash([]);
     document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
-    document.getElementById('wkTipO').textContent=fmtI(b.o);
-    document.getElementById('wkTipH').textContent=fmtI(b.h);
-    document.getElementById('wkTipL').textContent=fmtI(b.l);
-    document.getElementById('wkTipC').textContent=fmtI(b.c);
-    const tc=document.getElementById('wkTipChg');
-    tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
-    tc.className=chg>=0?'up':'down';
+    document.getElementById('wkTipO').textContent=fmtI(b.o);document.getElementById('wkTipH').textContent=fmtI(b.h);
+    document.getElementById('wkTipL').textContent=fmtI(b.l);document.getElementById('wkTipC').textContent=fmtI(b.c);
+    const tc=document.getElementById('wkTipChg');tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;tc.className=chg>=0?'up':'down';
     document.getElementById('wkTipV').textContent=fmtV(b.v);
     document.getElementById('wkTipFxRow').style.display='none';
-    _showPriceTip(_s5Bars[idx-1]);
     tip.style.display='block';
-    let tx=e.clientX+16,ty=e.clientY-10;
-    if(tx+185>window.innerWidth)tx=e.clientX-190;
+    let tx=ex+16,ty=ey-10;if(tx+185>window.innerWidth)tx=ex-190;
     tip.style.left=tx+'px';tip.style.top=ty+'px';
+  }
+  canvas.onmousedown=e=>{
+    if(_s5Mode==='draw'){
+      if(_s5UserLines.length>=5)return;
+      const {cx,cy}=s5XY(e);const snap=s5Snap(cx,cy);
+      _s5UserLines.push({v:snap?snap.v:s5CdV(cy),color:'rgba(44,95,138,0.9)'});
+      updateS5LineCount();saveS5Lines();redrawS5();
+    }else if(_s5Mode==='delete'){
+      const {cx,cy}=s5XY(e);let minDist=15,delIdx=-1;
+      _s5UserLines.forEach((l,i)=>{const d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));if(d<minDist){minDist=d;delIdx=i;}});
+      if(delIdx>=0){_s5UserLines.splice(delIdx,1);updateS5LineCount();saveS5Lines();redrawS5();}
+    }
   };
-  canvas.onmouseleave=()=>{tip.style.display='none';drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);};
-  canvas.addEventListener('touchmove',e=>{
-    e.preventDefault();
-    const touch=e.touches[0];
-    const rect=canvas.getBoundingClientRect();
-    const cx=(touch.clientX-rect.left)*canvas.width/rect.width;
+  canvas.onmousemove=e=>{
+    const {cx,cy}=s5XY(e);
+    if(_s5Mode==='draw'){
+      canvas.style.cursor='crosshair';
+      const snap=s5Snap(cx,cy);_s5Start=snap?{i:snap.i,v:snap.v}:{i:0,v:s5CdV(cy)};
+      if(snap!==_s5SnapPoint){_s5SnapPoint=snap;redrawS5();}
+      else redrawS5();
+      tip.style.display='none';return;
+    }
+    if(_s5Mode==='delete'){canvas.style.cursor='pointer';tip.style.display='none';return;}
+    canvas.style.cursor='default';
     const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
-    const b=_s5Bars[idx];if(!b)return;
-    const chg=b.c-b.o,pct=(chg/b.o*100).toFixed(2);
-    document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
-    document.getElementById('wkTipO').textContent=fmtI(b.o);
-    document.getElementById('wkTipH').textContent=fmtI(b.h);
-    document.getElementById('wkTipL').textContent=fmtI(b.l);
-    document.getElementById('wkTipC').textContent=fmtI(b.c);
-    const tc=document.getElementById('wkTipChg');
-    tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
-    tc.className=chg>=0?'up':'down';
-    document.getElementById('wkTipV').textContent=fmtV(b.v);
-    document.getElementById('wkTipFxRow').style.display='none';
-    _showPriceTip(_s5Bars[idx-1]);
-    tip.style.display='block';
-    const tx=Math.min(touch.clientX+16,window.innerWidth-195);
-    const ty=Math.max(10,touch.clientY-120);
-    tip.style.left=tx+'px';tip.style.top=ty+'px';
+    s5ShowTip(idx,e.clientX,e.clientY);
+  };
+  canvas.onmouseleave=()=>{if(_s5Mode){_s5SnapPoint=null;_s5Start=null;redrawS5();return;}tip.style.display='none';drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);};
+  canvas.addEventListener('touchstart',e=>{
+    if(_s5Mode==='draw'){
+      e.preventDefault();if(_s5UserLines.length>=5)return;
+      const {cx,cy}=s5XYT(e.touches[0]);const snap=s5Snap(cx,cy);
+      _s5UserLines.push({v:snap?snap.v:s5CdV(cy),color:'rgba(44,95,138,0.9)'});
+      updateS5LineCount();saveS5Lines();redrawS5();
+    }
   },{passive:false});
-  canvas.addEventListener('touchend',()=>setTimeout(()=>{tip.style.display='none';drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);},1500),{passive:true});
+  canvas.addEventListener('touchmove',e=>{
+    if(_s5Mode==='draw'){
+      e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);const snap=s5Snap(cx,cy);
+      _s5Start=snap?{i:snap.i,v:snap.v}:{i:0,v:s5CdV(cy)};_s5SnapPoint=snap||null;redrawS5();
+    }else if(!_s5Mode){
+      e.preventDefault();const t=e.touches[0];const {cx}=s5XYT(t);
+      const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
+      s5ShowTip(idx,t.clientX,t.clientY);
+    }
+  },{passive:false});
+  canvas.addEventListener('touchend',e=>{
+    if(_s5Mode==='delete'){
+      e.preventDefault();const {cx,cy}=s5XYT(e.changedTouches[0]);let minDist=20,delIdx=-1;
+      _s5UserLines.forEach((l,i)=>{const d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));if(d<minDist){minDist=d;delIdx=i;}});
+      if(delIdx>=0){_s5UserLines.splice(delIdx,1);updateS5LineCount();saveS5Lines();redrawS5();}
+    }else if(!_s5Mode){setTimeout(()=>{tip.style.display='none';drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);},1500);}
+  },{passive:false});
 }
 window.addEventListener('resize',()=>{if(_s5Bars.length)renderS5Charts();});
 
@@ -758,9 +758,7 @@ function setupWKHover(allH,allL){
       redrawWK();
     }
   };
-  window.addEventListener('mouseup',()=>{
-    if(_wkDrawing){_wkDrawing=false;_wkStart=null;_wkPrev=null;redrawWK();}
-  });
+
 
   canvas.onmousemove=e=>{
     const {cx,cy}=mouseToCanvasXY(e);
@@ -818,7 +816,6 @@ function setupWKHover(allH,allL){
       fxRow.style.display='none';
     }
     // 價1/價2：顯示前一根bar的值
-    _showPriceTip(_wkBars[idx-1]);
 
     tip.style.display='block';
     let tx=e.clientX+16, ty=e.clientY-10;
@@ -827,7 +824,7 @@ function setupWKHover(allH,allL){
   };
 
   canvas.onmouseleave=()=>{
-    if(_wkMode){_wkSnapPoint=null;redrawWK();return;}
+    if(_wkMode){_wkDrawing=false;_wkStart=null;_wkPrev=null;_wkSnapPoint=null;redrawWK();return;}
     tip.style.display='none';
     drawSK(_wkCtx,canvas.width,canvas.height,_wkBars,allH,allL);
   };
@@ -840,8 +837,15 @@ function setupWKHover(allH,allL){
       const {cx,cy}=touchToCanvasXY(e.touches[0]);
       const snap=snapToKLine(cx,cy);
       _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
-      _wkSnapPoint=snap||null;
-      _wkDrawing=true;
+      _wkSnapPoint=snap||null;_wkDrawing=true;
+    }else if(_wkMode==='drawH'){
+      e.preventDefault();
+      if(_userLines.length>=5) return;
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      const snap=snapToKLine(cx,cy);
+      const v=snap?snap.v:canvasToData(cx,cy).v;
+      _userLines.push({type:'h',v,color:'rgba(44,95,138,0.9)'});
+      updateLineCount();saveLines();_wkSnapPoint=snap||null;
     }else if(_wkMode==='delete'){
       // touchstart只記位置
     }else{
@@ -852,11 +856,16 @@ function setupWKHover(allH,allL){
   canvas.addEventListener('touchmove',e=>{
     if(_wkMode==='draw'){
       e.preventDefault();
-      if(!_wkDrawing||!_wkStart) return;
+      if(!_wkDrawing||!_wkStart)return;
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      const snap=snapToKLine(cx,cy);_wkSnapPoint=snap||null;
+      _wkPrev=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
+      redrawWK();
+    }else if(_wkMode==='drawH'){
+      e.preventDefault();
       const {cx,cy}=touchToCanvasXY(e.touches[0]);
       const snap=snapToKLine(cx,cy);
-      _wkSnapPoint=snap||null;
-      _wkPrev=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
+      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);_wkSnapPoint=snap||null;
       redrawWK();
     }else if(_wkMode==='delete'){
       // 不處理移動
@@ -889,7 +898,6 @@ function setupWKHover(allH,allL){
       const fxRowT=document.getElementById('wkTipFxRow');
       if(b.fxBuy||b.fxSell){fxElT.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;fxRowT.style.display='flex';}
       else fxRowT.style.display='none';
-      _showPriceTip(_wkBars[idx-1]);
       tip.style.display='block';
       const tx=Math.min(touch.clientX+16,window.innerWidth-195);
       const ty=Math.max(10,touch.clientY-120);
@@ -900,16 +908,15 @@ function setupWKHover(allH,allL){
   canvas.addEventListener('touchend',e=>{
     if(_wkMode==='draw'){
       e.preventDefault();
-      if(!_wkDrawing||!_wkStart||!_wkPrev) {_wkDrawing=false;return;}
-      // 兩點距離夠才存線
-      const x1=sk_i2x(_wkStart.i,_wkN,_wkW), y1=sk_p2y(_wkStart.v,_wkH,_wkMn,_wkMx);
-      const x2=sk_i2x(_wkPrev.i,_wkN,_wkW), y2=sk_p2y(_wkPrev.v,_wkH,_wkMn,_wkMx);
-      if(Math.hypot(x2-x1,y2-y1)>20){
-        _userLines.push({i1:_wkStart.i,v1:_wkStart.v,i2:_wkPrev.i,v2:_wkPrev.v,color:'rgba(44,95,138,0.9)'});
-        updateLineCount();saveLines();
+      if(_wkDrawing&&_wkStart&&_wkPrev){
+        const x1=sk_i2x(_wkStart.i,_wkN,_wkW),y1=sk_p2y(_wkStart.v,_wkH,_wkMn,_wkMx);
+        const x2=sk_i2x(_wkPrev.i,_wkN,_wkW),y2=sk_p2y(_wkPrev.v,_wkH,_wkMn,_wkMx);
+        if(Math.hypot(x2-x1,y2-y1)>20){
+          _userLines.push({type:'t',i1:_wkStart.i,v1:_wkStart.v,i2:_wkPrev.i,v2:_wkPrev.v,color:'rgba(44,95,138,0.9)'});
+          updateLineCount();saveLines();
+        }
       }
-      _wkDrawing=false;_wkStart=null;_wkPrev=null;
-      redrawWK();
+      _wkDrawing=false;_wkStart=null;_wkPrev=null;_wkSnapPoint=null;redrawWK();
     }else if(_wkMode==='delete'){
       e.preventDefault();
       const touch=e.changedTouches[0];
@@ -919,6 +926,14 @@ function setupWKHover(allH,allL){
         const x1=sk_i2x(l.i1,_wkN,_wkW),y1=sk_p2y(l.v1,_wkH,_wkMn,_wkMx);
         const x2=sk_i2x(l.i2,_wkN,_wkW),y2=sk_p2y(l.v2,_wkH,_wkMn,_wkMx);
         const d=distPtToSeg(cx,cy,x1,y1,x2,y2);
+        if(d<minDist){minDist=d;delIdx=idx;}
+      });
+      if(delIdx>=0){_userLines.splice(delIdx,1);updateLineCount();saveLines();redrawWK();}
+    }else if(_wkMode==='delete'&&e.type==='touchend'){
+      const {cx,cy}=touchToCanvasXY(e.changedTouches[0]);
+      let minDist=20,delIdx=-1;
+      _userLines.forEach((l,idx)=>{
+        const d=l.type==='h'?Math.abs(cy-sk_p2y(l.v,_wkH,_wkMn,_wkMx)):distPtToSeg(cx,cy,sk_i2x(l.i1,_wkN,_wkW),sk_p2y(l.v1,_wkH,_wkMn,_wkMx),sk_i2x(l.i2,_wkN,_wkW),sk_p2y(l.v2,_wkH,_wkMn,_wkMx));
         if(d<minDist){minDist=d;delIdx=idx;}
       });
       if(delIdx>=0){_userLines.splice(delIdx,1);updateLineCount();saveLines();redrawWK();}
@@ -1074,7 +1089,7 @@ function buildWeekly_MF(rows){
 
 function setMFMode(mode){
   if(_mfMode===mode){_mfMode=null;}else{_mfMode=mode;}
-  _mfDrawing=false;_mfStart=null;_mfPrev=null;
+  _mfDrawing=false;_mfStart=null;_mfPrev=null;_mfSnapPoint=null;
   document.getElementById('mfBtnDraw').classList.toggle('active',_mfMode==='draw');
   document.getElementById('mfBtnDel').classList.toggle('active',_mfMode==='delete');
 }
@@ -1146,9 +1161,7 @@ function setupMFHover(allH,allL){
       const {cx,cy}=mfCanvasXY(e);
       let minDist=20,delIdx=-1;
       _mfUserLines.forEach((l,idx)=>{
-        const x1=sk_i2x(l.i1,_mfN,_mfW),y1=sk_p2y(l.v1,_mfH,_mfMn,_mfMx);
-        const x2=sk_i2x(l.i2,_mfN,_mfW),y2=sk_p2y(l.v2,_mfH,_mfMn,_mfMx);
-        const d=distPtToSeg(cx,cy,x1,y1,x2,y2);
+        const d=(l.type==='h')?Math.abs(cy-sk_p2y(l.v,_mfH,_mfMn,_mfMx)):distPtToSeg(cx,cy,sk_i2x(l.i1,_mfN,_mfW),sk_p2y(l.v1,_mfH,_mfMn,_mfMx),sk_i2x(l.i2,_mfN,_mfW),sk_p2y(l.v2,_mfH,_mfMn,_mfMx));
         if(d<minDist){minDist=d;delIdx=idx;}
       });
       if(delIdx>=0){_mfUserLines.splice(delIdx,1);updateMFLineCount();saveMFLines();redrawMF();}
@@ -1159,7 +1172,7 @@ function setupMFHover(allH,allL){
       const x1=sk_i2x(_mfStart.i,_mfN,_mfW),y1=sk_p2y(_mfStart.v,_mfH,_mfMn,_mfMx);
       const x2=sk_i2x(_mfPrev.i,_mfN,_mfW),y2=sk_p2y(_mfPrev.v,_mfH,_mfMn,_mfMx);
       if(Math.hypot(x2-x1,y2-y1)>15){
-        _mfUserLines.push({i1:_mfStart.i,v1:_mfStart.v,i2:_mfPrev.i,v2:_mfPrev.v,color:'rgba(44,95,138,0.9)'});
+        _mfUserLines.push({type:'t',i1:_mfStart.i,v1:_mfStart.v,i2:_mfPrev.i,v2:_mfPrev.v,color:'rgba(44,95,138,0.9)'});
         updateMFLineCount();saveMFLines();
       }
       _mfDrawing=false;_mfStart=null;_mfPrev=null;redrawMF();
@@ -1206,14 +1219,13 @@ function setupMFHover(allH,allL){
     document.getElementById('wkTipV').textContent=fmtV(b.v);
     document.getElementById('wkTipFxRow').style.display='none';
     const mfPrevB=_mfBars[idx-1];
-    _showPriceTip(null);
     tip.style.display='block';
     let tx=e.clientX+16,ty=e.clientY-10;
     if(tx+185>window.innerWidth) tx=e.clientX-190;
     tip.style.left=tx+'px';tip.style.top=ty+'px';
   };
   canvas.onmouseleave=()=>{
-    if(_mfMode){_mfSnapPoint=null;redrawMF();return;}
+    if(_mfMode){_mfDrawing=false;_mfStart=null;_mfPrev=null;_mfSnapPoint=null;redrawMF();return;}
     tip.style.display='none';
     drawSK(_mfCtx,canvas.width,canvas.height,_mfBars,allH,allL);
   };
@@ -1258,7 +1270,6 @@ function setupMFHover(allH,allL){
       tc.className=chg>=0?'up':'down';
       document.getElementById('wkTipV').textContent=fmtV(b.v);
       document.getElementById('wkTipFxRow').style.display='none';
-      _showPriceTip(null);
       tip.style.display='block';
       const tx=Math.min(touch.clientX+16,window.innerWidth-195);
       const ty=Math.max(10,touch.clientY-120);
@@ -1273,7 +1284,7 @@ function setupMFHover(allH,allL){
       const x1=sk_i2x(_mfStart.i,_mfN,_mfW),y1=sk_p2y(_mfStart.v,_mfH,_mfMn,_mfMx);
       const x2=sk_i2x(_mfPrev.i,_mfN,_mfW),y2=sk_p2y(_mfPrev.v,_mfH,_mfMn,_mfMx);
       if(Math.hypot(x2-x1,y2-y1)>20){
-        _mfUserLines.push({i1:_mfStart.i,v1:_mfStart.v,i2:_mfPrev.i,v2:_mfPrev.v,color:'rgba(44,95,138,0.9)'});
+        _mfUserLines.push({type:'t',i1:_mfStart.i,v1:_mfStart.v,i2:_mfPrev.i,v2:_mfPrev.v,color:'rgba(44,95,138,0.9)'});
         updateMFLineCount();saveMFLines();
       }
       _mfDrawing=false;_mfStart=null;_mfPrev=null;redrawMF();
@@ -1282,9 +1293,7 @@ function setupMFHover(allH,allL){
       const {cx,cy}=mfCanvasXYTouch(e.changedTouches[0]);
       let minDist=30,delIdx=-1;
       _mfUserLines.forEach((l,idx)=>{
-        const x1=sk_i2x(l.i1,_mfN,_mfW),y1=sk_p2y(l.v1,_mfH,_mfMn,_mfMx);
-        const x2=sk_i2x(l.i2,_mfN,_mfW),y2=sk_p2y(l.v2,_mfH,_mfMn,_mfMx);
-        const d=distPtToSeg(cx,cy,x1,y1,x2,y2);
+        const d=(l.type==='h')?Math.abs(cy-sk_p2y(l.v,_mfH,_mfMn,_mfMx)):distPtToSeg(cx,cy,sk_i2x(l.i1,_mfN,_mfW),sk_p2y(l.v1,_mfH,_mfMn,_mfMx),sk_i2x(l.i2,_mfN,_mfW),sk_p2y(l.v2,_mfH,_mfMn,_mfMx));
         if(d<minDist){minDist=d;delIdx=idx;}
       });
       if(delIdx>=0){_mfUserLines.splice(delIdx,1);updateMFLineCount();saveMFLines();redrawMF();}
@@ -1301,6 +1310,11 @@ window.addEventListener('resize',()=>{if(_mfBars.length) renderMFCharts();});
 // ══════════════════════════════════════════════════════════════════
 loadLines();
 loadMFLines();
+loadS5Lines();
+// 清除舊格式(對角線)的localStorage
+['wkUserLines','mfUserLines','s5UserLines'].forEach(k=>{
+  try{const d=localStorage.getItem(k);if(d){const p=JSON.parse(d);if(p.length&&p[0].i1!==undefined){localStorage.removeItem(k);}}}catch(e){}
+});
 loadWeeklyKline();
 setInterval(loadWeeklyKline,300000);   // 台指期週K：每5分鐘自動更新
 
