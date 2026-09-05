@@ -750,15 +750,21 @@ function setupWKHover(allH,allL){
       const {cx,cy}=mouseToCanvasXY(e);
       const snap=snapToKLine(cx,cy);
       _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
-      _wkDrawing=true;
-      canvas.style.cursor='crosshair';
+      _wkDrawing=true;canvas.style.cursor='crosshair';
+    }else if(_wkMode==='drawH'){
+      if(_userLines.length>=5) return;
+      const {cx,cy}=mouseToCanvasXY(e);
+      const snap=snapToKLine(cx,cy);
+      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
+      _wkDrawing=true;canvas.style.cursor='crosshair';
+      redrawWK(); // 立即顯示預覽線
     }else if(_wkMode==='delete'){
       const {cx,cy}=mouseToCanvasXY(e);
       let minDist=20,delIdx=-1;
       _userLines.forEach((l,idx)=>{
-        const x1=sk_i2x(l.i1,_wkN,_wkW),y1=sk_p2y(l.v1,_wkH,_wkMn,_wkMx);
-        const x2=sk_i2x(l.i2,_wkN,_wkW),y2=sk_p2y(l.v2,_wkH,_wkMn,_wkMx);
-        const d=distPtToSeg(cx,cy,x1,y1,x2,y2);
+        const d=l.type==='h'
+          ?Math.abs(cy-sk_p2y(l.v,_wkH,_wkMn,_wkMx))
+          :distPtToSeg(cx,cy,sk_i2x(l.i1||0,_wkN,_wkW),sk_p2y(l.v1||l.v,_wkH,_wkMn,_wkMx),sk_i2x(l.i2||0,_wkN,_wkW),sk_p2y(l.v2||l.v,_wkH,_wkMn,_wkMx));
         if(d<minDist){minDist=d;delIdx=idx;}
       });
       if(delIdx>=0){_userLines.splice(delIdx,1);updateLineCount();saveLines();redrawWK();}
@@ -775,11 +781,10 @@ function setupWKHover(allH,allL){
       const x1=sk_i2x(_wkStart.i,_wkN,_wkW),y1=sk_p2y(_wkStart.v,_wkH,_wkMn,_wkMx);
       const x2=sk_i2x(_wkPrev.i,_wkN,_wkW),y2=sk_p2y(_wkPrev.v,_wkH,_wkMn,_wkMx);
       if(Math.hypot(x2-x1,y2-y1)>15){
-        _userLines.push({i1:_wkStart.i,v1:_wkStart.v,i2:_wkPrev.i,v2:_wkPrev.v,color:'rgba(44,95,138,0.9)'});
+        _userLines.push({type:'t',i1:_wkStart.i,v1:_wkStart.v,i2:_wkPrev.i,v2:_wkPrev.v,color:'rgba(44,95,138,0.9)'});
         updateLineCount();saveLines();
       }
-      _wkDrawing=false;_wkStart=null;_wkPrev=null;
-      redrawWK();
+      _wkDrawing=false;_wkStart=null;_wkPrev=null;redrawWK();
     }
   };
 
@@ -795,17 +800,22 @@ function setupWKHover(allH,allL){
         _wkPrev=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
         redrawWK();
       }else{
-        // 未開始畫，只顯示吸附指示
         const snap=snapToKLine(cx,cy);
         if(snap!==_wkSnapPoint){_wkSnapPoint=snap;redrawWK();}
       }
-      tip.style.display='none';
-      return;
+      tip.style.display='none';return;
+    }
+    if(_wkMode==='drawH'){
+      canvas.style.cursor='crosshair';
+      const snap=snapToKLine(cx,cy);
+      _wkSnapPoint=snap||null;
+      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
+      if(_wkDrawing) redrawWK(); // 拖曳中才重繪（避免hover閃爍）
+      tip.style.display='none';return;
     }
     if(_wkMode==='delete'){
       canvas.style.cursor='pointer';
-      tip.style.display='none';
-      return;
+      tip.style.display='none';return;
     }
 
     // tooltip模式
@@ -869,6 +879,7 @@ function setupWKHover(allH,allL){
       const snap=snapToKLine(cx,cy);
       _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
       _wkSnapPoint=snap||null;_wkDrawing=true;
+      redrawWK(); // 立即顯示預覽線
     }else if(_wkMode==='delete'){
       // touchstart只記位置
     }else{
