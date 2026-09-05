@@ -544,7 +544,14 @@ function drawSK(ctx,w,h,bars,allH,allL){
         ctx.stroke();
       }
     }else{
+      // 水平預覽線 + 右側價格
       ctx.beginPath();ctx.moveTo(SKP.left,py_s);ctx.lineTo(w-SKP.right,py_s);ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font='9px DM Mono,monospace';ctx.fillStyle='rgba(44,95,138,0.8)';ctx.textAlign='left';
+      const previewMn=ctx===_mfCtx?_mfMn:ctx===_s5Ctx?_s5Mn:_wkMn;
+      const previewMx=ctx===_mfCtx?_mfMx:ctx===_s5Ctx?_s5Mx:_wkMx;
+      const previewV=previewMn+(1-(py_s-SKP.top)/(h-SKP.top-SKP.bottom))*(previewMx-previewMn);
+      ctx.fillText(fmtI(previewV),w-SKP.right+3,py_s+3);
     }
     ctx.setLineDash([]);ctx.restore();
   }
@@ -648,22 +655,30 @@ function setupS5Hover(allH,allL){
     if(_s5Mode==='draw'){
       if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XY(e);const snap=s5Snap(cx,cy);
-      _s5UserLines.push({v:snap?snap.v:s5CdV(cy),color:'rgba(44,95,138,0.9)'});
-      updateS5LineCount();saveS5Lines();redrawS5();
+      _s5Start=snap?{i:snap.i,v:snap.v}:{i:0,v:s5CdV(cy)};
+      _s5SnapPoint=snap||null;_s5Drawing=true;canvas.style.cursor='crosshair';
     }else if(_s5Mode==='delete'){
       const {cx,cy}=s5XY(e);let minDist=15,delIdx=-1;
       _s5UserLines.forEach((l,i)=>{const d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));if(d<minDist){minDist=d;delIdx=i;}});
       if(delIdx>=0){_s5UserLines.splice(delIdx,1);updateS5LineCount();saveS5Lines();redrawS5();}
     }
   };
+  canvas.onmouseup=e=>{
+    if(_s5Mode==='draw'&&_s5Drawing&&_s5Start){
+      _s5UserLines.push({type:'h',v:_s5Start.v,color:'rgba(44,95,138,0.9)'});
+      updateS5LineCount();saveS5Lines();
+      _s5Drawing=false;_s5Start=null;_s5SnapPoint=null;redrawS5();
+    }
+  };
+  window.addEventListener('mouseup',()=>{if(_s5Drawing){_s5Drawing=false;_s5Start=null;_s5SnapPoint=null;redrawS5();}});
   canvas.onmousemove=e=>{
     const {cx,cy}=s5XY(e);
     if(_s5Mode==='draw'){
       canvas.style.cursor='crosshair';
-      const snap=s5Snap(cx,cy);_s5Start=snap?{i:snap.i,v:snap.v}:{i:0,v:s5CdV(cy)};
-      if(snap!==_s5SnapPoint){_s5SnapPoint=snap;redrawS5();}
-      else redrawS5();
-      tip.style.display='none';return;
+      const snap=s5Snap(cx,cy);
+      _s5SnapPoint=snap||null;
+      _s5Start=snap?{i:snap.i,v:snap.v}:{i:0,v:s5CdV(cy)};
+      redrawS5();tip.style.display='none';return;
     }
     if(_s5Mode==='delete'){canvas.style.cursor='pointer';tip.style.display='none';return;}
     canvas.style.cursor='default';
@@ -675,12 +690,12 @@ function setupS5Hover(allH,allL){
     if(_s5Mode==='draw'){
       e.preventDefault();if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XYT(e.touches[0]);const snap=s5Snap(cx,cy);
-      _s5UserLines.push({v:snap?snap.v:s5CdV(cy),color:'rgba(44,95,138,0.9)'});
-      updateS5LineCount();saveS5Lines();redrawS5();
+      _s5Start=snap?{i:snap.i,v:snap.v}:{i:0,v:s5CdV(cy)};
+      _s5SnapPoint=snap||null;_s5Drawing=true;
     }
   },{passive:false});
   canvas.addEventListener('touchmove',e=>{
-    if(_s5Mode==='draw'){
+    if(_s5Mode==='draw'&&_s5Drawing){
       e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);const snap=s5Snap(cx,cy);
       _s5Start=snap?{i:snap.i,v:snap.v}:{i:0,v:s5CdV(cy)};_s5SnapPoint=snap||null;redrawS5();
     }else if(!_s5Mode){
@@ -690,7 +705,12 @@ function setupS5Hover(allH,allL){
     }
   },{passive:false});
   canvas.addEventListener('touchend',e=>{
-    if(_s5Mode==='delete'){
+    if(_s5Mode==='draw'&&_s5Drawing&&_s5Start){
+      e.preventDefault();
+      _s5UserLines.push({type:'h',v:_s5Start.v,color:'rgba(44,95,138,0.9)'});
+      updateS5LineCount();saveS5Lines();
+      _s5Drawing=false;_s5Start=null;_s5SnapPoint=null;redrawS5();
+    }else if(_s5Mode==='delete'){
       e.preventDefault();const {cx,cy}=s5XYT(e.changedTouches[0]);let minDist=20,delIdx=-1;
       _s5UserLines.forEach((l,i)=>{const d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));if(d<minDist){minDist=d;delIdx=i;}});
       if(delIdx>=0){_s5UserLines.splice(delIdx,1);updateS5LineCount();saveS5Lines();redrawS5();}
@@ -747,7 +767,11 @@ function setupWKHover(allH,allL){
 
   // mouseup：完成畫線
   canvas.onmouseup=e=>{
-    if(_wkMode==='draw'&&_wkDrawing&&_wkStart&&_wkPrev){
+    if(_wkMode==='drawH'&&_wkDrawing&&_wkStart){
+      _userLines.push({type:'h',v:_wkStart.v,color:'rgba(44,95,138,0.9)'});
+      updateLineCount();saveLines();
+      _wkDrawing=false;_wkStart=null;redrawWK();
+    }else if(_wkMode==='draw'&&_wkDrawing&&_wkStart&&_wkPrev){
       const x1=sk_i2x(_wkStart.i,_wkN,_wkW),y1=sk_p2y(_wkStart.v,_wkH,_wkMn,_wkMx);
       const x2=sk_i2x(_wkPrev.i,_wkN,_wkW),y2=sk_p2y(_wkPrev.v,_wkH,_wkMn,_wkMx);
       if(Math.hypot(x2-x1,y2-y1)>15){
@@ -843,9 +867,8 @@ function setupWKHover(allH,allL){
       if(_userLines.length>=5) return;
       const {cx,cy}=touchToCanvasXY(e.touches[0]);
       const snap=snapToKLine(cx,cy);
-      const v=snap?snap.v:canvasToData(cx,cy).v;
-      _userLines.push({type:'h',v,color:'rgba(44,95,138,0.9)'});
-      updateLineCount();saveLines();_wkSnapPoint=snap||null;
+      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
+      _wkSnapPoint=snap||null;_wkDrawing=true;
     }else if(_wkMode==='delete'){
       // touchstart只記位置
     }else{
@@ -861,7 +884,7 @@ function setupWKHover(allH,allL){
       const snap=snapToKLine(cx,cy);_wkSnapPoint=snap||null;
       _wkPrev=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
       redrawWK();
-    }else if(_wkMode==='drawH'){
+    }else if(_wkMode==='drawH'&&_wkDrawing){
       e.preventDefault();
       const {cx,cy}=touchToCanvasXY(e.touches[0]);
       const snap=snapToKLine(cx,cy);
