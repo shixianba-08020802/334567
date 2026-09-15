@@ -156,6 +156,7 @@
       <canvas id="s5VolCanvas"></canvas>
     </div>
     <div class="wk-toolbar">
+      <button class="wk-tool-btn" id="s5BtnDrawB" onclick="setS5Mode('drawB')">≡ 三線</button>
       <button class="wk-tool-btn" id="s5BtnDraw" onclick="setS5Mode('draw')">─ 水平線</button>
       <button class="wk-tool-btn" id="s5BtnDel" onclick="setS5Mode('delete')">✕ 刪線</button>
       <span class="wk-line-count" id="s5LineCount">0 / 5</span>
@@ -420,6 +421,7 @@ function setWKMode(mode){
   _wkDrawing=false;_wkStart=null;_wkPrev=null;_wkSnapPoint=null;
   document.getElementById('wkBtnDraw').classList.toggle('active',_wkMode==='draw');
   document.getElementById('wkBtnDrawH').classList.toggle('active',_wkMode==='drawH');
+  document.getElementById('wkBtnDrawB').classList.toggle('active',_wkMode==='drawB');
   document.getElementById('wkBtnDel').classList.toggle('active',_wkMode==='delete');
   // 提示文字
   const src=document.getElementById('wkSrc');
@@ -498,11 +500,30 @@ function drawSK(ctx,w,h,bars,allH,allL){
   const _asn=ctx===_mfCtx?_mfSnapPoint:ctx===_s5Ctx?_s5SnapPoint:_wkSnapPoint;
   const _am=ctx===_mfCtx?_mfMode:ctx===_s5Ctx?_s5Mode:_wkMode;
 
-  // 繪製手繪線（趨勢線/水平線）
+  // 繪製手繪線（趨勢線/水平線/三線）
   _al.forEach(l=>{
     const color=l.color||'rgba(44,95,138,0.9)';
     ctx.save();ctx.strokeStyle=color;ctx.lineWidth=2;
-    if(l.type==='h'){
+    if(l.type==='b'){
+      // 三線區間
+      const vTop=l.v+l.spread,vMid=l.v,vBot=l.v-l.spread;
+      const pyTop=sk_p2y(vTop,h,mn,mx),pyMid=sk_p2y(vMid,h,mn,mx),pyBot=sk_p2y(vBot,h,mn,mx);
+      [[vTop,pyTop,1.5],[vMid,pyMid,2.5],[vBot,pyBot,1.5]].forEach(([v,py,lw])=>{
+        if(py<SKP.top-2||py>h-SKP.bottom+2)return;
+        ctx.lineWidth=lw;
+        ctx.beginPath();ctx.moveTo(SKP.left,py);ctx.lineTo(w-SKP.right,py);ctx.stroke();
+      });
+      const rx=w-SKP.right+3;
+      ctx.fillStyle=color;ctx.textAlign='left';
+      ctx.font='bold 13px DM Mono,monospace';
+      ctx.fillText(fmtI(vTop),rx,pyTop-2);
+      ctx.fillText(fmtI(vMid),rx,pyMid-2);
+      ctx.fillText(fmtI(vBot),rx,pyBot-2);
+      ctx.font='bold 10px DM Mono,monospace';
+      ctx.fillStyle='rgba(44,95,138,0.65)';
+      ctx.fillText('+'+fmtI(l.spread),rx,(pyTop+pyMid)/2+3);
+      ctx.fillText('-'+fmtI(l.spread),rx,(pyMid+pyBot)/2+3);
+    }else if(l.type==='h'){
       // 水平線
       const py=sk_p2y(l.v,h,mn,mx);
       if(py<SKP.top-2||py>h-SKP.bottom+2){ctx.restore();return;}
@@ -532,28 +553,53 @@ function drawSK(ctx,w,h,bars,allH,allL){
 
   // 預覽線
   if(_ad&&_as){
-    const isTrend=(_am==='draw')&&(ctx===_wkCtx||ctx===_mfCtx);
-    const py_s=sk_p2y(_as.v,h,mn,mx);
-    ctx.save();ctx.strokeStyle='rgba(44,95,138,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
-    if(isTrend){
-      const _ap2=ctx===_mfCtx?_mfPrev:ctx===_s5Ctx?_s5Prev:_wkPrev;
-      if(_ap2){
-        ctx.beginPath();
-        ctx.moveTo(sk_i2x(_as.i,n,w),py_s);
-        ctx.lineTo(sk_i2x(_ap2.i,n,w),sk_p2y(_ap2.v,h,mn,mx));
-        ctx.stroke();
-      }
-    }else{
-      // 水平預覽線 + 右側價格
-      ctx.beginPath();ctx.moveTo(SKP.left,py_s);ctx.lineTo(w-SKP.right,py_s);ctx.stroke();
+    const _ap2=ctx===_mfCtx?_mfPrev:ctx===_s5Ctx?_s5Prev:_wkPrev;
+    if(_am==='drawB'){
+      // 三線預覽
+      const spread=_ap2?Math.abs(_ap2.v-_as.v):0;
+      const vTop=_as.v+spread,vBot=_as.v-spread;
+      ctx.save();ctx.strokeStyle='rgba(44,95,138,0.55)';ctx.setLineDash([4,3]);
+      [[_as.v+spread,1.5],[_as.v,2],[_as.v-spread,1.5]].forEach(([v,lw])=>{
+        const py=sk_p2y(v,h,mn,mx);
+        if(py<SKP.top-2||py>h-SKP.bottom+2)return;
+        ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(SKP.left,py);ctx.lineTo(w-SKP.right,py);ctx.stroke();
+      });
       ctx.setLineDash([]);
-      ctx.font='9px DM Mono,monospace';ctx.fillStyle='rgba(44,95,138,0.8)';ctx.textAlign='left';
-      const previewMn=ctx===_mfCtx?_mfMn:ctx===_s5Ctx?_s5Mn:_wkMn;
-      const previewMx=ctx===_mfCtx?_mfMx:ctx===_s5Ctx?_s5Mx:_wkMx;
-      const previewV=previewMn+(1-(py_s-SKP.top)/(h-SKP.top-SKP.bottom))*(previewMx-previewMn);
-      ctx.fillText(fmtI(previewV),w-SKP.right+3,py_s+3);
+      if(spread>0){
+        const pyT=sk_p2y(vTop,h,mn,mx),pyM=sk_p2y(_as.v,h,mn,mx),pyB=sk_p2y(vBot,h,mn,mx);
+        ctx.fillStyle='rgba(44,95,138,0.7)';ctx.textAlign='left';
+        ctx.font='bold 13px DM Mono,monospace';
+        ctx.fillText(fmtI(vTop),w-SKP.right+3,pyT-2);
+        ctx.fillText(fmtI(_as.v),w-SKP.right+3,pyM-2);
+        ctx.fillText(fmtI(vBot),w-SKP.right+3,pyB-2);
+        ctx.font='bold 10px DM Mono,monospace';
+        ctx.fillStyle='rgba(44,95,138,0.55)';
+        ctx.fillText('+'+fmtI(spread),w-SKP.right+3,(pyT+pyM)/2+3);
+        ctx.fillText('-'+fmtI(spread),w-SKP.right+3,(pyM+pyB)/2+3);
+      }
+      ctx.restore();
+    }else{
+      const isTrend=(_am==='draw')&&(ctx===_wkCtx||ctx===_mfCtx);
+      const py_s=sk_p2y(_as.v,h,mn,mx);
+      ctx.save();ctx.strokeStyle='rgba(44,95,138,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+      if(isTrend){
+        if(_ap2){
+          ctx.beginPath();
+          ctx.moveTo(sk_i2x(_as.i,n,w),py_s);
+          ctx.lineTo(sk_i2x(_ap2.i,n,w),sk_p2y(_ap2.v,h,mn,mx));
+          ctx.stroke();
+        }
+      }else{
+        ctx.beginPath();ctx.moveTo(SKP.left,py_s);ctx.lineTo(w-SKP.right,py_s);ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font='9px DM Mono,monospace';ctx.fillStyle='rgba(44,95,138,0.8)';ctx.textAlign='left';
+        const previewMn=ctx===_mfCtx?_mfMn:ctx===_s5Ctx?_s5Mn:_wkMn;
+        const previewMx=ctx===_mfCtx?_mfMx:ctx===_s5Ctx?_s5Mx:_wkMx;
+        const previewV=previewMn+(1-(py_s-SKP.top)/(h-SKP.top-SKP.bottom))*(previewMx-previewMn);
+        ctx.fillText(fmtI(previewV),w-SKP.right+3,py_s+3);
+      }
+      ctx.setLineDash([]);ctx.restore();
     }
-    ctx.setLineDash([]);ctx.restore();
   }
 
   // 吸附指示圈
@@ -597,6 +643,7 @@ function resizeWK(){
 function setS5Mode(mode){
   if(_s5Mode===mode)_s5Mode=null; else _s5Mode=mode;
   _s5Drawing=false;_s5Start=null;_s5Prev=null;_s5SnapPoint=null;
+  document.getElementById('s5BtnDrawB').classList.toggle('active',_s5Mode==='drawB');
   document.getElementById('s5BtnDraw').classList.toggle('active',_s5Mode==='draw');
   document.getElementById('s5BtnDel').classList.toggle('active',_s5Mode==='delete');
 }
@@ -652,7 +699,13 @@ function setupS5Hover(allH,allL){
     tip.style.left=tx+'px';tip.style.top=ty+'px';
   }
   canvas.onmousedown=e=>{
-    if(_s5Mode==='draw'){
+    if(_s5Mode==='drawB'){
+      if(_s5UserLines.length>=5)return;
+      const {cx,cy}=s5XY(e);
+      _s5Start={i:0,v:s5CdV(cy)};_s5Prev=null;
+      _s5Drawing=true;canvas.style.cursor='crosshair';
+      redrawS5();
+    }else if(_s5Mode==='draw'){
       if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XY(e);
       _s5Start={i:0,v:s5CdV(cy)};
@@ -660,12 +713,24 @@ function setupS5Hover(allH,allL){
       redrawS5(); // 立即顯示預覽線
     }else if(_s5Mode==='delete'){
       const {cx,cy}=s5XY(e);let minDist=15,delIdx=-1;
-      _s5UserLines.forEach((l,i)=>{const d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));if(d<minDist){minDist=d;delIdx=i;}});
+      _s5UserLines.forEach((l,i)=>{
+        let d;
+        if(l.type==='b'){d=Math.min(Math.abs(cy-sk_p2y(l.v+l.spread,_s5H,_s5Mn,_s5Mx)),Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx)),Math.abs(cy-sk_p2y(l.v-l.spread,_s5H,_s5Mn,_s5Mx)));}
+        else{d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));}
+        if(d<minDist){minDist=d;delIdx=i;}
+      });
       if(delIdx>=0){_s5UserLines.splice(delIdx,1);updateS5LineCount();saveS5Lines();redrawS5();}
     }
   };
   canvas.onmouseup=e=>{
-    if(_s5Mode==='draw'&&_s5Drawing&&_s5Start){
+    if(_s5Mode==='drawB'&&_s5Drawing&&_s5Start&&_s5Prev){
+      const spread=Math.abs(_s5Prev.v-_s5Start.v);
+      if(spread>10){
+        _s5UserLines.push({type:'b',v:_s5Start.v,spread,color:'rgba(44,95,138,0.9)'});
+        updateS5LineCount();saveS5Lines();
+      }
+      _s5Drawing=false;_s5Start=null;_s5Prev=null;redrawS5();
+    }else if(_s5Mode==='draw'&&_s5Drawing&&_s5Start){
       _s5UserLines.push({type:'h',v:_s5Start.v,color:'rgba(44,95,138,0.9)'});
       updateS5LineCount();saveS5Lines();
       _s5Drawing=false;_s5Start=null;_s5SnapPoint=null;redrawS5();
@@ -674,6 +739,11 @@ function setupS5Hover(allH,allL){
   window.addEventListener('mouseup',()=>{if(_s5Drawing){_s5Drawing=false;_s5Start=null;_s5SnapPoint=null;redrawS5();}});
   canvas.onmousemove=e=>{
     const {cx,cy}=s5XY(e);
+    if(_s5Mode==='drawB'){
+      canvas.style.cursor='crosshair';
+      if(_s5Drawing){_s5Prev={i:0,v:s5CdV(cy)};redrawS5();}
+      tip.style.display='none';return;
+    }
     if(_s5Mode==='draw'){
       canvas.style.cursor='crosshair';
       _s5SnapPoint=null;
@@ -688,7 +758,12 @@ function setupS5Hover(allH,allL){
   };
   canvas.onmouseleave=()=>{if(_s5Mode){_s5SnapPoint=null;_s5Start=null;redrawS5();return;}tip.style.display='none';drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);};
   canvas.addEventListener('touchstart',e=>{
-    if(_s5Mode==='draw'){
+    if(_s5Mode==='drawB'){
+      e.preventDefault();if(_s5UserLines.length>=5)return;
+      const {cx,cy}=s5XYT(e.touches[0]);
+      _s5Start={i:0,v:s5CdV(cy)};_s5Prev=null;_s5Drawing=true;
+      redrawS5();
+    }else if(_s5Mode==='draw'){
       e.preventDefault();if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XYT(e.touches[0]);
       _s5Start={i:0,v:s5CdV(cy)};
@@ -697,7 +772,10 @@ function setupS5Hover(allH,allL){
     }
   },{passive:false});
   canvas.addEventListener('touchmove',e=>{
-    if(_s5Mode==='draw'&&_s5Drawing){
+    if(_s5Mode==='drawB'&&_s5Drawing){
+      e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);
+      _s5Prev={i:0,v:s5CdV(cy)};redrawS5();
+    }else if(_s5Mode==='draw'&&_s5Drawing){
       e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);
       _s5Start={i:0,v:s5CdV(cy)};_s5SnapPoint=null;redrawS5();
     }else if(!_s5Mode){
@@ -707,7 +785,15 @@ function setupS5Hover(allH,allL){
     }
   },{passive:false});
   canvas.addEventListener('touchend',e=>{
-    if(_s5Mode==='draw'&&_s5Drawing&&_s5Start){
+    if(_s5Mode==='drawB'&&_s5Drawing&&_s5Start&&_s5Prev){
+      e.preventDefault();
+      const spread=Math.abs(_s5Prev.v-_s5Start.v);
+      if(spread>10){
+        _s5UserLines.push({type:'b',v:_s5Start.v,spread,color:'rgba(44,95,138,0.9)'});
+        updateS5LineCount();saveS5Lines();
+      }
+      _s5Drawing=false;_s5Start=null;_s5Prev=null;redrawS5();
+    }else if(_s5Mode==='draw'&&_s5Drawing&&_s5Start){
       e.preventDefault();
       _s5UserLines.push({type:'h',v:_s5Start.v,color:'rgba(44,95,138,0.9)'});
       updateS5LineCount();saveS5Lines();
@@ -753,6 +839,12 @@ function setupWKHover(allH,allL){
       const snap=snapToKLine(cx,cy);
       _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
       _wkDrawing=true;canvas.style.cursor='crosshair';
+    }else if(_wkMode==='drawB'){
+      if(_userLines.length>=5) return;
+      const {cx,cy}=mouseToCanvasXY(e);
+      _wkStart=canvasToData(cx,cy);_wkPrev=null;
+      _wkDrawing=true;canvas.style.cursor='crosshair';
+      redrawWK();
     }else if(_wkMode==='drawH'){
       if(_userLines.length>=5) return;
       const {cx,cy}=mouseToCanvasXY(e);
@@ -774,7 +866,14 @@ function setupWKHover(allH,allL){
 
   // mouseup：完成畫線
   canvas.onmouseup=e=>{
-    if(_wkMode==='drawH'&&_wkDrawing&&_wkStart){
+    if(_wkMode==='drawB'&&_wkDrawing&&_wkStart&&_wkPrev){
+      const spread=Math.abs(_wkPrev.v-_wkStart.v);
+      if(spread>10){
+        _userLines.push({type:'b',v:_wkStart.v,spread,color:'rgba(44,95,138,0.9)'});
+        updateLineCount();saveLines();
+      }
+      _wkDrawing=false;_wkStart=null;_wkPrev=null;redrawWK();
+    }else if(_wkMode==='drawH'&&_wkDrawing&&_wkStart){
       _userLines.push({type:'h',v:_wkStart.v,color:'rgba(44,95,138,0.9)'});
       updateLineCount();saveLines();
       _wkDrawing=false;_wkStart=null;redrawWK();
@@ -804,6 +903,11 @@ function setupWKHover(allH,allL){
         const snap=snapToKLine(cx,cy);
         if(snap!==_wkSnapPoint){_wkSnapPoint=snap;redrawWK();}
       }
+      tip.style.display='none';return;
+    }
+    if(_wkMode==='drawB'){
+      canvas.style.cursor='crosshair';
+      if(_wkDrawing){_wkPrev=canvasToData(cx,cy);redrawWK();}
       tip.style.display='none';return;
     }
     if(_wkMode==='drawH'){
@@ -871,6 +975,12 @@ function setupWKHover(allH,allL){
       const snap=snapToKLine(cx,cy);
       _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
       _wkSnapPoint=snap||null;_wkDrawing=true;
+    }else if(_wkMode==='drawB'){
+      e.preventDefault();
+      if(_userLines.length>=5) return;
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      _wkStart=canvasToData(cx,cy);_wkPrev=null;_wkDrawing=true;
+      redrawWK();
     }else if(_wkMode==='drawH'){
       e.preventDefault();
       if(_userLines.length>=5) return;
@@ -893,6 +1003,10 @@ function setupWKHover(allH,allL){
       const snap=snapToKLine(cx,cy);_wkSnapPoint=snap||null;
       _wkPrev=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
       redrawWK();
+    }else if(_wkMode==='drawB'&&_wkDrawing){
+      e.preventDefault();
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      _wkPrev=canvasToData(cx,cy);redrawWK();
     }else if(_wkMode==='drawH'&&_wkDrawing){
       e.preventDefault();
       const {cx,cy}=touchToCanvasXY(e.touches[0]);
