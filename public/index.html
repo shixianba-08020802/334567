@@ -515,14 +515,10 @@ function drawSK(ctx,w,h,bars,allH,allL){
       });
       const rx=w-SKP.right+3;
       ctx.fillStyle=color;ctx.textAlign='left';
-      ctx.font='bold 13px DM Mono,monospace';
+      ctx.font='bold 15px DM Mono,monospace';
       ctx.fillText(fmtI(vTop),rx,pyTop-2);
       ctx.fillText(fmtI(vMid),rx,pyMid-2);
       ctx.fillText(fmtI(vBot),rx,pyBot-2);
-      ctx.font='bold 10px DM Mono,monospace';
-      ctx.fillStyle='rgba(44,95,138,0.65)';
-      ctx.fillText('+'+fmtI(l.spread),rx,(pyTop+pyMid)/2+3);
-      ctx.fillText('-'+fmtI(l.spread),rx,(pyMid+pyBot)/2+3);
     }else if(l.type==='h'){
       // 水平線
       const py=sk_p2y(l.v,h,mn,mx);
@@ -568,14 +564,10 @@ function drawSK(ctx,w,h,bars,allH,allL){
       if(spread>0){
         const pyT=sk_p2y(vTop,h,mn,mx),pyM=sk_p2y(_as.v,h,mn,mx),pyB=sk_p2y(vBot,h,mn,mx);
         ctx.fillStyle='rgba(44,95,138,0.7)';ctx.textAlign='left';
-        ctx.font='bold 13px DM Mono,monospace';
+        ctx.font='bold 15px DM Mono,monospace';
         ctx.fillText(fmtI(vTop),w-SKP.right+3,pyT-2);
         ctx.fillText(fmtI(_as.v),w-SKP.right+3,pyM-2);
         ctx.fillText(fmtI(vBot),w-SKP.right+3,pyB-2);
-        ctx.font='bold 10px DM Mono,monospace';
-        ctx.fillStyle='rgba(44,95,138,0.55)';
-        ctx.fillText('+'+fmtI(spread),w-SKP.right+3,(pyT+pyM)/2+3);
-        ctx.fillText('-'+fmtI(spread),w-SKP.right+3,(pyM+pyB)/2+3);
       }
       ctx.restore();
     }else{
