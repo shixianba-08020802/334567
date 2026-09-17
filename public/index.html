@@ -526,8 +526,8 @@ function drawSK(ctx,w,h,bars,allH,allL){
       ctx.beginPath();ctx.moveTo(SKP.left,py);ctx.lineTo(w-SKP.right,py);ctx.stroke();
       ctx.fillStyle=color;
       ctx.beginPath();ctx.arc(SKP.left+4,py,3,0,Math.PI*2);ctx.fill();
-      ctx.font='9px DM Mono,monospace';ctx.textAlign='left';
-      ctx.fillText(fmtI(l.v),w-SKP.right+3,py+3);
+      ctx.font='bold 15px DM Mono,monospace';ctx.textAlign='left';
+      ctx.fillText(fmtI(l.v),w-SKP.right+3,py+4);
     }else{
       // 趨勢線
       const x1=sk_i2x(l.i1,n,w),y1=sk_p2y(l.v1,h,mn,mx);
