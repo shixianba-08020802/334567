@@ -584,7 +584,7 @@ function drawSK(ctx,w,h,bars,allH,allL){
       }else{
         ctx.beginPath();ctx.moveTo(SKP.left,py_s);ctx.lineTo(w-SKP.right,py_s);ctx.stroke();
         ctx.setLineDash([]);
-        ctx.font='9px DM Mono,monospace';ctx.fillStyle='rgba(44,95,138,0.8)';ctx.textAlign='left';
+        ctx.font='bold 15px DM Mono,monospace';ctx.fillStyle='rgba(44,95,138,0.8)';ctx.textAlign='left';
         const previewMn=ctx===_mfCtx?_mfMn:ctx===_s5Ctx?_s5Mn:_wkMn;
         const previewMx=ctx===_mfCtx?_mfMx:ctx===_s5Ctx?_s5Mx:_wkMx;
         const previewV=previewMn+(1-(py_s-SKP.top)/(h-SKP.top-SKP.bottom))*(previewMx-previewMn);
