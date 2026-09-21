@@ -455,7 +455,7 @@ function sk_i2x(i,n,w){return SKP.left+(i+0.5)*((w-SKP.left-SKP.right)/(n+1));}
 function drawSK(ctx,w,h,bars,allH,allL){
   ctx.clearRect(0,0,w,h);
   const n=bars.length;
-  const pad=(allH-allL)*0.05;
+  const pad=Math.max((allH-allL)*0.05, 2000);
   const mn=allL-pad, mx=allH+pad;
   const bw=Math.max(3,(w-SKP.left-SKP.right)/n*0.58);
 
