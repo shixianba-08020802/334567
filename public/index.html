@@ -197,9 +197,7 @@
     <div class="skline-vol-wrap" id="wvWrap">
       <canvas id="wvCanvas"></canvas>
     </div>
-    <div id="wkFxWrap" style="position:relative;height:90px;width:100%;margin-top:4px;">
-      <canvas id="wkFxCanvas"></canvas>
-    </div>
+    <div id="wkFxRow" style="margin-top:6px;overflow:hidden;"></div>
     <div class="skline-src" id="wkSrc">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
   </div>
 
@@ -629,76 +627,34 @@ function drawSV(ctx,w,h,bars){
 }
 
 function drawFxLine(bars){
-  const canvas=document.getElementById('wkFxCanvas');
-  if(!canvas) return;
-  canvas.width=document.getElementById('wkFxWrap').offsetWidth;
-  canvas.height=document.getElementById('wkFxWrap').offsetHeight;
-  const ctx=canvas.getContext('2d');
-  const w=canvas.width, h=canvas.height;
-  ctx.clearRect(0,0,w,h);
-
-  // 只取有匯率的點
-  const pts=bars.map((b,i)=>({i,buy:b.fxBuy,sell:b.fxSell})).filter(p=>p.buy||p.sell);
-  if(pts.length<1) return;
-
-  const vals=pts.flatMap(p=>[p.buy,p.sell].filter(Boolean));
-  const range=Math.max(...vals)-Math.min(...vals)||0.2;
-  const mn=Math.min(...vals)-range*0.4;   // 上下多留40%空間
-  const mx=Math.max(...vals)+range*0.4;
+  const row=document.getElementById('wkFxRow');
+  if(!row) return;
   const n=bars.length;
-  const fxP2Y=v=>8+(1-(v-mn)/(mx-mn))*(h-16);
-  const fxI2X=i=>SKP.left+(i+0.5)*((w-SKP.left-SKP.right)/(n+1));
+  if(!n) return;
 
-  // 格線（輕）
-  ctx.strokeStyle='rgba(224,216,200,0.5)';ctx.lineWidth=0.5;
-  for(let i=0;i<=2;i++){
-    const y=8+i*(h-16)/2;
-    ctx.beginPath();ctx.moveTo(SKP.left,y);ctx.lineTo(w-SKP.right,y);ctx.stroke();
+  // 計算每格寬度（對齊K棒）
+  const canvas=document.getElementById('wkCanvas');
+  const totalW=canvas?canvas.offsetWidth:row.offsetWidth;
+  const barW=(totalW-SKP.left-SKP.right)/(n+1);
+
+  // 數字列HTML：每根K棒對應一格
+  let html=`<div style="display:flex;font-family:'DM Mono',monospace;font-size:9px;padding-left:${SKP.left}px;padding-right:${SKP.right}px;">`;
+  for(let i=0;i<n;i++){
+    const b=bars[i];
+    const buy=b.fxBuy, sell=b.fxSell;
+    html+=`<div style="flex:1;text-align:center;line-height:1.5;min-width:0;overflow:hidden;">`;
+    if(buy||sell){
+      if(buy)  html+=`<div style="color:rgba(192,57,43,0.9)">${buy.toFixed(2)}</div>`;
+      if(sell) html+=`<div style="color:rgba(192,57,43,0.9)">${sell.toFixed(2)}</div>`;
+    }else{
+      html+=`<div style="color:rgba(200,191,175,0.5)">—</div>`;
+    }
+    html+=`</div>`;
   }
-
-  // 買入折線（綠）
-  ctx.strokeStyle='rgba(26,122,94,0.85)';ctx.lineWidth=1.5;
-  ctx.beginPath();
-  pts.forEach((p,idx)=>{
-    if(!p.buy) return;
-    const x=fxI2X(p.i),y=fxP2Y(p.buy);
-    idx===0||!pts[idx-1]?.buy?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.stroke();
-
-  // 賣出折線（紅）
-  ctx.strokeStyle='rgba(192,57,43,0.85)';ctx.lineWidth=1.5;
-  ctx.beginPath();
-  pts.forEach((p,idx)=>{
-    if(!p.sell) return;
-    const x=fxI2X(p.i),y=fxP2Y(p.sell);
-    idx===0||!pts[idx-1]?.sell?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.stroke();
-
-  // 每個點的數值標籤
-  ctx.font='8px DM Mono,monospace';ctx.textAlign='center';
-  pts.forEach(p=>{
-    const x=fxI2X(p.i);
-    if(p.buy){
-      ctx.fillStyle='rgba(26,122,94,0.85)';
-      ctx.fillText(p.buy.toFixed(2),x,fxP2Y(p.buy)-3);
-    }
-    if(p.sell){
-      ctx.fillStyle='rgba(192,57,43,0.85)';
-      ctx.fillText(p.sell.toFixed(2),x,fxP2Y(p.sell)+9);
-    }
-  });
-
-  // 右側最新值（稍大）
-  const last=pts[pts.length-1];
-  ctx.font='9px DM Mono,monospace';ctx.textAlign='left';
-  if(last?.buy){ctx.fillStyle='rgba(26,122,94,0.95)';ctx.fillText(last.buy.toFixed(2),w-SKP.right+3,fxP2Y(last.buy)+3);}
-  if(last?.sell){ctx.fillStyle='rgba(192,57,43,0.95)';ctx.fillText(last.sell.toFixed(2),w-SKP.right+3,fxP2Y(last.sell)+3);}
-
-  // 左側標題
-  ctx.fillStyle='#b0a090';ctx.font='8px DM Mono,monospace';ctx.textAlign='left';
-  ctx.fillText('USD/TWD',SKP.left+2,h-3);
+  // 右側標籤對齊
+  html+=`<div style="width:${SKP.right}px;text-align:left;padding-left:3px;font-size:8px;color:#b0a090;line-height:1.5;white-space:nowrap;">買入<br>賣出</div>`;
+  html+=`</div>`;
+  row.innerHTML=html;
 }
 
 function resizeWK(){
