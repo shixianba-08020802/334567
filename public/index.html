@@ -197,7 +197,7 @@
     <div class="skline-vol-wrap" id="wvWrap">
       <canvas id="wvCanvas"></canvas>
     </div>
-    <div id="wkFxWrap" style="position:relative;height:52px;width:100%;margin-top:4px;">
+    <div id="wkFxWrap" style="position:relative;height:90px;width:100%;margin-top:4px;">
       <canvas id="wkFxCanvas"></canvas>
     </div>
     <div class="skline-src" id="wkSrc">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
@@ -642,19 +642,21 @@ function drawFxLine(bars){
   if(pts.length<1) return;
 
   const vals=pts.flatMap(p=>[p.buy,p.sell].filter(Boolean));
-  const mn=Math.min(...vals)-0.1, mx=Math.max(...vals)+0.1;
+  const range=Math.max(...vals)-Math.min(...vals)||0.2;
+  const mn=Math.min(...vals)-range*0.4;   // 上下多留40%空間
+  const mx=Math.max(...vals)+range*0.4;
   const n=bars.length;
-  const fxP2Y=v=>4+(1-(v-mn)/(mx-mn))*(h-8);
+  const fxP2Y=v=>8+(1-(v-mn)/(mx-mn))*(h-16);
   const fxI2X=i=>SKP.left+(i+0.5)*((w-SKP.left-SKP.right)/(n+1));
 
   // 格線（輕）
   ctx.strokeStyle='rgba(224,216,200,0.5)';ctx.lineWidth=0.5;
   for(let i=0;i<=2;i++){
-    const y=4+i*(h-8)/2;
+    const y=8+i*(h-16)/2;
     ctx.beginPath();ctx.moveTo(SKP.left,y);ctx.lineTo(w-SKP.right,y);ctx.stroke();
   }
 
-  // 買入折線（藍綠）
+  // 買入折線（綠）
   ctx.strokeStyle='rgba(26,122,94,0.85)';ctx.lineWidth=1.5;
   ctx.beginPath();
   pts.forEach((p,idx)=>{
@@ -664,7 +666,7 @@ function drawFxLine(bars){
   });
   ctx.stroke();
 
-  // 賣出折線（紅橘）
+  // 賣出折線（紅）
   ctx.strokeStyle='rgba(192,57,43,0.85)';ctx.lineWidth=1.5;
   ctx.beginPath();
   pts.forEach((p,idx)=>{
@@ -674,15 +676,29 @@ function drawFxLine(bars){
   });
   ctx.stroke();
 
-  // 右側最新匯率標籤
+  // 每個點的數值標籤
+  ctx.font='8px DM Mono,monospace';ctx.textAlign='center';
+  pts.forEach(p=>{
+    const x=fxI2X(p.i);
+    if(p.buy){
+      ctx.fillStyle='rgba(26,122,94,0.85)';
+      ctx.fillText(p.buy.toFixed(2),x,fxP2Y(p.buy)-3);
+    }
+    if(p.sell){
+      ctx.fillStyle='rgba(192,57,43,0.85)';
+      ctx.fillText(p.sell.toFixed(2),x,fxP2Y(p.sell)+9);
+    }
+  });
+
+  // 右側最新值（稍大）
   const last=pts[pts.length-1];
   ctx.font='9px DM Mono,monospace';ctx.textAlign='left';
-  if(last?.buy){ctx.fillStyle='rgba(26,122,94,0.9)';ctx.fillText(last.buy.toFixed(2),w-SKP.right+3,fxP2Y(last.buy)+3);}
-  if(last?.sell){ctx.fillStyle='rgba(192,57,43,0.9)';ctx.fillText(last.sell.toFixed(2),w-SKP.right+3,fxP2Y(last.sell)+3);}
+  if(last?.buy){ctx.fillStyle='rgba(26,122,94,0.95)';ctx.fillText(last.buy.toFixed(2),w-SKP.right+3,fxP2Y(last.buy)+3);}
+  if(last?.sell){ctx.fillStyle='rgba(192,57,43,0.95)';ctx.fillText(last.sell.toFixed(2),w-SKP.right+3,fxP2Y(last.sell)+3);}
 
   // 左側標題
   ctx.fillStyle='#b0a090';ctx.font='8px DM Mono,monospace';ctx.textAlign='left';
-  ctx.fillText('USD/TWD',SKP.left+2,h-2);
+  ctx.fillText('USD/TWD',SKP.left+2,h-3);
 }
 
 function resizeWK(){
