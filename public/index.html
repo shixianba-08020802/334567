@@ -197,7 +197,9 @@
     <div class="skline-vol-wrap" id="wvWrap">
       <canvas id="wvCanvas"></canvas>
     </div>
-    <div id="wkFxRow" style="margin-top:6px;overflow:hidden;"></div>
+    <div id="wkFxWrap" style="position:relative;height:36px;width:100%;margin-top:4px;">
+      <canvas id="wkFxCanvas"></canvas>
+    </div>
     <div class="skline-src" id="wkSrc">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
   </div>
 
@@ -627,34 +629,40 @@ function drawSV(ctx,w,h,bars){
 }
 
 function drawFxLine(bars){
-  const row=document.getElementById('wkFxRow');
-  if(!row) return;
+  const wrap=document.getElementById('wkFxWrap');
+  const canvas=document.getElementById('wkFxCanvas');
+  if(!canvas||!wrap) return;
+  canvas.width=wrap.offsetWidth;
+  canvas.height=wrap.offsetHeight;
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width, h=canvas.height;
+  ctx.clearRect(0,0,w,h);
   const n=bars.length;
   if(!n) return;
 
-  // 計算每格寬度（對齊K棒）
-  const canvas=document.getElementById('wkCanvas');
-  const totalW=canvas?canvas.offsetWidth:row.offsetWidth;
-  const barW=(totalW-SKP.left-SKP.right)/(n+1);
+  ctx.font='9px DM Mono,monospace';
+  ctx.textAlign='center';
 
-  // 數字列HTML：每根K棒對應一格
-  let html=`<div style="display:flex;font-family:'DM Mono',monospace;font-size:9px;padding-left:${SKP.left}px;padding-right:${SKP.right}px;">`;
   for(let i=0;i<n;i++){
     const b=bars[i];
-    const buy=b.fxBuy, sell=b.fxSell;
-    html+=`<div style="flex:1;text-align:center;line-height:1.5;min-width:0;overflow:hidden;">`;
-    if(buy||sell){
-      if(buy)  html+=`<div style="color:rgba(192,57,43,0.9)">${buy.toFixed(2)}</div>`;
-      if(sell) html+=`<div style="color:rgba(192,57,43,0.9)">${sell.toFixed(2)}</div>`;
-    }else{
-      html+=`<div style="color:rgba(200,191,175,0.5)">—</div>`;
+    const x=sk_i2x(i,n,w); // 精確對齊K棒
+    if(b.fxBuy){
+      ctx.fillStyle='rgba(192,57,43,0.9)'; // 紅=買入
+      ctx.fillText(b.fxBuy.toFixed(2),x,13);
     }
-    html+=`</div>`;
+    if(b.fxSell){
+      ctx.fillStyle='rgba(26,122,94,0.9)'; // 綠=賣出
+      ctx.fillText(b.fxSell.toFixed(2),x,26);
+    }
+    if(!b.fxBuy&&!b.fxSell){
+      ctx.fillStyle='rgba(200,191,175,0.4)';
+      ctx.fillText('—',x,13);
+    }
   }
-  // 右側標籤對齊
-  html+=`<div style="width:${SKP.right}px;text-align:left;padding-left:3px;font-size:8px;color:#b0a090;line-height:1.5;white-space:nowrap;">買入<br>賣出</div>`;
-  html+=`</div>`;
-  row.innerHTML=html;
+  // 右側說明
+  ctx.textAlign='left';ctx.font='8px DM Mono,monospace';
+  ctx.fillStyle='rgba(192,57,43,0.7)';ctx.fillText('買',w-SKP.right+3,13);
+  ctx.fillStyle='rgba(26,122,94,0.7)'; ctx.fillText('賣',w-SKP.right+3,26);
 }
 
 function resizeWK(){
