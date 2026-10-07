@@ -155,6 +155,9 @@
     <div class="skline-vol-wrap" id="s5VolWrap" style="height:52px;margin-top:4px;">
       <canvas id="s5VolCanvas"></canvas>
     </div>
+    <div id="s5FxWrap" style="position:relative;height:36px;width:100%;margin-top:4px;">
+      <canvas id="s5FxCanvas"></canvas>
+    </div>
     <div class="wk-toolbar">
       <button class="wk-tool-btn" id="s5BtnDrawB" onclick="setS5Mode('drawB')">≡ 三線</button>
       <button class="wk-tool-btn" id="s5BtnDraw" onclick="setS5Mode('draw')">─ 水平線</button>
@@ -665,6 +668,40 @@ function drawFxLine(bars){
   ctx.fillStyle='rgba(26,122,94,0.7)'; ctx.fillText('賣',w-SKP.right+3,26);
 }
 
+function drawS5FxLine(bars){
+  const wrap=document.getElementById('s5FxWrap');
+  const canvas=document.getElementById('s5FxCanvas');
+  if(!canvas||!wrap) return;
+  canvas.width=wrap.offsetWidth;
+  canvas.height=wrap.offsetHeight;
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width, h=canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const n=bars.length;
+  if(!n) return;
+  ctx.font='9px DM Mono,monospace';
+  ctx.textAlign='center';
+  for(let i=0;i<n;i++){
+    const b=bars[i];
+    const x=sk_i2x(i,n,w);
+    if(b.fxBuy){
+      ctx.fillStyle='rgba(192,57,43,0.9)';
+      ctx.fillText(b.fxBuy.toFixed(2),x,13);
+    }
+    if(b.fxSell){
+      ctx.fillStyle='rgba(26,122,94,0.9)';
+      ctx.fillText(b.fxSell.toFixed(2),x,26);
+    }
+    if(!b.fxBuy&&!b.fxSell){
+      ctx.fillStyle='rgba(200,191,175,0.4)';
+      ctx.fillText('—',x,13);
+    }
+  }
+  ctx.textAlign='left';ctx.font='8px DM Mono,monospace';
+  ctx.fillStyle='rgba(192,57,43,0.7)';ctx.fillText('買',w-SKP.right+3,13);
+  ctx.fillStyle='rgba(26,122,94,0.7)'; ctx.fillText('賣',w-SKP.right+3,26);
+}
+
 function resizeWK(){
   const kC=document.getElementById('wkCanvas');
   const vC=document.getElementById('wvCanvas');
@@ -705,6 +742,7 @@ function renderS5Charts(){
   const allL=Math.min(..._s5Bars.map(b=>b.l));
   drawSK(_s5Ctx,kC.width,kC.height,_s5Bars,allH,allL);
   drawSV(vC.getContext('2d'),vC.width,vC.height,_s5Bars);
+  drawS5FxLine(_s5Bars);
   setupS5Hover(allH,allL);
 }
 function setupS5Hover(allH,allL){
@@ -727,7 +765,10 @@ function setupS5Hover(allH,allL){
     document.getElementById('wkTipL').textContent=fmtI(b.l);document.getElementById('wkTipC').textContent=fmtI(b.c);
     const tc=document.getElementById('wkTipChg');tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;tc.className=chg>=0?'up':'down';
     document.getElementById('wkTipV').textContent=fmtV(b.v);
-    document.getElementById('wkTipFxRow').style.display='none';
+    const s5FxRow=document.getElementById('wkTipFxRow');
+    const s5FxEl=document.getElementById('wkTipFx');
+    if(b.fxBuy||b.fxSell){s5FxEl.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;s5FxRow.style.display='flex';}
+    else s5FxRow.style.display='none';
     tip.style.display='block';
     let tx=ex+16,ty=ey-10;if(tx+185>window.innerWidth)tx=ex-190;
     tip.style.left=tx+'px';tip.style.top=ty+'px';
