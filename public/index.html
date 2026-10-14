@@ -880,15 +880,15 @@ function renderWkTable(bars){
   let html='<table class="wkt"><thead><tr>'
     +'<th>週期</th>'
     +'<th>開盤</th><th>收盤</th>'
-    +'<th>開-收</th><th>高-收</th><th>低-收</th>'
+    +'<th>收-開</th><th>高-開</th><th>低-開</th>'
     +'</tr></thead><tbody>';
   rows.forEach((b,i)=>{
     const oc=b.c-b.o;
     const hc=b.h-b.c;
-    const lc=b.l-b.c;
+    const lc=b.c-b.l;
     const ocCls=oc>0?'up':oc<0?'dn':'neu';
     const hcCls=hc>0?'up':'neu';
-    const lcCls=lc<0?'dn':'neu';
+    const lcCls=lc>0?'up':'neu';
     const sign=v=>v>0?'+':'';
     html+=`<tr>`
       +`<td><span class="wkt-date">${fmtD(b.startDate)}<br>${fmtD(b.endDate)}</span></td>`
