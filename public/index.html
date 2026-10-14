@@ -130,6 +130,17 @@
   @media(min-width:641px){
     .wk-toolbar button{font-size:12px;}
   }
+  /* 週K資料表 */
+  .wkt{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11px;}
+  .wkt th{background:#f0ebe0;color:var(--text-muted);font-weight:400;padding:5px 8px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.05em;}
+  .wkt th:first-child,.wkt td:first-child{text-align:left;}
+  .wkt td{padding:5px 8px;text-align:right;border-bottom:1px solid rgba(224,216,200,.5);color:var(--text-primary);vertical-align:middle;}
+  .wkt tr:last-child td{border-bottom:none;}
+  .wkt .wkt-date{color:var(--text-muted);font-size:10px;}
+  .wkt .up{color:#c0392b;}
+  .wkt .dn{color:#1a7a5e;}
+  .wkt .neu{color:var(--text-muted);}
+  .wkt .wkt-sep{color:var(--text-dim);font-size:10px;padding:2px 8px;background:rgba(240,235,224,.4);}
 </style>
 </head>
 <body>
@@ -164,6 +175,16 @@
       <button class="wk-tool-btn" id="s5BtnDel" onclick="setS5Mode('delete')">✕ 刪線</button>
       <span class="wk-line-count" id="s5LineCount">0 / 5</span>
     </div>
+    <div class="skline-src">資料來源：台指期歷史試算表（手動維護）</div>
+  </div>
+
+  <!-- 週K資料表（近10週，Thu-Wed） -->
+  <div class="history-card" style="margin-bottom:14px;" id="wkTableCard">
+    <div class="section-header" style="margin-bottom:10px;">
+      <div class="section-title">▪ 台指期　週K資料（近10週）</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">週期：星期四 ～ 次週三</div>
+    </div>
+    <div id="wkTableWrap"></div>
     <div class="skline-src">資料來源：台指期歷史試算表（手動維護）</div>
   </div>
 
@@ -204,39 +225,6 @@
       <canvas id="wkFxCanvas"></canvas>
     </div>
     <div class="skline-src" id="wkSrc">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
-  </div>
-
-  <!-- 台指期 週K線（星期一 ～ 星期五） -->
-  <div class="history-card" style="margin-bottom:14px;">
-    <div class="section-header">
-      <div class="section-title">▪ 台指期　週K線（近20週）</div>
-      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:10px;">
-        <span>週期：星期一 ～ 星期五</span>
-        <span id="mfDateRange" style="color:var(--text-dim)">—</span>
-      </div>
-    </div>
-    <div class="skline-stats">
-      <div class="skline-stat"><div class="skline-stat-label">最新收盤</div><div class="skline-stat-val neutral" id="mfClose">—</div></div>
-      <div class="skline-stat"><div class="skline-stat-label">本週漲跌</div><div class="skline-stat-val neutral" id="mfChg">—</div></div>
-      <div class="skline-stat"><div class="skline-stat-label">區間最高</div><div class="skline-stat-val up" id="mfHigh">—</div></div>
-      <div class="skline-stat"><div class="skline-stat-label">區間最低</div><div class="skline-stat-val down" id="mfLow">—</div></div>
-    </div>
-    <div class="wk-toolbar">
-      <button class="wk-tool-btn" id="mfBtnDraw" onclick="setMFMode('draw')">↗ 趨勢線</button>
-      <button class="wk-tool-btn" id="mfBtnDel" onclick="setMFMode('delete')">✕ 刪線</button>
-      <span class="wk-line-count" id="mfLineCount">0 / 5</span>
-    </div>
-    <div class="skline-canvas-wrap" id="mfWrap">
-      <div class="skline-loader" id="mfLoader">
-        <span class="spinner"></span>
-        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)" id="mfLoaderMsg">載入資料…</span>
-      </div>
-      <canvas id="mfCanvas"></canvas>
-    </div>
-    <div class="skline-vol-wrap" id="mvWrap2">
-      <canvas id="mvCanvas2"></canvas>
-    </div>
-    <div class="skline-src">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
   </div>
 
   <!-- 選擇權損益試算 -->
@@ -882,6 +870,39 @@ function setupS5Hover(allH,allL){
 }
 window.addEventListener('resize',()=>{if(_s5Bars.length)renderS5Charts();});
 
+// ── 週K資料表 ───────────────────────────────────────────────────────
+function renderWkTable(bars){
+  const wrap=document.getElementById('wkTableWrap');
+  if(!wrap||!bars||!bars.length) return;
+  const rows=bars.slice(-10);
+  const fmt=v=>v==null?'—':fmtI(v);
+  const fmtD=v=>v||'—';
+  let html='<table class="wkt"><thead><tr>'
+    +'<th>週期</th>'
+    +'<th>開盤</th><th>收盤</th>'
+    +'<th>開-收</th><th>高-收</th><th>低-收</th>'
+    +'</tr></thead><tbody>';
+  rows.forEach((b,i)=>{
+    const oc=b.c-b.o;
+    const hc=b.h-b.c;
+    const lc=b.l-b.c;
+    const ocCls=oc>0?'up':oc<0?'dn':'neu';
+    const hcCls=hc>0?'up':'neu';
+    const lcCls=lc<0?'dn':'neu';
+    const sign=v=>v>0?'+':'';
+    html+=`<tr>`
+      +`<td><span class="wkt-date">${fmtD(b.startDate)}<br>${fmtD(b.endDate)}</span></td>`
+      +`<td>${fmt(b.o)}</td>`
+      +`<td>${fmt(b.c)}</td>`
+      +`<td class="${ocCls}">${sign(oc)}${fmt(oc)}</td>`
+      +`<td class="${hcCls}">${sign(hc)}${fmt(hc)}</td>`
+      +`<td class="${lcCls}">${sign(lc)}${fmt(lc)}</td>`
+      +`</tr>`;
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+}
+
 function renderWeeklyCharts(){
   if(!_wkBars.length) return;
   resizeWK();
@@ -1209,6 +1230,7 @@ async function loadWeeklyKline(){
 
   document.getElementById('wkLoader').style.display='none';
   renderWeeklyCharts();
+  renderWkTable(bars);
 
   // 近5根K線圖
   _s5Bars=allBars.slice(-5);
@@ -1219,22 +1241,6 @@ async function loadWeeklyKline(){
     renderS5Charts();
   }
 
-  // 同份資料建立 Mon-Fri 週K
-  const mfAllBars=buildWeekly_MF(rows);
-  _mfBars=mfAllBars.slice(-20);
-  if(_mfBars.length>=2){
-    const mfLast=_mfBars[_mfBars.length-1], mfPrev=_mfBars[_mfBars.length-2];
-    const mfChg=mfLast.c-mfPrev.c, mfPct=(mfChg/mfPrev.c*100);
-    document.getElementById('mfClose').textContent=fmtI(mfLast.c);
-    const mfCe=document.getElementById('mfChg');
-    mfCe.textContent=`${mfChg>=0?'+':''}${fmtI(mfChg)} (${mfPct.toFixed(2)}%)`;
-    mfCe.className='skline-stat-val '+(mfChg>=0?'up':'down');
-    document.getElementById('mfHigh').textContent=fmtI(Math.max(..._mfBars.map(b=>b.h)));
-    document.getElementById('mfLow').textContent=fmtI(Math.min(..._mfBars.map(b=>b.l)));
-    document.getElementById('mfDateRange').textContent=`${_mfBars[0].startDate} ～ ${mfLast.endDate}`;
-    document.getElementById('mfLoader').style.display='none';
-    renderMFCharts();
-  }
 }
 
 window.addEventListener('resize',()=>{if(_wkBars.length){renderWeeklyCharts();drawFxLine(_wkBars);}});
