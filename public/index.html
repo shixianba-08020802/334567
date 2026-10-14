@@ -874,7 +874,7 @@ window.addEventListener('resize',()=>{if(_s5Bars.length)renderS5Charts();});
 function renderWkTable(bars){
   const wrap=document.getElementById('wkTableWrap');
   if(!wrap||!bars||!bars.length) return;
-  const rows=bars.slice(-10);
+  const rows=bars.slice(-15);
   const fmt=v=>v==null?'—':fmtI(v);
   const fmtD=v=>v||'—';
   let html='<table class="wkt"><thead><tr>'
