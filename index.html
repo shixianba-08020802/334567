@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>shixianba看板</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f5f0e8;--surface:#fdfaf4;--border:#e0d8c8;
+    --accent-green:#c0392b;--accent-red:#1a7a5e;--accent-blue:#2c5f8a;--accent-yellow:#b8860b;
+    --text-primary:#2a2118;--text-muted:#8a7a65;--text-dim:#c8bfaf;
+    --font-mono:'DM Mono',monospace;--font-sans:'Noto Sans TC',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text-primary);font-family:var(--font-sans);min-height:100vh;padding:20px;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--text-dim) 1px,transparent 1px),linear-gradient(90deg,var(--text-dim) 1px,transparent 1px);background-size:40px 40px;opacity:.35;pointer-events:none;z-index:0;}
+  .container{max-width:940px;margin:0 auto;position:relative;z-index:1;}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  .logo{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;color:var(--text-muted);}
+  .logo span{color:var(--accent-blue);}
+  .section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .section-title{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:var(--text-muted);text-transform:uppercase;}
+  .oi-date{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
+  .history-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:14px;box-shadow:0 2px 12px rgba(100,80,50,.07);}
+  .up{color:var(--accent-green);}
+  .down{color:var(--accent-red);}
+  .neutral{color:var(--text-muted);}
+  .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent-blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── 週K線樣式 ── */
+  .skline-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+  .skline-stat{background:#f0ebe0;border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+  .skline-stat-label{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;color:var(--text-muted);margin-bottom:4px;}
+  .skline-stat-val{font-family:var(--font-mono);font-size:17px;font-weight:500;}
+  .skline-canvas-wrap{position:relative;height:320px;width:100%;}
+  .skline-vol-wrap{position:relative;height:80px;width:100%;margin-top:6px;}
+  .skline-loader{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:var(--surface);border-radius:6px;z-index:5;}
+  .skline-src{font-family:var(--font-mono);font-size:10px;color:var(--text-dim);text-align:right;margin-top:6px;}
+
+  /* ── 手繪線工具列 ── */
+  .wk-toolbar{display:flex;align-items:center;gap:8px;margin:8px 0 6px;}
+  .wk-tool-btn{font-family:var(--font-mono);font-size:11px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;background:#f0ebe0;color:var(--text-muted);cursor:pointer;transition:all .15s;}
+  .wk-tool-btn.active{background:var(--accent-blue);color:#fff;border-color:var(--accent-blue);}
+  .wk-line-count{font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-left:auto;}
+  #wkTip{
+    position:fixed;display:none;
+    background:rgba(253,250,244,0.97);
+    border:1px solid var(--border);border-radius:8px;
+    padding:10px 14px;font-family:var(--font-mono);font-size:11px;
+    line-height:1.9;pointer-events:none;z-index:999;min-width:170px;
+    box-shadow:0 4px 20px rgba(100,80,50,.15);
+  }
+  #wkTip .stip-label{font-size:10px;color:var(--text-muted);margin-bottom:2px;}
+  #wkTip .stip-row{display:flex;justify-content:space-between;gap:18px;}
+  #wkTip .stip-lbl{color:var(--text-muted);}
+
+  /* ── 選擇權損益試算 ── */
+  .opt-idx-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .opt-idx-lbl{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);white-space:nowrap;}
+  .opt-idx-input{font-family:var(--font-mono);font-size:15px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;background:#f0ebe0;color:var(--text-primary);width:140px;outline:none;}
+  .opt-idx-input:focus{border-color:var(--accent-blue);}
+
+  .opt-position{background:#f0ebe0;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;position:relative;}
+  .opt-pos-line1{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .opt-pos-line2{display:flex;gap:8px;align-items:center;}
+  .opt-toggle-grp{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  .opt-toggle-grp button{font-family:var(--font-mono);font-size:12px;padding:6px 12px;border:none;background:#fdfaf4;color:var(--text-muted);cursor:pointer;transition:all .15s;}
+  .opt-toggle-grp button.active{background:var(--accent-blue);color:#fff;}
+  .opt-toggle-grp button:first-child{border-right:1px solid var(--border);}
+  .opt-field{display:flex;flex-direction:column;flex:1;}
+  .opt-field label{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-bottom:3px;}
+  .opt-field input{font-family:var(--font-mono);font-size:14px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;background:#fdfaf4;color:var(--text-primary);outline:none;width:100%;}
+  .opt-field input:focus{border-color:var(--accent-blue);}
+  .opt-del{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;padding:2px 6px;line-height:1;}
+  .opt-del:hover{color:var(--accent-red);}
+
+  .opt-btn-row{display:flex;gap:8px;margin-top:4px;}
+  .opt-btn-add,.opt-btn-calc{font-family:var(--font-mono);font-size:12px;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;flex:1;}
+  .opt-btn-add{background:#f0ebe0;border:1px solid var(--border);color:var(--text-muted);}
+  .opt-btn-calc{background:var(--accent-blue);color:#fff;}
+  .opt-btn-calc:active{opacity:.85;}
+
+  .opt-summary-box{display:flex;gap:8px;flex-wrap:wrap;}
+  .opt-sum-item{background:#f0ebe0;border:1px solid var(--border);border-radius:8px;padding:8px 12px;flex:1;min-width:80px;}
+  .opt-sum-lbl{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-bottom:3px;}
+  .opt-sum-val{font-family:var(--font-mono);font-size:14px;font-weight:500;}
+
+  .opt-table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:13px;margin-top:4px;}
+  .opt-table th{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:10px;text-align:left;font-weight:400;}
+  .opt-table th:last-child,.opt-table td:last-child{text-align:right;}
+  .opt-table td{padding:7px 10px;border-bottom:1px solid rgba(224,216,200,0.4);}
+  .opt-table tr.opt-current td{background:rgba(44,95,138,0.08);font-weight:600;}
+  .opt-table tr.opt-be td{background:rgba(184,134,11,0.1);}
+  .opt-pnl-pos{color:var(--accent-green);}
+  .opt-pnl-neg{color:var(--accent-red);}
+  .opt-pnl-zero{color:var(--text-muted);}
+  .opt-current-mark{color:var(--accent-blue);margin-right:4px;}
+
+  @media(max-width:640px){
+    .opt-idx-input{font-size:16px;width:130px;}
+    .opt-toggle-grp button{font-size:12px;padding:7px 10px;}
+    .opt-field input{font-size:16px;}
+    .opt-table{font-size:13px;}
+    .opt-table td,.opt-table th{padding:7px 8px;}
+  }
+    body{padding:10px;}
+    .container{padding:0;}
+    header{margin-bottom:14px;padding-bottom:10px;}
+    .history-card{padding:12px 14px;margin-bottom:10px;border-radius:10px;}
+    .section-header{flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+    .section-title{font-size:9px;}
+
+    /* 統計格 2欄 */
+    .skline-stats{grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px;}
+    .skline-stat{padding:8px 10px;}
+    .skline-stat-val{font-size:16px;}
+
+    /* K線圖縮小 */
+    .skline-canvas-wrap{height:200px;}
+    .skline-vol-wrap{height:52px;margin-top:4px;}
+    .skline-src{font-size:9px;}
+
+    /* 週期文字換行 */
+    #wkDateRange{display:block;width:100%;margin-top:2px;}
+
+    /* 個股清單：手機改卡片式 */
+    .wl-table-wrap{display:none;}
+  @media(min-width:641px){
+    .wk-toolbar button{font-size:12px;}
+  }
+  /* 週K資料表 */
+  .wkt{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11px;}
+  .wkt th{background:#f0ebe0;color:var(--text-muted);font-weight:400;padding:5px 8px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.05em;}
+  .wkt th:first-child,.wkt td:first-child{text-align:left;}
+  .wkt td{padding:5px 8px;text-align:right;border-bottom:1px solid rgba(224,216,200,.5);color:var(--text-primary);vertical-align:middle;}
+  .wkt tr:last-child td{border-bottom:none;}
+  .wkt .wkt-date{color:var(--text-muted);font-size:10px;}
+  .wkt .up{color:#c0392b;}
+  .wkt .dn{color:#1a7a5e;}
+  .wkt .neu{color:var(--text-muted);}
+  .wkt .wkt-sep{color:var(--text-dim);font-size:10px;padding:2px 8px;background:rgba(240,235,224,.4);}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">shixianba看板</div>
+  </header>
+
+  <!-- 近5根週K線（最新視覺） -->
+  <div class="history-card" style="margin-bottom:14px;">
+    <div class="section-header">
+      <div class="section-title">▪ 台指期　近5根週K線</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
+        <span id="s5DateRange">—</span>
+      </div>
+    </div>
+    <div class="skline-canvas-wrap" id="s5Wrap" style="height:320px;">
+      <div class="skline-loader" id="s5Loader">
+        <span class="spinner"></span>
+      </div>
+      <canvas id="s5Canvas"></canvas>
+    </div>
+    <div class="skline-vol-wrap" id="s5VolWrap" style="height:52px;margin-top:4px;">
+      <canvas id="s5VolCanvas"></canvas>
+    </div>
+    <div id="s5FxWrap" style="position:relative;height:36px;width:100%;margin-top:4px;">
+      <canvas id="s5FxCanvas"></canvas>
+    </div>
+    <div class="wk-toolbar">
+      <button class="wk-tool-btn" id="s5BtnDrawB" onclick="setS5Mode('drawB')">≡ 三線</button>
+      <button class="wk-tool-btn" id="s5BtnDraw" onclick="setS5Mode('draw')">─ 水平線</button>
+      <button class="wk-tool-btn" id="s5BtnDel" onclick="setS5Mode('delete')">✕ 刪線</button>
+      <span class="wk-line-count" id="s5LineCount">0 / 5</span>
+    </div>
+    <div class="skline-src">資料來源：台指期歷史試算表（手動維護）</div>
+  </div>
+
+  <!-- 週K資料表（近10週，Thu-Wed） -->
+  <div class="history-card" style="margin-bottom:14px;" id="wkTableCard">
+    <div class="section-header" style="margin-bottom:10px;">
+      <div class="section-title">▪ 台指期　週K資料（近10週）</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">週期：星期四 ～ 次週三</div>
+    </div>
+    <div id="wkTableWrap"></div>
+    <div class="skline-src">資料來源：台指期歷史試算表（手動維護）</div>
+  </div>
+
+  <!-- 台指期 週K線（星期三盤後～次週三一般） -->
+  <div class="history-card" style="margin-bottom:14px;">
+    <div class="section-header">
+      <div class="section-title">▪ 台指期　週K線（近20週）</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:10px;">
+        <span>週期：星期四 ～ 次週三</span>
+        <span id="wkDateRange" style="color:var(--text-dim)">—</span>
+      </div>
+    </div>
+    <div class="skline-stats">
+      <div class="skline-stat"><div class="skline-stat-label">最新收盤</div><div class="skline-stat-val neutral" id="wkClose">—</div></div>
+      <div class="skline-stat"><div class="skline-stat-label">本週漲跌</div><div class="skline-stat-val neutral" id="wkChg">—</div></div>
+      <div class="skline-stat"><div class="skline-stat-label">區間最高</div><div class="skline-stat-val up" id="wkHigh">—</div></div>
+      <div class="skline-stat"><div class="skline-stat-label">區間最低</div><div class="skline-stat-val down" id="wkLow">—</div></div>
+    </div>
+
+    <!-- 畫線工具列 -->
+    <div class="wk-toolbar">
+      <button class="wk-tool-btn" id="wkBtnDraw" onclick="setWKMode('draw')">↗ 趨勢線</button>
+      <button class="wk-tool-btn" id="wkBtnDrawH" onclick="setWKMode('drawH')">─ 水平線</button>
+      <button class="wk-tool-btn" id="wkBtnDel" onclick="setWKMode('delete')">✕ 刪線</button>
+      <span class="wk-line-count" id="wkLineCount">0 / 5</span>
+    </div>
+    <div class="skline-canvas-wrap" id="wkWrap">
+      <div class="skline-loader" id="wkLoader">
+        <span class="spinner"></span>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)" id="wkLoaderMsg">載入資料…</span>
+      </div>
+      <canvas id="wkCanvas"></canvas>
+    </div>
+    <div class="skline-vol-wrap" id="wvWrap">
+      <canvas id="wvCanvas"></canvas>
+    </div>
+    <div id="wkFxWrap" style="position:relative;height:36px;width:100%;margin-top:4px;">
+      <canvas id="wkFxCanvas"></canvas>
+    </div>
+    <div class="skline-src" id="wkSrc">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
+  </div>
+
+  <!-- 選擇權損益試算 -->
+  <div class="history-card" style="margin-bottom:14px;" id="optCard">
+    <div class="section-header">
+      <div class="section-title">▪ 選擇權損益試算</div>
+    </div>
+
+    <!-- 大盤指數輸入 -->
+    <div class="opt-idx-row">
+      <label class="opt-idx-lbl">目前大盤指數</label>
+      <input type="number" id="optCurrentIdx" class="opt-idx-input" placeholder="例：41600" inputmode="numeric">
+    </div>
+
+    <!-- 部位列表 -->
+    <div id="optRows"></div>
+
+    <!-- 操作按鈕 -->
+    <div class="opt-btn-row">
+      <button class="opt-btn-add" onclick="addOptRow()">＋ 新增部位</button>
+      <button class="opt-btn-calc" onclick="calcOpt()">計算損益</button>
+    </div>
+
+    <!-- 損益摘要 -->
+    <div id="optSummary" style="display:none;margin-top:12px;"></div>
+
+    <!-- 損益表 -->
+    <div id="optResult" style="margin-top:8px;"></div>
+  </div>
+
+</div>
+
+<div id="wkTip">
+  <div class="stip-label" id="wkTipLabel"></div>
+  <div class="stip-row"><span class="stip-lbl">開</span><span id="wkTipO"></span></div>
+  <div class="stip-row"><span class="stip-lbl">高</span><span id="wkTipH" class="up"></span></div>
+  <div class="stip-row"><span class="stip-lbl">低</span><span id="wkTipL" class="down"></span></div>
+  <div class="stip-row"><span class="stip-lbl">收</span><span id="wkTipC"></span></div>
+  <div class="stip-row"><span class="stip-lbl">漲跌</span><span id="wkTipChg"></span></div>
+  <div class="stip-row"><span class="stip-lbl">成交量</span><span id="wkTipV" style="color:var(--text-muted)"></span></div>
+  <div id="wkTipFxRow" class="stip-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;">
+    <span class="stip-lbl">買入/賣出</span><span id="wkTipFx" style="color:var(--text-muted)"></span>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// 工具
+// ══════════════════════════════════════════════════════════════════
+const fmtI = n=>n==null?'—':Math.round(n).toLocaleString('zh-TW');
+const fmtV = v=>{if(!v||v===0)return'—';if(v>=1e9)return(v/1e9).toFixed(1)+'B';if(v>=1e6)return(v/1e6).toFixed(1)+'M';if(v>=1e3)return(v/1e3).toFixed(0)+'K';return String(v);};
+
+// ══════════════════════════════════════════════════════════════════
+// ██  台指期 週K線（星期三盤後 ～ 次週三一般）  ████████████████████
+// ══════════════════════════════════════════════════════════════════
+// 資料來源：使用者維護的Google試算表（含一般/盤後場次的台指期歷史價）
+const FUTURES_CSV_URL = 'https://docs.google.com/spreadsheets/d/1IFA8S0aOafZTtMcSvx45AAtR8Q01aWxcV99xmn9qcrE/export?format=csv&gid=0';
+
+function parseFuturesCSV(text){
+  const rows = parseCSV(text);
+  return rows.slice(1).map(c=>{
+    const dateStr=(c[0]||'').trim();
+    const parts=dateStr.split('/').map(Number);
+    const y=parts[0], m=parts[1], d=parts[2];
+    const o=parseFloat(c[2]), h=parseFloat(c[3]), l=parseFloat(c[4]), cl=parseFloat(c[5]);
+    const v=parseFloat(String(c[8]||'0').replace(/,/g,''));
+    const session=(c[9]||'').trim();
+    const fxBuy=parseFloat(c[10])||null;
+    const fxSell=parseFloat(c[11])||null;
+    return{
+      y,m,d,
+      dateKey:`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
+      o,h,l,c:cl,v,session,fxBuy,fxSell,
+    };
+  }).filter(r=>r.y && !isNaN(r.o) && !isNaN(r.c));
+}
+
+function buildWeeklySessionBars(rows){
+  // 同一天：盤後(0) 排在 一般(1) 前面
+  const sessionOrder = {'盤後':0,'一般':1};
+
+  // 每筆找出所屬「週四」的日期作為週key
+  function getWeekKey(y,m,d){
+    const wd = new Date(Date.UTC(y,m-1,d)).getUTCDay(); // 0=日,1=一...4=四,3=三
+    const diffToThu = (wd - 4 + 7) % 7; // 距本週四幾天(0=當天就是四)
+    const thu = new Date(Date.UTC(y,m-1,d));
+    thu.setUTCDate(thu.getUTCDate() - diffToThu);
+    return `${thu.getUTCFullYear()}-${String(thu.getUTCMonth()+1).padStart(2,'0')}-${String(thu.getUTCDate()).padStart(2,'0')}`;
+  }
+
+  // 分桶
+  const buckets = new Map();
+  for(const r of rows){
+    const key = getWeekKey(r.y, r.m, r.d);
+    if(!buckets.has(key)) buckets.set(key,[]);
+    buckets.get(key).push(r);
+  }
+
+  const keys = [...buckets.keys()].sort();
+  return keys.map(key=>{
+    // 桶內排序：日期升冪，同天盤後在前
+    const slice = buckets.get(key).sort((a,b)=>{
+      if(a.dateKey !== b.dateKey) return a.dateKey < b.dateKey ? -1 : 1;
+      return (sessionOrder[a.session]??0) - (sessionOrder[b.session]??0);
+    });
+    const first=slice[0], last=slice[slice.length-1];
+    // 計算週結束日（週四+6天=下週三）
+    const [ky,km,kd] = key.split('-').map(Number);
+    const endDt = new Date(Date.UTC(ky,km-1,kd));
+    endDt.setUTCDate(endDt.getUTCDate()+6);
+    const endKey = `${endDt.getUTCFullYear()}-${String(endDt.getUTCMonth()+1).padStart(2,'0')}-${String(endDt.getUTCDate()).padStart(2,'0')}`;
+    // 取週三一般那列的匯率（若有）
+    const wedRow=slice.find(r=>{
+      const wd=new Date(Date.UTC(r.y,r.m-1,r.d)).getUTCDay();
+      return wd===3&&r.session==='一般';
+    });
+    return{
+      label:`${String(km).padStart(2,'0')}/${String(kd).padStart(2,'0')}`,
+      startDate:`${key}`,
+      endDate:`${endKey}`,
+      o:first.o,
+      h:Math.max(...slice.map(x=>x.h)),
+      l:Math.min(...slice.map(x=>x.l)),
+      c:last.c,
+      v:slice.reduce((s,x)=>s+(x.v||0),0),
+      days:slice.length,
+      fxBuy:wedRow?.fxBuy??null,
+      fxSell:wedRow?.fxSell??null,
+    };
+  });
+}
+
+// ── Canvas 繪圖 ────────────────────────────────────────────────────
+const SKP = {top:10, right:58, bottom:32, left:4};
+let _wkBars=[], _wkCtx=null, _wvCtx=null;
+// 手繪線相關
+let _userLines=[], _wkMode=null, _wkDrawing=false, _wkStart=null, _wkPrev=null;
+let _wkMn=0, _wkMx=0, _wkN=0, _wkW=0, _wkH=0;
+let _s5Bars=[], _s5Ctx=null;
+let _s5UserLines=[], _s5Mode=null, _s5Drawing=false, _s5Start=null, _s5Prev=null, _s5SnapPoint=null;
+let _s5Mn=0, _s5Mx=0, _s5N=0, _s5W=0, _s5H=0;
+
+
+
+
+let _wkSnapPoint=null; // 目前吸附點
+
+function snapToChart(cx,cy,bars,N,W,H,Mn,Mx){
+  const threshold=22;
+  let best=threshold, snap=null;
+  for(let i=0;i<N;i++){
+    const b=bars[i];
+    const bx=sk_i2x(i,N,W);
+    const hy=sk_p2y(b.h,H,Mn,Mx);
+    const ly=sk_p2y(b.l,H,Mn,Mx);
+    const dH=Math.hypot(cx-bx,cy-hy);
+    const dL=Math.hypot(cx-bx,cy-ly);
+    if(dH<best){best=dH;snap={i,v:b.h,x:bx,y:hy,type:'high'};}
+    if(dL<best){best=dL;snap={i,v:b.l,x:bx,y:ly,type:'low'};}
+  }
+  return snap;
+}
+function snapToKLine(cx,cy){return snapToChart(cx,cy,_wkBars,_wkN,_wkW,_wkH,_wkMn,_wkMx);}
+function snapToMFLine(cx,cy){return snapToChart(cx,cy,_mfBars,_mfN,_mfW,_mfH,_mfMn,_mfMx);}
+
+// 座標轉換
+function touchToCanvasXY(touch){
+  const canvas=document.getElementById('wkCanvas');
+  const rect=canvas.getBoundingClientRect();
+  const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+  return{cx:(touch.clientX-rect.left)*sx, cy:(touch.clientY-rect.top)*sy};
+}
+function canvasToData(cx,cy){
+  const barW=(_wkW-SKP.left-SKP.right)/_wkN;
+  const i=Math.max(0,Math.min(_wkN-1,Math.round((cx-SKP.left)/barW-0.5)));
+  const v=_wkMn+(1-(cy-SKP.top)/(_wkH-SKP.top-SKP.bottom))*(_wkMx-_wkMn);
+  return{i,v};
+}
+function distPtToSeg(px,py,x1,y1,x2,y2){
+  const dx=x2-x1,dy=y2-y1,len2=dx*dx+dy*dy;
+  if(len2===0) return Math.hypot(px-x1,py-y1);
+  const t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/len2));
+  return Math.hypot(px-(x1+t*dx),py-(y1+t*dy));
+}
+
+function setWKMode(mode){
+  if(_wkMode===mode){_wkMode=null;}else{_wkMode=mode;}
+  _wkDrawing=false;_wkStart=null;_wkPrev=null;_wkSnapPoint=null;
+  document.getElementById('wkBtnDraw').classList.toggle('active',_wkMode==='draw');
+  document.getElementById('wkBtnDrawH').classList.toggle('active',_wkMode==='drawH');
+  document.getElementById('wkBtnDrawB').classList.toggle('active',_wkMode==='drawB');
+  document.getElementById('wkBtnDel').classList.toggle('active',_wkMode==='delete');
+  // 提示文字
+  const src=document.getElementById('wkSrc');
+  if(_wkMode==='draw') src.textContent='畫線模式：按住拖曳畫線，最多5條';
+  else if(_wkMode==='delete') src.textContent='刪線模式：點一條線刪除它';
+  else src.textContent='資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動';
+}
+function updateLineCount(){
+  document.getElementById('wkLineCount').textContent=`${_userLines.length} / 5`;
+}
+function saveLines(){
+  try{localStorage.setItem('wkUserLines',JSON.stringify(_userLines));}catch(e){}
+}
+function loadLines(){
+  try{
+    const d=localStorage.getItem('wkUserLines');
+    if(d) _userLines=JSON.parse(d).filter(l=>l.i1!=null&&l.v1!=null);
+    updateLineCount();
+  }catch(e){_userLines=[];}
+}
+function redrawWK(){
+  if(!_wkBars.length||!_wkCtx) return;
+  const allH=Math.max(..._wkBars.map(b=>b.h));
+  const allL=Math.min(..._wkBars.map(b=>b.l));
+  drawSK(_wkCtx,_wkW,_wkH,_wkBars,allH,allL);
+}
+
+function sk_p2y(p,h,mn,mx){return SKP.top+(1-(p-mn)/(mx-mn))*(h-SKP.top-SKP.bottom);}
+function sk_i2x(i,n,w){return SKP.left+(i+0.5)*((w-SKP.left-SKP.right)/(n+1));}
+
+function drawSK(ctx,w,h,bars,allH,allL){
+  ctx.clearRect(0,0,w,h);
+  const n=bars.length;
+  const pad=ctx===_s5Ctx
+    ? Math.max((allH-allL)*0.5, 1500)   // s5：50%讓K棒佔中間50%高度
+    : Math.max((allH-allL)*0.1, 500);   // wk/mf：10%
+  const mn=allL-pad, mx=allH+pad;
+  const bw=Math.max(3,(w-SKP.left-SKP.right)/n*0.58);
+
+  // 格線
+  ctx.lineWidth=0.5;
+  for(let i=0;i<=5;i++){
+    const val=mn+(mx-mn)*(i/5);
+    const y=SKP.top+(1-i/5)*(h-SKP.top-SKP.bottom);
+    ctx.strokeStyle='rgba(224,216,200,0.6)';
+    ctx.beginPath();ctx.moveTo(SKP.left,y);ctx.lineTo(w-SKP.right,y);ctx.stroke();
+    ctx.fillStyle='#b0a090';ctx.font='9px DM Mono,monospace';ctx.textAlign='left';
+    ctx.fillText(fmtI(val),w-SKP.right+3,y+3);
+  }
+  // X 標籤（每3根一個）
+  ctx.fillStyle='#b0a090';ctx.font='9px DM Mono,monospace';ctx.textAlign='center';
+  for(let i=0;i<n;i++){
+    if(i%3===0||i===n-1){
+      ctx.fillText(bars[i].label,sk_i2x(i,n,w),h-SKP.bottom+13);
+    }
+  }
+  // K線
+  for(let i=0;i<n;i++){
+    const b=bars[i], x=sk_i2x(i,n,w);
+    const isUp=b.c>=b.o;
+    const color=isUp?'#c0392b':'#1a7a5e';
+    const yH=sk_p2y(b.h,h,mn,mx),yL=sk_p2y(b.l,h,mn,mx);
+    const yO=sk_p2y(b.o,h,mn,mx),yC=sk_p2y(b.c,h,mn,mx);
+    ctx.strokeStyle=color;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,yH);ctx.lineTo(x,yL);ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.fillRect(x-bw/2,Math.min(yO,yC),bw,Math.max(1.5,Math.abs(yC-yO)));
+  }
+  // 座標儲存
+  if(ctx===_wkCtx){_wkMn=mn;_wkMx=mx;_wkN=n;_wkW=w;_wkH=h;}
+  if(ctx===_mfCtx){_mfMn=mn;_mfMx=mx;_mfN=n;_mfW=w;_mfH=h;}
+  if(ctx===_s5Ctx){_s5Mn=mn;_s5Mx=mx;_s5N=n;_s5W=w;_s5H=h;}
+
+  // 對應狀態
+  const _al=ctx===_mfCtx?_mfUserLines:ctx===_s5Ctx?_s5UserLines:_userLines;
+  const _ad=ctx===_mfCtx?_mfDrawing:ctx===_s5Ctx?_s5Drawing:_wkDrawing;
+  const _as=ctx===_mfCtx?_mfStart:ctx===_s5Ctx?_s5Start:_wkStart;
+  const _asn=ctx===_mfCtx?_mfSnapPoint:ctx===_s5Ctx?_s5SnapPoint:_wkSnapPoint;
+  const _am=ctx===_mfCtx?_mfMode:ctx===_s5Ctx?_s5Mode:_wkMode;
+
+  // 繪製手繪線（趨勢線/水平線/三線）
+  _al.forEach(l=>{
+    const color=l.color||'rgba(44,95,138,0.9)';
+    ctx.save();ctx.strokeStyle=color;ctx.lineWidth=2;
+    if(l.type==='b'){
+      // 三線區間
+      const vTop=l.v+l.spread,vMid=l.v,vBot=l.v-l.spread;
+      const pyTop=sk_p2y(vTop,h,mn,mx),pyMid=sk_p2y(vMid,h,mn,mx),pyBot=sk_p2y(vBot,h,mn,mx);
+      [[vTop,pyTop,1.5],[vMid,pyMid,2.5],[vBot,pyBot,1.5]].forEach(([v,py,lw])=>{
+        if(py<SKP.top-2||py>h-SKP.bottom+2)return;
+        ctx.lineWidth=lw;
+        ctx.beginPath();ctx.moveTo(SKP.left,py);ctx.lineTo(w-SKP.right,py);ctx.stroke();
+      });
+      const rx=w-SKP.right+3;
+      ctx.fillStyle=color;ctx.textAlign='left';
+      ctx.font='bold 15px DM Mono,monospace';
+      ctx.fillText(fmtI(vTop),rx,pyTop-2);
+      ctx.fillText(fmtI(vMid),rx,pyMid-2);
+      ctx.fillText(fmtI(vBot),rx,pyBot-2);
+    }else if(l.type==='h'){
+      // 水平線
+      const py=sk_p2y(l.v,h,mn,mx);
+      if(py<SKP.top-2||py>h-SKP.bottom+2){ctx.restore();return;}
+      ctx.beginPath();ctx.moveTo(SKP.left,py);ctx.lineTo(w-SKP.right,py);ctx.stroke();
+      ctx.fillStyle=color;
+      ctx.beginPath();ctx.arc(SKP.left+4,py,3,0,Math.PI*2);ctx.fill();
+      ctx.font='bold 15px DM Mono,monospace';ctx.textAlign='left';
+      ctx.fillText(fmtI(l.v),w-SKP.right+3,py+4);
+    }else{
+      // 趨勢線
+      const x1=sk_i2x(l.i1,n,w),y1=sk_p2y(l.v1,h,mn,mx);
+      const x2=sk_i2x(l.i2,n,w),y2=sk_p2y(l.v2,h,mn,mx);
+      ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+      const xEdge=w-SKP.right+2;
+      if(Math.abs(x2-x1)>1){
+        const slope=(y2-y1)/(x2-x1),yEdge=y2+slope*(xEdge-x2);
+        ctx.setLineDash([5,4]);ctx.globalAlpha=0.55;
+        ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(xEdge,yEdge);ctx.stroke();
+        ctx.setLineDash([]);ctx.globalAlpha=1;
+      }
+      ctx.fillStyle=color;
+      [[x1,y1],[x2,y2]].forEach(([px,py])=>{ctx.beginPath();ctx.arc(px,py,4,0,Math.PI*2);ctx.fill();});
+    }
+    ctx.restore();
+  });
+
+  // 預覽線
+  if(_ad&&_as){
+    const _ap2=ctx===_mfCtx?_mfPrev:ctx===_s5Ctx?_s5Prev:_wkPrev;
+    if(_am==='drawB'){
+      // 三線預覽
+      const spread=_ap2?Math.abs(_ap2.v-_as.v):0;
+      const vTop=_as.v+spread,vBot=_as.v-spread;
+      ctx.save();ctx.strokeStyle='rgba(44,95,138,0.55)';ctx.setLineDash([4,3]);
+      [[_as.v+spread,1.5],[_as.v,2],[_as.v-spread,1.5]].forEach(([v,lw])=>{
+        const py=sk_p2y(v,h,mn,mx);
+        if(py<SKP.top-2||py>h-SKP.bottom+2)return;
+        ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(SKP.left,py);ctx.lineTo(w-SKP.right,py);ctx.stroke();
+      });
+      ctx.setLineDash([]);
+      if(spread>0){
+        const pyT=sk_p2y(vTop,h,mn,mx),pyM=sk_p2y(_as.v,h,mn,mx),pyB=sk_p2y(vBot,h,mn,mx);
+        ctx.fillStyle='rgba(44,95,138,0.7)';ctx.textAlign='left';
+        ctx.font='bold 15px DM Mono,monospace';
+        ctx.fillText(fmtI(vTop),w-SKP.right+3,pyT-2);
+        ctx.fillText(fmtI(_as.v),w-SKP.right+3,pyM-2);
+        ctx.fillText(fmtI(vBot),w-SKP.right+3,pyB-2);
+      }
+      ctx.restore();
+    }else{
+      const isTrend=(_am==='draw')&&(ctx===_wkCtx||ctx===_mfCtx);
+      const py_s=sk_p2y(_as.v,h,mn,mx);
+      ctx.save();ctx.strokeStyle='rgba(44,95,138,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+      if(isTrend){
+        if(_ap2){
+          ctx.beginPath();
+          ctx.moveTo(sk_i2x(_as.i,n,w),py_s);
+          ctx.lineTo(sk_i2x(_ap2.i,n,w),sk_p2y(_ap2.v,h,mn,mx));
+          ctx.stroke();
+        }
+      }else{
+        ctx.beginPath();ctx.moveTo(SKP.left,py_s);ctx.lineTo(w-SKP.right,py_s);ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font='bold 15px DM Mono,monospace';ctx.fillStyle='rgba(44,95,138,0.8)';ctx.textAlign='left';
+        const previewMn=ctx===_mfCtx?_mfMn:ctx===_s5Ctx?_s5Mn:_wkMn;
+        const previewMx=ctx===_mfCtx?_mfMx:ctx===_s5Ctx?_s5Mx:_wkMx;
+        const previewV=previewMn+(1-(py_s-SKP.top)/(h-SKP.top-SKP.bottom))*(previewMx-previewMn);
+        ctx.fillText(fmtI(previewV),w-SKP.right+3,py_s+3);
+      }
+      ctx.setLineDash([]);ctx.restore();
+    }
+  }
+
+  // 吸附指示圈
+  if((_am==='draw'||_am==='drawH')&&_asn){
+    ctx.save();ctx.strokeStyle='rgba(44,95,138,0.9)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(_asn.x,_asn.y,7,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='rgba(44,95,138,0.25)';ctx.fill();ctx.restore();
+  }
+}
+
+function drawSV(ctx,w,h,bars){
+  ctx.clearRect(0,0,w,h);
+  const n=bars.length;
+  const maxV=Math.max(...bars.map(b=>b.v||0));
+  if(!maxV){
+    ctx.fillStyle='#c8bfaf';ctx.font='10px DM Mono,monospace';
+    ctx.fillText('成交量無資料',12,h/2);return;
+  }
+  const bw=Math.max(3,(w-SKP.left-SKP.right)/n*0.6);
+  const vT=4,vB=16;
+  for(let i=0;i<n;i++){
+    const b=bars[i];if(!b.v)continue;
+    const x=sk_i2x(i,n,w);
+    const bh=(b.v/maxV)*(h-vT-vB);
+    ctx.fillStyle=b.c>=b.o?'rgba(192,57,43,0.55)':'rgba(26,122,94,0.55)';
+    ctx.fillRect(x-bw/2,h-vB-bh,bw,bh);
+  }
+  ctx.fillStyle='#c8bfaf';ctx.font='9px DM Mono,monospace';ctx.textAlign='left';
+  ctx.fillText(fmtV(maxV),w-SKP.right+3,vT+10);
+}
+
+function drawFxLine(bars){
+  const wrap=document.getElementById('wkFxWrap');
+  const canvas=document.getElementById('wkFxCanvas');
+  if(!canvas||!wrap) return;
+  canvas.width=wrap.offsetWidth;
+  canvas.height=wrap.offsetHeight;
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width, h=canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const n=bars.length;
+  if(!n) return;
+
+  ctx.font='9px DM Mono,monospace';
+  ctx.textAlign='center';
+
+  for(let i=0;i<n;i++){
+    const b=bars[i];
+    const x=sk_i2x(i,n,w); // 精確對齊K棒
+    if(b.fxBuy){
+      ctx.fillStyle='rgba(192,57,43,0.9)'; // 紅=買入
+      ctx.fillText(b.fxBuy.toFixed(2),x,13);
+    }
+    if(b.fxSell){
+      ctx.fillStyle='rgba(26,122,94,0.9)'; // 綠=賣出
+      ctx.fillText(b.fxSell.toFixed(2),x,26);
+    }
+    if(!b.fxBuy&&!b.fxSell){
+      ctx.fillStyle='rgba(200,191,175,0.4)';
+      ctx.fillText('—',x,13);
+    }
+  }
+  // 右側說明
+  ctx.textAlign='left';ctx.font='8px DM Mono,monospace';
+  ctx.fillStyle='rgba(192,57,43,0.7)';ctx.fillText('買',w-SKP.right+3,13);
+  ctx.fillStyle='rgba(26,122,94,0.7)'; ctx.fillText('賣',w-SKP.right+3,26);
+}
+
+function drawS5FxLine(bars){
+  const wrap=document.getElementById('s5FxWrap');
+  const canvas=document.getElementById('s5FxCanvas');
+  if(!canvas||!wrap) return;
+  canvas.width=wrap.offsetWidth;
+  canvas.height=wrap.offsetHeight;
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width, h=canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const n=bars.length;
+  if(!n) return;
+  ctx.font='9px DM Mono,monospace';
+  ctx.textAlign='center';
+  for(let i=0;i<n;i++){
+    const b=bars[i];
+    const x=sk_i2x(i,n,w);
+    if(b.fxBuy){
+      ctx.fillStyle='rgba(192,57,43,0.9)';
+      ctx.fillText(b.fxBuy.toFixed(2),x,13);
+    }
+    if(b.fxSell){
+      ctx.fillStyle='rgba(26,122,94,0.9)';
+      ctx.fillText(b.fxSell.toFixed(2),x,26);
+    }
+    if(!b.fxBuy&&!b.fxSell){
+      ctx.fillStyle='rgba(200,191,175,0.4)';
+      ctx.fillText('—',x,13);
+    }
+  }
+  ctx.textAlign='left';ctx.font='8px DM Mono,monospace';
+  ctx.fillStyle='rgba(192,57,43,0.7)';ctx.fillText('買',w-SKP.right+3,13);
+  ctx.fillStyle='rgba(26,122,94,0.7)'; ctx.fillText('賣',w-SKP.right+3,26);
+}
+
+function resizeWK(){
+  const kC=document.getElementById('wkCanvas');
+  const vC=document.getElementById('wvCanvas');
+  kC.width=document.getElementById('wkWrap').offsetWidth;
+  kC.height=document.getElementById('wkWrap').offsetHeight;
+  vC.width=document.getElementById('wvWrap').offsetWidth;
+  vC.height=document.getElementById('wvWrap').offsetHeight;
+}
+
+function setS5Mode(mode){
+  if(_s5Mode===mode)_s5Mode=null; else _s5Mode=mode;
+  _s5Drawing=false;_s5Start=null;_s5Prev=null;_s5SnapPoint=null;
+  document.getElementById('s5BtnDrawB').classList.toggle('active',_s5Mode==='drawB');
+  document.getElementById('s5BtnDraw').classList.toggle('active',_s5Mode==='draw');
+  document.getElementById('s5BtnDel').classList.toggle('active',_s5Mode==='delete');
+}
+function updateS5LineCount(){document.getElementById('s5LineCount').textContent=`${_s5UserLines.length} / 5`;}
+function saveS5Lines(){try{localStorage.setItem('s5UserLines',JSON.stringify(_s5UserLines));}catch(e){}}
+function loadS5Lines(){try{const d=localStorage.getItem('s5UserLines');if(d)_s5UserLines=JSON.parse(d);updateS5LineCount();}catch(e){_s5UserLines=[];}}
+function redrawS5(){
+  if(!_s5Bars.length||!_s5Ctx)return;
+  const allH=Math.max(..._s5Bars.map(b=>b.h));
+  const allL=Math.min(..._s5Bars.map(b=>b.l));
+  drawSK(_s5Ctx,_s5W,_s5H,_s5Bars,allH,allL);
+}
+
+// ── 近5根週K線 ─────────────────────────────────────────────────────
+function renderS5Charts(){
+  if(!_s5Bars.length) return;
+  const kC=document.getElementById('s5Canvas');
+  const vC=document.getElementById('s5VolCanvas');
+  kC.width=document.getElementById('s5Wrap').offsetWidth;
+  kC.height=document.getElementById('s5Wrap').offsetHeight;
+  vC.width=document.getElementById('s5VolWrap').offsetWidth;
+  vC.height=document.getElementById('s5VolWrap').offsetHeight;
+  _s5Ctx=kC.getContext('2d');
+  const allH=Math.max(..._s5Bars.map(b=>b.h));
+  const allL=Math.min(..._s5Bars.map(b=>b.l));
+  drawSK(_s5Ctx,kC.width,kC.height,_s5Bars,allH,allL);
+  drawSV(vC.getContext('2d'),vC.width,vC.height,_s5Bars);
+  drawS5FxLine(_s5Bars);
+  setupS5Hover(allH,allL);
+}
+function setupS5Hover(allH,allL){
+  const canvas=document.getElementById('s5Canvas');
+  const tip=document.getElementById('wkTip');
+  const n=_s5Bars.length;
+  function s5XY(e){const r=canvas.getBoundingClientRect();return{cx:(e.clientX-r.left)*canvas.width/r.width,cy:(e.clientY-r.top)*canvas.height/r.height};}
+  function s5XYT(t){const r=canvas.getBoundingClientRect();return{cx:(t.clientX-r.left)*canvas.width/r.width,cy:(t.clientY-r.top)*canvas.height/r.height};}
+  function s5Snap(cx,cy){return snapToChart(cx,cy,_s5Bars,_s5N,_s5W,_s5H,_s5Mn,_s5Mx);}
+  function s5CdV(cy){return _s5Mn+(1-(cy-SKP.top)/(_s5H-SKP.top-SKP.bottom))*(_s5Mx-_s5Mn);}
+  function s5ShowTip(idx,ex,ey){
+    const b=_s5Bars[idx];if(!b)return;
+    const chg=b.c-b.o,pct=(chg/b.o*100).toFixed(2);
+    drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);
+    const bx=sk_i2x(idx,n,canvas.width);
+    _s5Ctx.strokeStyle='rgba(44,95,138,0.35)';_s5Ctx.lineWidth=1;_s5Ctx.setLineDash([3,3]);
+    _s5Ctx.beginPath();_s5Ctx.moveTo(bx,SKP.top);_s5Ctx.lineTo(bx,canvas.height-SKP.bottom);_s5Ctx.stroke();_s5Ctx.setLineDash([]);
+    document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
+    document.getElementById('wkTipO').textContent=fmtI(b.o);document.getElementById('wkTipH').textContent=fmtI(b.h);
+    document.getElementById('wkTipL').textContent=fmtI(b.l);document.getElementById('wkTipC').textContent=fmtI(b.c);
+    const tc=document.getElementById('wkTipChg');tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;tc.className=chg>=0?'up':'down';
+    document.getElementById('wkTipV').textContent=fmtV(b.v);
+    const s5FxRow=document.getElementById('wkTipFxRow');
+    const s5FxEl=document.getElementById('wkTipFx');
+    if(b.fxBuy||b.fxSell){s5FxEl.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;s5FxRow.style.display='flex';}
+    else s5FxRow.style.display='none';
+    tip.style.display='block';
+    let tx=ex+16,ty=ey-10;if(tx+185>window.innerWidth)tx=ex-190;
+    tip.style.left=tx+'px';tip.style.top=ty+'px';
+  }
+  canvas.onmousedown=e=>{
+    if(_s5Mode==='drawB'){
+      if(_s5UserLines.length>=5)return;
+      const {cx,cy}=s5XY(e);
+      _s5Start={i:0,v:s5CdV(cy)};_s5Prev=null;
+      _s5Drawing=true;canvas.style.cursor='crosshair';
+      redrawS5();
+    }else if(_s5Mode==='draw'){
+      if(_s5UserLines.length>=5)return;
+      const {cx,cy}=s5XY(e);
+      _s5Start={i:0,v:s5CdV(cy)};
+      _s5SnapPoint=null;_s5Drawing=true;canvas.style.cursor='crosshair';
+      redrawS5(); // 立即顯示預覽線
+    }else if(_s5Mode==='delete'){
+      const {cx,cy}=s5XY(e);let minDist=15,delIdx=-1;
+      _s5UserLines.forEach((l,i)=>{
+        let d;
+        if(l.type==='b'){d=Math.min(Math.abs(cy-sk_p2y(l.v+l.spread,_s5H,_s5Mn,_s5Mx)),Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx)),Math.abs(cy-sk_p2y(l.v-l.spread,_s5H,_s5Mn,_s5Mx)));}
+        else{d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));}
+        if(d<minDist){minDist=d;delIdx=i;}
+      });
+      if(delIdx>=0){_s5UserLines.splice(delIdx,1);updateS5LineCount();saveS5Lines();redrawS5();}
+    }
+  };
+  canvas.onmouseup=e=>{
+    if(_s5Mode==='drawB'&&_s5Drawing&&_s5Start&&_s5Prev){
+      const spread=Math.abs(_s5Prev.v-_s5Start.v);
+      if(spread>10){
+        _s5UserLines.push({type:'b',v:_s5Start.v,spread,color:'rgba(44,95,138,0.9)'});
+        updateS5LineCount();saveS5Lines();
+      }
+      _s5Drawing=false;_s5Start=null;_s5Prev=null;redrawS5();
+    }else if(_s5Mode==='draw'&&_s5Drawing&&_s5Start){
+      _s5UserLines.push({type:'h',v:_s5Start.v,color:'rgba(44,95,138,0.9)'});
+      updateS5LineCount();saveS5Lines();
+      _s5Drawing=false;_s5Start=null;_s5SnapPoint=null;redrawS5();
+    }
+  };
+  window.addEventListener('mouseup',()=>{if(_s5Drawing){_s5Drawing=false;_s5Start=null;_s5SnapPoint=null;redrawS5();}});
+  canvas.onmousemove=e=>{
+    const {cx,cy}=s5XY(e);
+    if(_s5Mode==='drawB'){
+      canvas.style.cursor='crosshair';
+      if(_s5Drawing){_s5Prev={i:0,v:s5CdV(cy)};redrawS5();}
+      tip.style.display='none';return;
+    }
+    if(_s5Mode==='draw'){
+      canvas.style.cursor='crosshair';
+      _s5SnapPoint=null;
+      _s5Start={i:0,v:s5CdV(cy)};
+      if(_s5Drawing) redrawS5();
+      tip.style.display='none';return;
+    }
+    if(_s5Mode==='delete'){canvas.style.cursor='pointer';tip.style.display='none';return;}
+    canvas.style.cursor='default';
+    const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
+    s5ShowTip(idx,e.clientX,e.clientY);
+  };
+  canvas.onmouseleave=()=>{if(_s5Mode){_s5SnapPoint=null;_s5Start=null;redrawS5();return;}tip.style.display='none';drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);};
+  canvas.addEventListener('touchstart',e=>{
+    if(_s5Mode==='drawB'){
+      e.preventDefault();if(_s5UserLines.length>=5)return;
+      const {cx,cy}=s5XYT(e.touches[0]);
+      _s5Start={i:0,v:s5CdV(cy)};_s5Prev=null;_s5Drawing=true;
+      redrawS5();
+    }else if(_s5Mode==='draw'){
+      e.preventDefault();if(_s5UserLines.length>=5)return;
+      const {cx,cy}=s5XYT(e.touches[0]);
+      _s5Start={i:0,v:s5CdV(cy)};
+      _s5SnapPoint=null;_s5Drawing=true;
+      redrawS5();
+    }
+  },{passive:false});
+  canvas.addEventListener('touchmove',e=>{
+    if(_s5Mode==='drawB'&&_s5Drawing){
+      e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);
+      _s5Prev={i:0,v:s5CdV(cy)};redrawS5();
+    }else if(_s5Mode==='draw'&&_s5Drawing){
+      e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);
+      _s5Start={i:0,v:s5CdV(cy)};_s5SnapPoint=null;redrawS5();
+    }else if(!_s5Mode){
+      e.preventDefault();const t=e.touches[0];const {cx}=s5XYT(t);
+      const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
+      s5ShowTip(idx,t.clientX,t.clientY);
+    }
+  },{passive:false});
+  canvas.addEventListener('touchend',e=>{
+    if(_s5Mode==='drawB'&&_s5Drawing&&_s5Start&&_s5Prev){
+      e.preventDefault();
+      const spread=Math.abs(_s5Prev.v-_s5Start.v);
+      if(spread>10){
+        _s5UserLines.push({type:'b',v:_s5Start.v,spread,color:'rgba(44,95,138,0.9)'});
+        updateS5LineCount();saveS5Lines();
+      }
+      _s5Drawing=false;_s5Start=null;_s5Prev=null;redrawS5();
+    }else if(_s5Mode==='draw'&&_s5Drawing&&_s5Start){
+      e.preventDefault();
+      _s5UserLines.push({type:'h',v:_s5Start.v,color:'rgba(44,95,138,0.9)'});
+      updateS5LineCount();saveS5Lines();
+      _s5Drawing=false;_s5Start=null;_s5SnapPoint=null;redrawS5();
+    }else if(_s5Mode==='delete'){
+      e.preventDefault();const {cx,cy}=s5XYT(e.changedTouches[0]);let minDist=20,delIdx=-1;
+      _s5UserLines.forEach((l,i)=>{const d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));if(d<minDist){minDist=d;delIdx=i;}});
+      if(delIdx>=0){_s5UserLines.splice(delIdx,1);updateS5LineCount();saveS5Lines();redrawS5();}
+    }else if(!_s5Mode){setTimeout(()=>{tip.style.display='none';drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);},1500);}
+  },{passive:false});
+}
+window.addEventListener('resize',()=>{if(_s5Bars.length)renderS5Charts();});
+
+// ── 週K資料表 ───────────────────────────────────────────────────────
+function renderWkTable(bars){
+  const wrap=document.getElementById('wkTableWrap');
+  if(!wrap||!bars||!bars.length) return;
+  const rows=bars.slice(-15);
+  const fmt=v=>v==null?'—':fmtI(v);
+  const fmtD=v=>v||'—';
+  let html='<table class="wkt"><thead><tr>'
+    +'<th>週期</th>'
+    +'<th>開盤</th><th>收盤</th>'
+    +'<th>收-開</th><th>高-開</th><th>低-開</th>'
+    +'</tr></thead><tbody>';
+  rows.forEach((b,i)=>{
+    const oc=b.c-b.o;
+    const hc=b.h-b.o;
+    const lc=b.l-b.o;
+    const ocCls=oc>0?'up':oc<0?'dn':'neu';
+    const hcCls=hc>0?'up':'neu';
+    const lcCls=lc<0?'dn':lc>0?'up':'neu';
+    const sign=v=>v>0?'+':'';
+    html+=`<tr>`
+      +`<td><span class="wkt-date">${fmtD(b.startDate)}<br>${fmtD(b.endDate)}</span></td>`
+      +`<td>${fmt(b.o)}</td>`
+      +`<td>${fmt(b.c)}</td>`
+      +`<td class="${ocCls}">${sign(oc)}${fmt(oc)}</td>`
+      +`<td class="${hcCls}">${sign(hc)}${fmt(hc)}</td>`
+      +`<td class="${lcCls}">${sign(lc)}${fmt(lc)}</td>`
+      +`</tr>`;
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+}
+
+function renderWeeklyCharts(){
+  if(!_wkBars.length) return;
+  resizeWK();
+  const allH=Math.max(..._wkBars.map(b=>b.h));
+  const allL=Math.min(..._wkBars.map(b=>b.l));
+  _wkCtx=document.getElementById('wkCanvas').getContext('2d');
+  _wvCtx=document.getElementById('wvCanvas').getContext('2d');
+  drawSK(_wkCtx,document.getElementById('wkCanvas').width,document.getElementById('wkCanvas').height,_wkBars,allH,allL);
+  drawSV(_wvCtx,document.getElementById('wvCanvas').width,document.getElementById('wvCanvas').height,_wkBars);
+  drawFxLine(_wkBars);
+  setupWKHover(allH,allL);
+}
+
+function setupWKHover(allH,allL){
+  const canvas=document.getElementById('wkCanvas');
+  const tip=document.getElementById('wkTip');
+  const n=_wkBars.length;
+
+  // 電腦座標轉換
+  function mouseToCanvasXY(e){
+    const rect=canvas.getBoundingClientRect();
+    const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+    return{cx:(e.clientX-rect.left)*sx, cy:(e.clientY-rect.top)*sy};
+  }
+
+  // mousedown：開始畫線 或 刪線
+  canvas.onmousedown=e=>{
+    if(_wkMode==='draw'){
+      if(_userLines.length>=5) return;
+      const {cx,cy}=mouseToCanvasXY(e);
+      const snap=snapToKLine(cx,cy);
+      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
+      _wkDrawing=true;canvas.style.cursor='crosshair';
+    }else if(_wkMode==='drawB'){
+      if(_userLines.length>=5) return;
+      const {cx,cy}=mouseToCanvasXY(e);
+      _wkStart=canvasToData(cx,cy);_wkPrev=null;
+      _wkDrawing=true;canvas.style.cursor='crosshair';
+      redrawWK();
+    }else if(_wkMode==='drawH'){
+      if(_userLines.length>=5) return;
+      const {cx,cy}=mouseToCanvasXY(e);
+      _wkStart=canvasToData(cx,cy);
+      _wkDrawing=true;canvas.style.cursor='crosshair';
+      redrawWK();
+    }else if(_wkMode==='delete'){
+      const {cx,cy}=mouseToCanvasXY(e);
+      let minDist=20,delIdx=-1;
+      _userLines.forEach((l,idx)=>{
+        const d=l.type==='h'
+          ?Math.abs(cy-sk_p2y(l.v,_wkH,_wkMn,_wkMx))
+          :distPtToSeg(cx,cy,sk_i2x(l.i1||0,_wkN,_wkW),sk_p2y(l.v1||l.v,_wkH,_wkMn,_wkMx),sk_i2x(l.i2||0,_wkN,_wkW),sk_p2y(l.v2||l.v,_wkH,_wkMn,_wkMx));
+        if(d<minDist){minDist=d;delIdx=idx;}
+      });
+      if(delIdx>=0){_userLines.splice(delIdx,1);updateLineCount();saveLines();redrawWK();}
+    }
+  };
+
+  // mouseup：完成畫線
+  canvas.onmouseup=e=>{
+    if(_wkMode==='drawB'&&_wkDrawing&&_wkStart&&_wkPrev){
+      const spread=Math.abs(_wkPrev.v-_wkStart.v);
+      if(spread>10){
+        _userLines.push({type:'b',v:_wkStart.v,spread,color:'rgba(44,95,138,0.9)'});
+        updateLineCount();saveLines();
+      }
+      _wkDrawing=false;_wkStart=null;_wkPrev=null;redrawWK();
+    }else if(_wkMode==='drawH'&&_wkDrawing&&_wkStart){
+      _userLines.push({type:'h',v:_wkStart.v,color:'rgba(44,95,138,0.9)'});
+      updateLineCount();saveLines();
+      _wkDrawing=false;_wkStart=null;redrawWK();
+    }else if(_wkMode==='draw'&&_wkDrawing&&_wkStart&&_wkPrev){
+      const x1=sk_i2x(_wkStart.i,_wkN,_wkW),y1=sk_p2y(_wkStart.v,_wkH,_wkMn,_wkMx);
+      const x2=sk_i2x(_wkPrev.i,_wkN,_wkW),y2=sk_p2y(_wkPrev.v,_wkH,_wkMn,_wkMx);
+      if(Math.hypot(x2-x1,y2-y1)>15){
+        _userLines.push({type:'t',i1:_wkStart.i,v1:_wkStart.v,i2:_wkPrev.i,v2:_wkPrev.v,color:'rgba(44,95,138,0.9)'});
+        updateLineCount();saveLines();
+      }
+      _wkDrawing=false;_wkStart=null;_wkPrev=null;redrawWK();
+    }
+  };
+
+
+  canvas.onmousemove=e=>{
+    const {cx,cy}=mouseToCanvasXY(e);
+
+    if(_wkMode==='draw'){
+      canvas.style.cursor='crosshair';
+      if(_wkDrawing&&_wkStart){
+        const snap=snapToKLine(cx,cy);
+        _wkSnapPoint=snap||null;
+        _wkPrev=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
+        redrawWK();
+      }else{
+        const snap=snapToKLine(cx,cy);
+        if(snap!==_wkSnapPoint){_wkSnapPoint=snap;redrawWK();}
+      }
+      tip.style.display='none';return;
+    }
+    if(_wkMode==='drawB'){
+      canvas.style.cursor='crosshair';
+      if(_wkDrawing){_wkPrev=canvasToData(cx,cy);redrawWK();}
+      tip.style.display='none';return;
+    }
+    if(_wkMode==='drawH'){
+      canvas.style.cursor='crosshair';
+      _wkStart=canvasToData(cx,cy);
+      if(_wkDrawing) redrawWK();
+      tip.style.display='none';return;
+    }
+    if(_wkMode==='delete'){
+      canvas.style.cursor='pointer';
+      tip.style.display='none';return;
+    }
+
+    // tooltip模式
+    canvas.style.cursor='default';
+    const w=canvas.width;
+    const area=w-SKP.left-SKP.right;
+    const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/(area/n))));
+    const b=_wkBars[idx];
+    const chg=b.c-b.o, pct=(chg/b.o*100).toFixed(2);
+
+    drawSK(_wkCtx,w,canvas.height,_wkBars,allH,allL);
+    const bx=sk_i2x(idx,n,w);
+    _wkCtx.strokeStyle='rgba(44,95,138,0.35)';_wkCtx.lineWidth=1;_wkCtx.setLineDash([3,3]);
+    _wkCtx.beginPath();_wkCtx.moveTo(bx,SKP.top);_wkCtx.lineTo(bx,canvas.height-SKP.bottom);_wkCtx.stroke();
+    _wkCtx.setLineDash([]);
+
+    document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}  (${b.days}筆資料)`;
+    document.getElementById('wkTipO').textContent=fmtI(b.o);
+    document.getElementById('wkTipH').textContent=fmtI(b.h);
+    document.getElementById('wkTipL').textContent=fmtI(b.l);
+    document.getElementById('wkTipC').textContent=fmtI(b.c);
+    const tc=document.getElementById('wkTipChg');
+    tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
+    tc.className=chg>=0?'up':'down';
+    document.getElementById('wkTipV').textContent=fmtV(b.v);
+    const fxEl=document.getElementById('wkTipFx');
+    const fxRow=document.getElementById('wkTipFxRow');
+    if(b.fxBuy||b.fxSell){
+      fxEl.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;
+      fxRow.style.display='flex';
+    }else{
+      fxRow.style.display='none';
+    }
+    // 價1/價2：顯示前一根bar的值
+
+    tip.style.display='block';
+    let tx=e.clientX+16, ty=e.clientY-10;
+    if(tx+185>window.innerWidth) tx=e.clientX-190;
+    tip.style.left=tx+'px';tip.style.top=ty+'px';
+  };
+
+  canvas.onmouseleave=()=>{
+    if(_wkMode){_wkDrawing=false;_wkStart=null;_wkPrev=null;_wkSnapPoint=null;redrawWK();return;}
+    tip.style.display='none';
+    drawSK(_wkCtx,canvas.width,canvas.height,_wkBars,allH,allL);
+  };
+
+  // ── 手機touch：畫線/刪線/tooltip三模式統一處理 ──
+  canvas.addEventListener('touchstart',e=>{
+    if(_wkMode==='draw'){
+      e.preventDefault();
+      if(_userLines.length>=5) return;
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      const snap=snapToKLine(cx,cy);
+      _wkStart=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
+      _wkSnapPoint=snap||null;_wkDrawing=true;
+    }else if(_wkMode==='drawB'){
+      e.preventDefault();
+      if(_userLines.length>=5) return;
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      _wkStart=canvasToData(cx,cy);_wkPrev=null;_wkDrawing=true;
+      redrawWK();
+    }else if(_wkMode==='drawH'){
+      e.preventDefault();
+      if(_userLines.length>=5) return;
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      _wkStart=canvasToData(cx,cy);
+      _wkSnapPoint=null;_wkDrawing=true;
+      redrawWK();
+    }else if(_wkMode==='delete'){
+      // touchstart只記位置
+    }else{
+      // tooltip模式：不處理（touchmove裡處理）
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchmove',e=>{
+    if(_wkMode==='draw'){
+      e.preventDefault();
+      if(!_wkDrawing||!_wkStart)return;
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      const snap=snapToKLine(cx,cy);_wkSnapPoint=snap||null;
+      _wkPrev=snap?{i:snap.i,v:snap.v}:canvasToData(cx,cy);
+      redrawWK();
+    }else if(_wkMode==='drawB'&&_wkDrawing){
+      e.preventDefault();
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      _wkPrev=canvasToData(cx,cy);redrawWK();
+    }else if(_wkMode==='drawH'&&_wkDrawing){
+      e.preventDefault();
+      const {cx,cy}=touchToCanvasXY(e.touches[0]);
+      _wkStart=canvasToData(cx,cy);_wkSnapPoint=null;
+      redrawWK();
+    }else if(_wkMode==='delete'){
+      // 不處理移動
+    }else{
+      // 原本的tooltip邏輯
+      e.preventDefault();
+      const touch=e.touches[0]||e.changedTouches[0];
+      const rect=canvas.getBoundingClientRect();
+      const x=touch.clientX-rect.left;
+      const w=canvas.width;
+      const area=w-SKP.left-SKP.right;
+      const idx=Math.min(n-1,Math.max(0,Math.floor((x-SKP.left)/(area/n))));
+      const b=_wkBars[idx];
+      const chg=b.c-b.o, pct=(chg/b.o*100).toFixed(2);
+      drawSK(_wkCtx,w,canvas.height,_wkBars,allH,allL);
+      const bx=sk_i2x(idx,n,w);
+      _wkCtx.strokeStyle='rgba(44,95,138,0.35)';_wkCtx.lineWidth=1;_wkCtx.setLineDash([3,3]);
+      _wkCtx.beginPath();_wkCtx.moveTo(bx,SKP.top);_wkCtx.lineTo(bx,canvas.height-SKP.bottom);_wkCtx.stroke();
+      _wkCtx.setLineDash([]);
+      document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
+      document.getElementById('wkTipO').textContent=fmtI(b.o);
+      document.getElementById('wkTipH').textContent=fmtI(b.h);
+      document.getElementById('wkTipL').textContent=fmtI(b.l);
+      document.getElementById('wkTipC').textContent=fmtI(b.c);
+      const tc=document.getElementById('wkTipChg');
+      tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
+      tc.className=chg>=0?'up':'down';
+      document.getElementById('wkTipV').textContent=fmtV(b.v);
+      const fxElT=document.getElementById('wkTipFx');
+      const fxRowT=document.getElementById('wkTipFxRow');
+      if(b.fxBuy||b.fxSell){fxElT.textContent=`${b.fxBuy??'—'} / ${b.fxSell??'—'}`;fxRowT.style.display='flex';}
+      else fxRowT.style.display='none';
+      tip.style.display='block';
+      const tx=Math.min(touch.clientX+16,window.innerWidth-195);
+      const ty=Math.max(10,touch.clientY-120);
+      tip.style.left=tx+'px';tip.style.top=ty+'px';
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchend',e=>{
+    if(_wkMode==='draw'){
+      e.preventDefault();
+      if(_wkDrawing&&_wkStart&&_wkPrev){
+        const x1=sk_i2x(_wkStart.i,_wkN,_wkW),y1=sk_p2y(_wkStart.v,_wkH,_wkMn,_wkMx);
+        const x2=sk_i2x(_wkPrev.i,_wkN,_wkW),y2=sk_p2y(_wkPrev.v,_wkH,_wkMn,_wkMx);
+        if(Math.hypot(x2-x1,y2-y1)>20){
+          _userLines.push({type:'t',i1:_wkStart.i,v1:_wkStart.v,i2:_wkPrev.i,v2:_wkPrev.v,color:'rgba(44,95,138,0.9)'});
+          updateLineCount();saveLines();
+        }
+      }
+      _wkDrawing=false;_wkStart=null;_wkPrev=null;_wkSnapPoint=null;redrawWK();
+    }else if(_wkMode==='delete'){
+      e.preventDefault();
+      const touch=e.changedTouches[0];
+      const {cx,cy}=touchToCanvasXY(touch);
+      let minDist=30,delIdx=-1;
+      _userLines.forEach((l,idx)=>{
+        const x1=sk_i2x(l.i1,_wkN,_wkW),y1=sk_p2y(l.v1,_wkH,_wkMn,_wkMx);
+        const x2=sk_i2x(l.i2,_wkN,_wkW),y2=sk_p2y(l.v2,_wkH,_wkMn,_wkMx);
+        const d=distPtToSeg(cx,cy,x1,y1,x2,y2);
+        if(d<minDist){minDist=d;delIdx=idx;}
+      });
+      if(delIdx>=0){_userLines.splice(delIdx,1);updateLineCount();saveLines();redrawWK();}
+    }else if(_wkMode==='delete'&&e.type==='touchend'){
+      const {cx,cy}=touchToCanvasXY(e.changedTouches[0]);
+      let minDist=20,delIdx=-1;
+      _userLines.forEach((l,idx)=>{
+        const d=l.type==='h'?Math.abs(cy-sk_p2y(l.v,_wkH,_wkMn,_wkMx)):distPtToSeg(cx,cy,sk_i2x(l.i1,_wkN,_wkW),sk_p2y(l.v1,_wkH,_wkMn,_wkMx),sk_i2x(l.i2,_wkN,_wkW),sk_p2y(l.v2,_wkH,_wkMn,_wkMx));
+        if(d<minDist){minDist=d;delIdx=idx;}
+      });
+      if(delIdx>=0){_userLines.splice(delIdx,1);updateLineCount();saveLines();redrawWK();}
+    }else{
+      // tooltip模式：隱藏tip
+      setTimeout(()=>{tip.style.display='none';redrawWK();},1500);
+    }
+  },{passive:false});
+}
+
+async function loadWeeklyKline(){
+  const msgEl=document.getElementById('wkLoaderMsg');
+  if(msgEl) msgEl.textContent='載入資料…';
+  let rows=null;
+
+  try{
+    const r=await fetch(`/.netlify/functions/proxy?url=${encodeURIComponent(FUTURES_CSV_URL)}`,{signal:AbortSignal.timeout(15000)});
+    if(r.ok){
+      const text=await r.text();
+      rows=parseFuturesCSV(text);
+    }
+  }catch(e){console.warn('WK fetch failed:',e.message);}
+
+  if(!rows||rows.length<2){
+    const loader=document.getElementById('wkLoader');
+    if(loader) loader.innerHTML=`<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">⚠ 資料載入失敗，請稍後重整</span>`;
+    return;
+  }
+
+  const allBars=buildWeeklySessionBars(rows);
+  const bars=allBars.slice(-20); // 近20週
+  _wkBars=bars;
+
+  if(bars.length<2){
+    const loader=document.getElementById('wkLoader');
+    if(loader) loader.innerHTML=`<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">⚠ 週線資料不足</span>`;
+    return;
+  }
+
+  const last=bars[bars.length-1], prev=bars[bars.length-2];
+  const chg=last.c-prev.c, pct=(chg/prev.c*100);
+  const allH=Math.max(...bars.map(b=>b.h));
+  const allL=Math.min(...bars.map(b=>b.l));
+
+  document.getElementById('wkClose').textContent=fmtI(last.c);
+  const ce=document.getElementById('wkChg');
+  ce.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${pct.toFixed(2)}%)`;
+  ce.className='skline-stat-val '+(chg>=0?'up':'down');
+  document.getElementById('wkHigh').textContent=fmtI(allH);
+  document.getElementById('wkLow').textContent=fmtI(allL);
+  document.getElementById('wkDateRange').textContent=`${bars[0].startDate} ～ ${last.endDate}`;
+
+  document.getElementById('wkLoader').style.display='none';
+  renderWeeklyCharts();
+  renderWkTable(bars);
+
+  // 近5根K線圖
+  _s5Bars=allBars.slice(-5);
+  if(_s5Bars.length>=1){
+    const s5Last=_s5Bars[_s5Bars.length-1];
+    document.getElementById('s5DateRange').textContent=`${_s5Bars[0].startDate} ～ ${s5Last.endDate}`;
+    document.getElementById('s5Loader').style.display='none';
+    renderS5Charts();
+  }
+
+}
+
+window.addEventListener('resize',()=>{if(_wkBars.length){renderWeeklyCharts();drawFxLine(_wkBars);}});
+
+// parseCSV（保留，供期貨CSV使用）
+function parseCSV(text){
+  const rows=[];
+  let row=[],cur='',inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inQ=false; }
+      else cur+=c;
+    }else{
+      if(c==='"') inQ=true;
+      else if(c===','){row.push(cur);cur='';}
+      else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur='';}
+      else if(c==='\r'){/*忽略*/}
+      else cur+=c;
+    }
+  }
+  if(cur||row.length){row.push(cur);rows.push(row);}
+  return rows.filter(r=>r.some(c=>c.trim()!==''));
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ██  Mon-Fri 週K線（星期一 ～ 星期五）  ██████████████████████████
+// ══════════════════════════════════════════════════════════════════
+let _mfBars=[], _mfCtx=null;
+let _mfUserLines=[], _mfMode=null, _mfDrawing=false, _mfStart=null, _mfPrev=null;
+let _mfMn=0, _mfMx=0, _mfN=0, _mfW=0, _mfH=0;
+let _mfSnapPoint=null;
+
+function buildWeekly_MF(rows){
+  const sessionOrder={'盤後':0,'一般':1};
+  function getWeekKey(y,m,d){
+    const wd=new Date(Date.UTC(y,m-1,d)).getUTCDay(); // 0=日,1=一...5=五,6=六
+    const diffToMon=(wd-1+7)%7;
+    const mon=new Date(Date.UTC(y,m-1,d));
+    mon.setUTCDate(mon.getUTCDate()-diffToMon);
+    return`${mon.getUTCFullYear()}-${String(mon.getUTCMonth()+1).padStart(2,'0')}-${String(mon.getUTCDate()).padStart(2,'0')}`;
+  }
+  const buckets=new Map();
+  for(const r of rows){
+    const key=getWeekKey(r.y,r.m,r.d);
+    if(!buckets.has(key)) buckets.set(key,[]);
+    buckets.get(key).push(r);
+  }
+  const keys=[...buckets.keys()].sort();
+  return keys.map(key=>{
+    const slice=buckets.get(key).sort((a,b)=>{
+      if(a.dateKey!==b.dateKey) return a.dateKey<b.dateKey?-1:1;
+      return(sessionOrder[a.session]??0)-(sessionOrder[b.session]??0);
+    });
+    const first=slice[0],last=slice[slice.length-1];
+    const [ky,km,kd]=key.split('-').map(Number);
+    const fri=new Date(Date.UTC(ky,km-1,kd));
+    fri.setUTCDate(fri.getUTCDate()+4);
+    const endKey=`${fri.getUTCFullYear()}-${String(fri.getUTCMonth()+1).padStart(2,'0')}-${String(fri.getUTCDate()).padStart(2,'0')}`;
+    return{
+      label:`${String(km).padStart(2,'0')}/${String(kd).padStart(2,'0')}`,
+      startDate:key, endDate:endKey,
+      o:first.o,
+      h:Math.max(...slice.map(x=>x.h)),
+      l:Math.min(...slice.map(x=>x.l)),
+      c:last.c,
+      v:slice.reduce((s,x)=>s+(x.v||0),0),
+      days:slice.length,
+      fxBuy:null, fxSell:null,
+    };
+  });
+}
+
+function setMFMode(mode){
+  if(_mfMode===mode){_mfMode=null;}else{_mfMode=mode;}
+  _mfDrawing=false;_mfStart=null;_mfPrev=null;_mfSnapPoint=null;
+  document.getElementById('mfBtnDraw').classList.toggle('active',_mfMode==='draw');
+  document.getElementById('mfBtnDel').classList.toggle('active',_mfMode==='delete');
+}
+function updateMFLineCount(){
+  document.getElementById('mfLineCount').textContent=`${_mfUserLines.length} / 5`;
+}
+function saveMFLines(){try{localStorage.setItem('mfUserLines',JSON.stringify(_mfUserLines));}catch(e){}}
+function loadMFLines(){
+  try{
+    const d=localStorage.getItem('mfUserLines');
+    if(d) _mfUserLines=JSON.parse(d).filter(l=>l.i1!=null&&l.v1!=null);
+    updateMFLineCount();
+  }catch(e){_mfUserLines=[];}
+}
+function redrawMF(){
+  if(!_mfBars.length||!_mfCtx) return;
+  const allH=Math.max(..._mfBars.map(b=>b.h));
+  const allL=Math.min(..._mfBars.map(b=>b.l));
+  drawSK(_mfCtx,_mfW,_mfH,_mfBars,allH,allL);
+}
+
+function renderMFCharts(){
+  if(!_mfBars.length) return;
+  const kC=document.getElementById('mfCanvas');
+  const vC=document.getElementById('mvCanvas2');
+  kC.width=document.getElementById('mfWrap').offsetWidth;
+  kC.height=document.getElementById('mfWrap').offsetHeight;
+  vC.width=document.getElementById('mvWrap2').offsetWidth;
+  vC.height=document.getElementById('mvWrap2').offsetHeight;
+  _mfCtx=kC.getContext('2d');
+  const allH=Math.max(..._mfBars.map(b=>b.h));
+  const allL=Math.min(..._mfBars.map(b=>b.l));
+  drawSK(_mfCtx,kC.width,kC.height,_mfBars,allH,allL);
+  drawSV(vC.getContext('2d'),vC.width,vC.height,_mfBars);
+  setupMFHover(allH,allL);
+}
+
+function setupMFHover(allH,allL){
+  const canvas=document.getElementById('mfCanvas');
+  const tip=document.getElementById('wkTip');
+  const n=_mfBars.length;
+
+  function mfCanvasXY(e){
+    const rect=canvas.getBoundingClientRect();
+    const sx=canvas.width/rect.width,sy=canvas.height/rect.height;
+    return{cx:(e.clientX-rect.left)*sx,cy:(e.clientY-rect.top)*sy};
+  }
+  function mfCanvasXYTouch(touch){
+    const rect=canvas.getBoundingClientRect();
+    const sx=canvas.width/rect.width,sy=canvas.height/rect.height;
+    return{cx:(touch.clientX-rect.left)*sx,cy:(touch.clientY-rect.top)*sy};
+  }
+  function mfCd(cx,cy){
+    const barW=(_mfW-SKP.left-SKP.right)/(_mfN+1);
+    const i=Math.max(0,Math.min(_mfN-1,Math.round((cx-SKP.left)/barW-0.5)));
+    const v=_mfMn+(1-(cy-SKP.top)/(_mfH-SKP.top-SKP.bottom))*(_mfMx-_mfMn);
+    return{i,v};
+  }
+
+  // 滑鼠
+  canvas.onmousedown=e=>{
+    if(_mfMode==='draw'){
+      if(_mfUserLines.length>=5) return;
+      const {cx,cy}=mfCanvasXY(e);
+      const snap=snapToMFLine(cx,cy);
+      _mfStart=snap?{i:snap.i,v:snap.v}:mfCd(cx,cy);
+      _mfDrawing=true;canvas.style.cursor='crosshair';
+    }else if(_mfMode==='delete'){
+      const {cx,cy}=mfCanvasXY(e);
+      let minDist=20,delIdx=-1;
+      _mfUserLines.forEach((l,idx)=>{
+        const d=(l.type==='h')?Math.abs(cy-sk_p2y(l.v,_mfH,_mfMn,_mfMx)):distPtToSeg(cx,cy,sk_i2x(l.i1,_mfN,_mfW),sk_p2y(l.v1,_mfH,_mfMn,_mfMx),sk_i2x(l.i2,_mfN,_mfW),sk_p2y(l.v2,_mfH,_mfMn,_mfMx));
+        if(d<minDist){minDist=d;delIdx=idx;}
+      });
+      if(delIdx>=0){_mfUserLines.splice(delIdx,1);updateMFLineCount();saveMFLines();redrawMF();}
+    }
+  };
+  canvas.onmouseup=e=>{
+    if(_mfMode==='draw'&&_mfDrawing&&_mfStart&&_mfPrev){
+      const x1=sk_i2x(_mfStart.i,_mfN,_mfW),y1=sk_p2y(_mfStart.v,_mfH,_mfMn,_mfMx);
+      const x2=sk_i2x(_mfPrev.i,_mfN,_mfW),y2=sk_p2y(_mfPrev.v,_mfH,_mfMn,_mfMx);
+      if(Math.hypot(x2-x1,y2-y1)>15){
+        _mfUserLines.push({type:'t',i1:_mfStart.i,v1:_mfStart.v,i2:_mfPrev.i,v2:_mfPrev.v,color:'rgba(44,95,138,0.9)'});
+        updateMFLineCount();saveMFLines();
+      }
+      _mfDrawing=false;_mfStart=null;_mfPrev=null;redrawMF();
+    }
+  };
+  window.addEventListener('mouseup',()=>{
+    if(_mfDrawing){_mfDrawing=false;_mfStart=null;_mfPrev=null;redrawMF();}
+  });
+
+  canvas.onmousemove=e=>{
+    const {cx,cy}=mfCanvasXY(e);
+    if(_mfMode==='draw'){
+      canvas.style.cursor='crosshair';
+      if(_mfDrawing&&_mfStart){
+        const snap=snapToMFLine(cx,cy);
+        _mfSnapPoint=snap||null;
+        _mfPrev=snap?{i:snap.i,v:snap.v}:mfCd(cx,cy);
+        redrawMF();
+      }else{
+        const snap=snapToMFLine(cx,cy);
+        if(snap!==_mfSnapPoint){_mfSnapPoint=snap;redrawMF();}
+      }
+      tip.style.display='none';return;
+    }
+    if(_mfMode==='delete'){canvas.style.cursor='pointer';tip.style.display='none';return;}
+    canvas.style.cursor='default';
+    const area=canvas.width-SKP.left-SKP.right;
+    const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/(area/(n+1)))));
+    const b=_mfBars[idx]; if(!b) return;
+    const chg=b.c-b.o,pct=(chg/b.o*100).toFixed(2);
+    drawSK(_mfCtx,canvas.width,canvas.height,_mfBars,allH,allL);
+    const bx=sk_i2x(idx,n,canvas.width);
+    _mfCtx.strokeStyle='rgba(44,95,138,0.35)';_mfCtx.lineWidth=1;_mfCtx.setLineDash([3,3]);
+    _mfCtx.beginPath();_mfCtx.moveTo(bx,SKP.top);_mfCtx.lineTo(bx,canvas.height-SKP.bottom);_mfCtx.stroke();
+    _mfCtx.setLineDash([]);
+    document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
+    document.getElementById('wkTipO').textContent=fmtI(b.o);
+    document.getElementById('wkTipH').textContent=fmtI(b.h);
+    document.getElementById('wkTipL').textContent=fmtI(b.l);
+    document.getElementById('wkTipC').textContent=fmtI(b.c);
+    const tc=document.getElementById('wkTipChg');
+    tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
+    tc.className=chg>=0?'up':'down';
+    document.getElementById('wkTipV').textContent=fmtV(b.v);
+    document.getElementById('wkTipFxRow').style.display='none';
+    const mfPrevB=_mfBars[idx-1];
+    tip.style.display='block';
+    let tx=e.clientX+16,ty=e.clientY-10;
+    if(tx+185>window.innerWidth) tx=e.clientX-190;
+    tip.style.left=tx+'px';tip.style.top=ty+'px';
+  };
+  canvas.onmouseleave=()=>{
+    if(_mfMode){_mfDrawing=false;_mfStart=null;_mfPrev=null;_mfSnapPoint=null;redrawMF();return;}
+    tip.style.display='none';
+    drawSK(_mfCtx,canvas.width,canvas.height,_mfBars,allH,allL);
+  };
+
+  // touch
+  canvas.addEventListener('touchstart',e=>{
+    if(_mfMode==='draw'){
+      e.preventDefault();
+      if(_mfUserLines.length>=5) return;
+      const {cx,cy}=mfCanvasXYTouch(e.touches[0]);
+      const snap=snapToMFLine(cx,cy);
+      _mfStart=snap?{i:snap.i,v:snap.v}:mfCd(cx,cy);
+      _mfSnapPoint=snap||null;_mfDrawing=true;
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchmove',e=>{
+    if(_mfMode==='draw'){
+      e.preventDefault();
+      if(!_mfDrawing||!_mfStart) return;
+      const {cx,cy}=mfCanvasXYTouch(e.touches[0]);
+      const snap=snapToMFLine(cx,cy);
+      _mfSnapPoint=snap||null;
+      _mfPrev=snap?{i:snap.i,v:snap.v}:mfCd(cx,cy);
+      redrawMF();
+    }else if(_mfMode==='delete'){
+    }else{
+      e.preventDefault();
+      const touch=e.touches[0];
+      const {cx}=mfCanvasXYTouch(touch);
+      const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
+      const b=_mfBars[idx]; if(!b) return;
+      const chg=b.c-b.o,pct=(chg/b.o*100).toFixed(2);
+      drawSK(_mfCtx,canvas.width,canvas.height,_mfBars,allH,allL);
+      document.getElementById('wkTipLabel').textContent=`${b.startDate} → ${b.endDate}`;
+      document.getElementById('wkTipO').textContent=fmtI(b.o);
+      document.getElementById('wkTipH').textContent=fmtI(b.h);
+      document.getElementById('wkTipL').textContent=fmtI(b.l);
+      document.getElementById('wkTipC').textContent=fmtI(b.c);
+      const tc=document.getElementById('wkTipChg');
+      tc.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${chg>=0?'+':''}${pct}%)`;
+      tc.className=chg>=0?'up':'down';
+      document.getElementById('wkTipV').textContent=fmtV(b.v);
+      document.getElementById('wkTipFxRow').style.display='none';
+      tip.style.display='block';
+      const tx=Math.min(touch.clientX+16,window.innerWidth-195);
+      const ty=Math.max(10,touch.clientY-120);
+      tip.style.left=tx+'px';tip.style.top=ty+'px';
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchend',e=>{
+    if(_mfMode==='draw'){
+      e.preventDefault();
+      if(!_mfDrawing||!_mfStart||!_mfPrev){_mfDrawing=false;return;}
+      const x1=sk_i2x(_mfStart.i,_mfN,_mfW),y1=sk_p2y(_mfStart.v,_mfH,_mfMn,_mfMx);
+      const x2=sk_i2x(_mfPrev.i,_mfN,_mfW),y2=sk_p2y(_mfPrev.v,_mfH,_mfMn,_mfMx);
+      if(Math.hypot(x2-x1,y2-y1)>20){
+        _mfUserLines.push({type:'t',i1:_mfStart.i,v1:_mfStart.v,i2:_mfPrev.i,v2:_mfPrev.v,color:'rgba(44,95,138,0.9)'});
+        updateMFLineCount();saveMFLines();
+      }
+      _mfDrawing=false;_mfStart=null;_mfPrev=null;redrawMF();
+    }else if(_mfMode==='delete'){
+      e.preventDefault();
+      const {cx,cy}=mfCanvasXYTouch(e.changedTouches[0]);
+      let minDist=30,delIdx=-1;
+      _mfUserLines.forEach((l,idx)=>{
+        const d=(l.type==='h')?Math.abs(cy-sk_p2y(l.v,_mfH,_mfMn,_mfMx)):distPtToSeg(cx,cy,sk_i2x(l.i1,_mfN,_mfW),sk_p2y(l.v1,_mfH,_mfMn,_mfMx),sk_i2x(l.i2,_mfN,_mfW),sk_p2y(l.v2,_mfH,_mfMn,_mfMx));
+        if(d<minDist){minDist=d;delIdx=idx;}
+      });
+      if(delIdx>=0){_mfUserLines.splice(delIdx,1);updateMFLineCount();saveMFLines();redrawMF();}
+    }else{
+      setTimeout(()=>{tip.style.display='none';redrawMF();},1500);
+    }
+  },{passive:false});
+}
+
+window.addEventListener('resize',()=>{if(_mfBars.length) renderMFCharts();});
+
+// ══════════════════════════════════════════════════════════════════
+// 啟動
+// ══════════════════════════════════════════════════════════════════
+loadLines();
+loadMFLines();
+loadS5Lines();
+// 清除舊格式(對角線)的localStorage
+['wkUserLines','mfUserLines','s5UserLines'].forEach(k=>{
+  try{const d=localStorage.getItem(k);if(d){const p=JSON.parse(d);if(p.length&&p[0].i1!==undefined){localStorage.removeItem(k);}}}catch(e){}
+});
+loadWeeklyKline();
+setInterval(loadWeeklyKline,300000);   // 台指期週K：每5分鐘自動更新
+
+// ══════════════════════════════════════════════════════════════════
+// ██  選擇權損益試算  ██████████████████████████████████████████████
+// ══════════════════════════════════════════════════════════════════
+let optRowId=0;
+
+function addOptRow(){
+  const id=optRowId++;
+  const div=document.createElement('div');
+  div.className='opt-position';
+  div.id='optRow_'+id;
+  div.innerHTML=`
+    <button class="opt-del" onclick="document.getElementById('optRow_${id}').remove()">✕</button>
+    <div class="opt-pos-line1">
+      <div class="opt-toggle-grp" id="bs_${id}">
+        <button class="active" data-val="B" onclick="toggleOpt('bs_${id}',this)">買</button>
+        <button data-val="S" onclick="toggleOpt('bs_${id}',this)">賣</button>
+      </div>
+      <div class="opt-toggle-grp" id="cp_${id}">
+        <button class="active" data-val="C" onclick="toggleOpt('cp_${id}',this)">CALL</button>
+        <button data-val="P" onclick="toggleOpt('cp_${id}',this)">PUT</button>
+      </div>
+    </div>
+    <div class="opt-pos-line2">
+      <div class="opt-field">
+        <label>履約價</label>
+        <input type="number" class="opt-strike" inputmode="numeric" placeholder="41500">
+      </div>
+      <div class="opt-field">
+        <label>權利金</label>
+        <input type="number" class="opt-premium" inputmode="decimal" placeholder="100">
+      </div>
+      <div class="opt-field" style="max-width:64px;">
+        <label>口數</label>
+        <input type="number" class="opt-lots" inputmode="numeric" value="1" min="1">
+      </div>
+    </div>`;
+  document.getElementById('optRows').appendChild(div);
+}
+
+function toggleOpt(grpId,btn){
+  document.getElementById(grpId).querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function calcOpt(){
+  const positions=[];
+  document.querySelectorAll('.opt-position').forEach(row=>{
+    const id=row.id.replace('optRow_','');
+    const bsBtn=document.getElementById('bs_'+id)?.querySelector('button.active');
+    const cpBtn=document.getElementById('cp_'+id)?.querySelector('button.active');
+    const bs=bsBtn?.dataset.val||'B';
+    const cp=cpBtn?.dataset.val||'C';
+    const strike=parseFloat(row.querySelector('.opt-strike')?.value)||0;
+    const premium=parseFloat(row.querySelector('.opt-premium')?.value)||0;
+    const lots=parseInt(row.querySelector('.opt-lots')?.value)||1;
+    if(strike>0) positions.push({bs,cp,strike,premium,lots});
+  });
+
+  if(!positions.length){alert('請先新增部位並輸入履約價');return;}
+
+  const curRaw=parseInt(document.getElementById('optCurrentIdx').value)||0;
+  const step=50;
+  // 捨入到最近的50整數
+  const curIdx=curRaw>0?Math.round(curRaw/step)*step:0;
+
+  const strikes=positions.map(p=>p.strike);
+  const minIdx=Math.min(...strikes)-500;
+  const maxIdx=Math.max(...strikes)+500;
+
+  const results=[];
+  for(let idx=minIdx;idx<=maxIdx;idx+=step){
+    let total=0;
+    positions.forEach(p=>{
+      const isCall=p.cp==='C';
+      const isBuy=p.bs==='B';
+      const settle=isCall?Math.max(idx-p.strike,0):Math.max(p.strike-idx,0);
+      total+=(isBuy?1:-1)*(settle-p.premium)*p.lots*50;
+    });
+    results.push({idx,pnl:Math.round(total)});
+  }
+
+  // 摘要
+  const pnls=results.map(r=>r.pnl);
+  const maxP=Math.max(...pnls), maxL=Math.min(...pnls);
+  const bePts=results.filter((r,i)=>i>0&&((results[i-1].pnl<0&&r.pnl>=0)||(results[i-1].pnl>=0&&r.pnl<0))).map(r=>r.idx);
+
+  const sumEl=document.getElementById('optSummary');
+  sumEl.style.display='block';
+  sumEl.innerHTML=`<div class="opt-summary-box">
+    <div class="opt-sum-item"><div class="opt-sum-lbl">最大獲利</div><div class="opt-sum-val opt-pnl-pos">${maxP>=999999?'無上限':fmtM(maxP)}</div></div>
+    <div class="opt-sum-item"><div class="opt-sum-lbl">最大損失</div><div class="opt-sum-val opt-pnl-neg">${maxL<=-999999?'無下限':fmtM(maxL)}</div></div>
+    <div class="opt-sum-item"><div class="opt-sum-lbl">損益平衡</div><div class="opt-sum-val" style="color:var(--accent-yellow)">${bePts.length?bePts.join('、'):'—'}</div></div>
+  </div>`;
+
+  // 損益表
+  let rows='';
+  results.forEach(r=>{
+    const isCur=curIdx>0&&r.idx===curIdx;
+    const rowCls=isCur?'opt-current':'';
+    const mark=isCur?'<span class="opt-current-mark">▶</span>':'';
+    const pnlCls=r.pnl>0?'opt-pnl-pos':r.pnl<0?'opt-pnl-neg':'opt-pnl-zero';
+    rows+=`<tr class="${rowCls}"><td>${mark}${r.idx.toLocaleString()}</td><td class="${pnlCls}">${fmtM(r.pnl)}</td></tr>`;
+  });
+
+  document.getElementById('optResult').innerHTML=`
+    <div style="overflow-y:auto;max-height:400px;border:1px solid var(--border);border-radius:8px;margin-top:8px;">
+      <table class="opt-table">
+        <thead><tr><th>指數</th><th style="text-align:right;">結算損益(元)</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  setTimeout(()=>{
+    const cur=document.querySelector('.opt-table .opt-current');
+    if(cur) cur.scrollIntoView({block:'center',behavior:'smooth'});
+  },100);
+}
+
+function fmtM(n){return(n>=0?'+':'')+n.toLocaleString();}
+
+// 預設開啟兩個部位
+addOptRow();
+addOptRow();
+</script>
+</body>
+</html>
