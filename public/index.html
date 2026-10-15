@@ -166,9 +166,6 @@
     <div class="skline-vol-wrap" id="s5VolWrap" style="height:52px;margin-top:4px;">
       <canvas id="s5VolCanvas"></canvas>
     </div>
-    <div id="s5FxWrap" style="position:relative;height:36px;width:100%;margin-top:4px;">
-      <canvas id="s5FxCanvas"></canvas>
-    </div>
     <div class="wk-toolbar">
       <button class="wk-tool-btn" id="s5BtnDrawB" onclick="setS5Mode('drawB')">≡ 三線</button>
       <button class="wk-tool-btn" id="s5BtnDraw" onclick="setS5Mode('draw')">─ 水平線</button>
@@ -220,9 +217,6 @@
     </div>
     <div class="skline-vol-wrap" id="wvWrap">
       <canvas id="wvCanvas"></canvas>
-    </div>
-    <div id="wkFxWrap" style="position:relative;height:36px;width:100%;margin-top:4px;">
-      <canvas id="wkFxCanvas"></canvas>
     </div>
     <div class="skline-src" id="wkSrc">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
   </div>
@@ -730,7 +724,6 @@ function renderS5Charts(){
   const allL=Math.min(..._s5Bars.map(b=>b.l));
   drawSK(_s5Ctx,kC.width,kC.height,_s5Bars,allH,allL);
   drawSV(vC.getContext('2d'),vC.width,vC.height,_s5Bars);
-  drawS5FxLine(_s5Bars);
   setupS5Hover(allH,allL);
 }
 function setupS5Hover(allH,allL){
@@ -912,7 +905,6 @@ function renderWeeklyCharts(){
   _wvCtx=document.getElementById('wvCanvas').getContext('2d');
   drawSK(_wkCtx,document.getElementById('wkCanvas').width,document.getElementById('wkCanvas').height,_wkBars,allH,allL);
   drawSV(_wvCtx,document.getElementById('wvCanvas').width,document.getElementById('wvCanvas').height,_wkBars);
-  drawFxLine(_wkBars);
   setupWKHover(allH,allL);
 }
 
@@ -1243,7 +1235,7 @@ async function loadWeeklyKline(){
 
 }
 
-window.addEventListener('resize',()=>{if(_wkBars.length){renderWeeklyCharts();drawFxLine(_wkBars);}});
+window.addEventListener('resize',()=>{if(_wkBars.length){renderWeeklyCharts();}});
 
 // parseCSV（保留，供期貨CSV使用）
 function parseCSV(text){
