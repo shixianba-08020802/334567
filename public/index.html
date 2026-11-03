@@ -1050,7 +1050,14 @@ function setupWKHover(allH,allL){
   };
 
   canvas.onmouseleave=()=>{
-    if(_wkMode){_wkDrawing=false;_wkStart=null;_wkPrev=null;_wkSnapPoint=null;redrawWK();return;}
+    if(_wkMode){
+      // drawH：滑鼠離開時若正在畫，先保存再清除
+      if(_wkMode==='drawH'&&_wkDrawing&&_wkStart){
+        _userLines.push({type:'h',v:_wkStart.v,color:'rgba(44,95,138,0.9)'});
+        updateLineCount();saveLines();
+      }
+      _wkDrawing=false;_wkStart=null;_wkPrev=null;_wkSnapPoint=null;redrawWK();return;
+    }
     tip.style.display='none';
     drawSK(_wkCtx,canvas.width,canvas.height,_wkBars,allH,allL);
   };
@@ -1140,7 +1147,14 @@ function setupWKHover(allH,allL){
   },{passive:false});
 
   canvas.addEventListener('touchend',e=>{
-    if(_wkMode==='draw'){
+    if(_wkMode==='drawH'){
+      e.preventDefault();
+      if(_wkDrawing&&_wkStart){
+        _userLines.push({type:'h',v:_wkStart.v,color:'rgba(44,95,138,0.9)'});
+        updateLineCount();saveLines();
+      }
+      _wkDrawing=false;_wkStart=null;redrawWK();
+    }else if(_wkMode==='draw'){
       e.preventDefault();
       if(_wkDrawing&&_wkStart&&_wkPrev){
         const x1=sk_i2x(_wkStart.i,_wkN,_wkW),y1=sk_p2y(_wkStart.v,_wkH,_wkMn,_wkMx);
