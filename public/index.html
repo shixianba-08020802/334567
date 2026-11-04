@@ -1301,16 +1301,16 @@ async function loadWeeklyKline(){
   const allBars=buildWeeklySessionBars(rows);
   _wkBars=allBars; // 保留全部資料
 
-  if(bars.length<2){
+  if(allBars.length<2){
     const loader=document.getElementById('wkLoader');
     if(loader) loader.innerHTML=`<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">⚠ 週線資料不足</span>`;
     return;
   }
 
-  const last=bars[bars.length-1], prev=bars[bars.length-2];
+  const last=allBars[allBars.length-1], prev=allBars[allBars.length-2];
   const chg=last.c-prev.c, pct=(chg/prev.c*100);
-  const allH=Math.max(...bars.map(b=>b.h));
-  const allL=Math.min(...bars.map(b=>b.l));
+  const allH=Math.max(...allBars.map(b=>b.h));
+  const allL=Math.min(...allBars.map(b=>b.l));
 
   document.getElementById('wkClose').textContent=fmtI(last.c);
   const ce=document.getElementById('wkChg');
@@ -1318,11 +1318,11 @@ async function loadWeeklyKline(){
   ce.className='skline-stat-val '+(chg>=0?'up':'down');
   document.getElementById('wkHigh').textContent=fmtI(allH);
   document.getElementById('wkLow').textContent=fmtI(allL);
-  document.getElementById('wkDateRange').textContent=`${bars[0].startDate} ～ ${last.endDate}`;
+  document.getElementById('wkDateRange').textContent=`${allBars[0].startDate} ～ ${last.endDate}`;
 
   document.getElementById('wkLoader').style.display='none';
   renderWeeklyCharts();
-  renderWkTable(bars);
+  renderWkTable(allBars);
 
   // 近5根K線圖
   _s5Bars=allBars.slice(-5);
