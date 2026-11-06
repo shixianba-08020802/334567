@@ -1756,32 +1756,49 @@ function fmtFxChg(chg,pct){
   return `<span class="${cls}">${sign}${chg.toFixed(4)} (${sign}${pct.toFixed(2)}%)</span>`;
 }
 
+async function fetchChart(sym){
+  // v8 chart endpoint，不需要 crumb
+  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1m&range=1d&includePrePost=true`;
+  const r=await fetch(PROXY+encodeURIComponent(url),{signal:AbortSignal.timeout(10000)});
+  const d=await r.json();
+  const res=d?.chart?.result?.[0];
+  if(!res) return null;
+  const meta=res.meta;
+  // 取最新收盤（最後一根1分K）
+  const closes=res.indicators?.quote?.[0]?.close||[];
+  const lastClose=closes.filter(v=>v!=null).at(-1);
+  return{
+    price: lastClose??meta.regularMarketPrice,
+    prev:  meta.chartPreviousClose??meta.previousClose,
+    open:  meta.regularMarketOpen,
+    high:  res.indicators?.quote?.[0]?.high?.filter(v=>v!=null).reduce((a,b)=>Math.max(a,b),-Infinity)||null,
+    low:   res.indicators?.quote?.[0]?.low?.filter(v=>v!=null).reduce((a,b)=>Math.min(a,b),Infinity)||null,
+  };
+}
+
 async function loadRT(){
   document.getElementById('rtSpinner').style.display='inline-block';
   try{
-    // 台指期 + 4個匯率，一次抓
-    const symbols='TXF=F,USDTWD=X';
-    const url=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,regularMarketPreviousClose`;
-    const r=await fetch(PROXY+encodeURIComponent(url),{signal:AbortSignal.timeout(10000)});
-    const d=await r.json();
-    const results=d?.quoteResponse?.result||[];
-    const bySymbol={};
-    results.forEach(q=>{bySymbol[q.symbol]=q;});
+    // 並行抓台指期 + USD/TWD
+    const [txf, usd]=await Promise.all([
+      fetchChart('TXF=F'),
+      fetchChart('USDTWD=X'),
+    ]);
 
     // ── 台指期 ──
-    const txf=bySymbol['TXF=F'];
-    if(txf){
-      const price=txf.regularMarketPrice;
-      const chg=txf.regularMarketChange;
-      const pct=txf.regularMarketChangePercent;
+    if(txf && txf.price!=null){
+      const price=txf.price;
+      const prev=txf.prev??price;
+      const chg=price-prev;
+      const pct=prev?chg/prev*100:0;
       const cls=chg>0?'up':chg<0?'down':'neutral';
       document.getElementById('rtPrice').className=`rt-price ${cls}`;
-      document.getElementById('rtPrice').textContent=price!=null?price.toLocaleString():'—';
+      document.getElementById('rtPrice').textContent=price.toLocaleString();
       document.getElementById('rtChange').innerHTML=fmtChg(chg,pct);
-      document.getElementById('rtOpen').textContent=txf.regularMarketOpen!=null?txf.regularMarketOpen.toLocaleString():'—';
-      document.getElementById('rtHigh').textContent=txf.regularMarketDayHigh!=null?txf.regularMarketDayHigh.toLocaleString():'—';
-      document.getElementById('rtLow').textContent=txf.regularMarketDayLow!=null?txf.regularMarketDayLow.toLocaleString():'—';
-      document.getElementById('rtPrev').textContent=txf.regularMarketPreviousClose!=null?txf.regularMarketPreviousClose.toLocaleString():'—';
+      document.getElementById('rtOpen').textContent=txf.open!=null?Math.round(txf.open).toLocaleString():'—';
+      document.getElementById('rtHigh').textContent=txf.high&&isFinite(txf.high)?Math.round(txf.high).toLocaleString():'—';
+      document.getElementById('rtLow').textContent=txf.low&&isFinite(txf.low)?Math.round(txf.low).toLocaleString():'—';
+      document.getElementById('rtPrev').textContent=prev!=null?Math.round(prev).toLocaleString():'—';
     }
 
     // ── 盤別 ──
@@ -1791,17 +1808,15 @@ async function loadRT(){
     else if(sess==='night'){sesEl.textContent='夜盤';sesEl.className='rt-session night';}
     else{sesEl.textContent='休市';sesEl.className='rt-session closed';}
 
-    // ── 匯率 ──
-    function setFX(id,sym,decimals=4){
-      const q=bySymbol[sym];
-      if(!q) return;
-      const price=q.regularMarketPrice;
-      const chg=q.regularMarketChange;
-      const pct=q.regularMarketChangePercent;
-      document.getElementById(id).textContent=price!=null?price.toFixed(decimals):'—';
-      document.getElementById(id+'chg').innerHTML=fmtFxChg(chg,pct);
+    // ── 匯率 USD/TWD ──
+    if(usd && usd.price!=null){
+      const price=usd.price;
+      const prev=usd.prev??price;
+      const chg=price-prev;
+      const pct=prev?chg/prev*100:0;
+      document.getElementById('fxUSD').textContent=price.toFixed(3);
+      document.getElementById('fxUSDchg').innerHTML=fmtFxChg(chg,pct);
     }
-    setFX('fxUSD','USDTWD=X',3);
 
     // ── 更新時間 ──
     const now=new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',second:'2-digit'});
