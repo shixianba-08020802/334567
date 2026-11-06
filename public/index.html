@@ -597,7 +597,7 @@ function drawSK(ctx,w,h,bars,allH,allL){
   }
 
   // 吸附指示圈
-  if((_am==='draw'||_am==='drawH')&&_asn){
+  if((_am==='draw'||_am==='drawH'||_am==='drawB')&&_asn){
     ctx.save();ctx.strokeStyle='rgba(44,95,138,0.9)';ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(_asn.x,_asn.y,7,0,Math.PI*2);ctx.stroke();
     ctx.fillStyle='rgba(44,95,138,0.25)';ctx.fill();ctx.restore();
@@ -816,6 +816,7 @@ function setupS5Hover(allH,allL){
       const snap=s5Snap(cx,cy);
       _s5SnapPoint=snap||null;
       if(_s5Drawing){_s5Prev={i:0,v:snap?snap.v:s5CdV(cy)};redrawS5();}
+      else redrawS5();
       tip.style.display='none';return;
     }
     if(_s5Mode==='draw'){
@@ -823,7 +824,7 @@ function setupS5Hover(allH,allL){
       const snap=s5Snap(cx,cy);
       _s5SnapPoint=snap||null;
       _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};
-      if(_s5Drawing) redrawS5();
+      redrawS5();
       tip.style.display='none';return;
     }
     if(_s5Mode==='delete'){canvas.style.cursor='pointer';tip.style.display='none';return;}
