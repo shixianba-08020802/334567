@@ -371,18 +371,24 @@ let _s5Mn=0, _s5Mx=0, _s5N=0, _s5W=0, _s5H=0;
 
 let _wkSnapPoint=null; // 目前吸附點
 
-function snapToChart(cx,cy,bars,N,W,H,Mn,Mx){
+function snapToChart(cx,cy,bars,N,W,H,Mn,Mx,mode){
+  // mode='hl'只吸高低（趨勢線），'ohlcm'吸開高低收中（水平線/三線）
   const threshold=22;
   let best=threshold, snap=null;
   for(let i=0;i<N;i++){
     const b=bars[i];
     const bx=sk_i2x(i,N,W);
-    const hy=sk_p2y(b.h,H,Mn,Mx);
-    const ly=sk_p2y(b.l,H,Mn,Mx);
-    const dH=Math.hypot(cx-bx,cy-hy);
-    const dL=Math.hypot(cx-bx,cy-ly);
-    if(dH<best){best=dH;snap={i,v:b.h,x:bx,y:hy,type:'high'};}
-    if(dL<best){best=dL;snap={i,v:b.l,x:bx,y:ly,type:'low'};}
+    const pts=mode==='ohlcm'
+      ?[{v:b.h,type:'high'},{v:b.l,type:'low'},{v:b.o,type:'open'},{v:b.c,type:'close'},{v:(b.h+b.l)/2,type:'mid'}]
+      :[{v:b.h,type:'high'},{v:b.l,type:'low'}];
+    for(const p of pts){
+      const py=sk_p2y(p.v,H,Mn,Mx);
+      // 水平線/三線：只看X距離是否在K棒中心附近，Y距離吸附
+      const d=mode==='ohlcm'
+        ?Math.hypot((cx-bx)*0.4, cy-py) // 降低X權重，讓Y方向更容易吸附
+        :Math.hypot(cx-bx, cy-py);
+      if(d<best){best=d;snap={i,v:p.v,x:bx,y:py,type:p.type};}
+    }
   }
   return snap;
 }
@@ -760,19 +766,23 @@ function setupS5Hover(allH,allL){
     let tx=ex+16,ty=ey-10;if(tx+185>window.innerWidth)tx=ex-190;
     tip.style.left=tx+'px';tip.style.top=ty+'px';
   }
+  function s5Snap(cx,cy){return snapToChart(cx,cy,_s5Bars,_s5N,_s5W,_s5H,_s5Mn,_s5Mx,'ohlcm');}
   canvas.onmousedown=e=>{
     if(_s5Mode==='drawB'){
       if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XY(e);
-      _s5Start={i:0,v:s5CdV(cy)};_s5Prev=null;
+      const snap=s5Snap(cx,cy);
+      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};_s5Prev=null;
+      _s5SnapPoint=snap||null;
       _s5Drawing=true;canvas.style.cursor='crosshair';
       redrawS5();
     }else if(_s5Mode==='draw'){
       if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XY(e);
-      _s5Start={i:0,v:s5CdV(cy)};
-      _s5SnapPoint=null;_s5Drawing=true;canvas.style.cursor='crosshair';
-      redrawS5(); // 立即顯示預覽線
+      const snap=s5Snap(cx,cy);
+      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};
+      _s5SnapPoint=snap||null;_s5Drawing=true;canvas.style.cursor='crosshair';
+      redrawS5();
     }else if(_s5Mode==='delete'){
       const {cx,cy}=s5XY(e);let minDist=15,delIdx=-1;
       _s5UserLines.forEach((l,i)=>{
@@ -803,13 +813,16 @@ function setupS5Hover(allH,allL){
     const {cx,cy}=s5XY(e);
     if(_s5Mode==='drawB'){
       canvas.style.cursor='crosshair';
-      if(_s5Drawing){_s5Prev={i:0,v:s5CdV(cy)};redrawS5();}
+      const snap=s5Snap(cx,cy);
+      _s5SnapPoint=snap||null;
+      if(_s5Drawing){_s5Prev={i:0,v:snap?snap.v:s5CdV(cy)};redrawS5();}
       tip.style.display='none';return;
     }
     if(_s5Mode==='draw'){
       canvas.style.cursor='crosshair';
-      _s5SnapPoint=null;
-      _s5Start={i:0,v:s5CdV(cy)};
+      const snap=s5Snap(cx,cy);
+      _s5SnapPoint=snap||null;
+      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};
       if(_s5Drawing) redrawS5();
       tip.style.display='none';return;
     }
@@ -823,23 +836,30 @@ function setupS5Hover(allH,allL){
     if(_s5Mode==='drawB'){
       e.preventDefault();if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XYT(e.touches[0]);
-      _s5Start={i:0,v:s5CdV(cy)};_s5Prev=null;_s5Drawing=true;
+      const snap=s5Snap(cx,cy);
+      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};_s5Prev=null;
+      _s5SnapPoint=snap||null;_s5Drawing=true;
       redrawS5();
     }else if(_s5Mode==='draw'){
       e.preventDefault();if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XYT(e.touches[0]);
-      _s5Start={i:0,v:s5CdV(cy)};
-      _s5SnapPoint=null;_s5Drawing=true;
+      const snap=s5Snap(cx,cy);
+      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};
+      _s5SnapPoint=snap||null;_s5Drawing=true;
       redrawS5();
     }
   },{passive:false});
   canvas.addEventListener('touchmove',e=>{
     if(_s5Mode==='drawB'&&_s5Drawing){
       e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);
-      _s5Prev={i:0,v:s5CdV(cy)};redrawS5();
+      const snap=s5Snap(cx,cy);
+      _s5SnapPoint=snap||null;
+      _s5Prev={i:0,v:snap?snap.v:s5CdV(cy)};redrawS5();
     }else if(_s5Mode==='draw'&&_s5Drawing){
       e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);
-      _s5Start={i:0,v:s5CdV(cy)};_s5SnapPoint=null;redrawS5();
+      const snap=s5Snap(cx,cy);
+      _s5SnapPoint=snap||null;
+      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};redrawS5();
     }else if(!_s5Mode){
       e.preventDefault();const t=e.touches[0];const {cx}=s5XYT(t);
       const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
