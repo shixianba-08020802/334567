@@ -131,19 +131,38 @@
     .wk-toolbar button{font-size:12px;}
   }
   /* 週K資料表 */
-  .wkt-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-  .wkt{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11px;min-width:560px;}
-  .wkt th{background:#f0ebe0;color:var(--text-muted);font-weight:400;padding:5px 8px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.05em;white-space:nowrap;}
-  .wkt th:first-child,.wkt td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:2;}
-  .wkt th:first-child{background:#f0ebe0;z-index:3;}
-  .wkt td{padding:5px 8px;text-align:right;border-bottom:1px solid rgba(224,216,200,.5);color:var(--text-primary);vertical-align:middle;white-space:nowrap;}
+  .wkt{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11px;}
+  .wkt th{background:#f0ebe0;color:var(--text-muted);font-weight:400;padding:5px 8px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.05em;}
+  .wkt th:first-child,.wkt td:first-child{text-align:left;}
+  .wkt td{padding:5px 8px;text-align:right;border-bottom:1px solid rgba(224,216,200,.5);color:var(--text-primary);vertical-align:middle;}
   .wkt tr:last-child td{border-bottom:none;}
   .wkt .wkt-date{color:var(--text-muted);font-size:10px;}
   .wkt .up{color:#c0392b;}
   .wkt .dn{color:#1a7a5e;}
   .wkt .neu{color:var(--text-muted);}
   .wkt .wkt-sep{color:var(--text-dim);font-size:10px;padding:2px 8px;background:rgba(240,235,224,.4);}
-  .wkt .wkt-fx{color:var(--text-muted);font-size:10px;}
+
+  /* ── 台指期即時 + 匯率 ── */
+  .rt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .rt-block{background:#f0ebe0;border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+  .rt-label{font-family:var(--font-mono);font-size:9px;letter-spacing:.15em;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+  .rt-session{font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(44,95,138,0.12);color:var(--accent-blue);}
+  .rt-session.night{background:rgba(60,40,100,0.12);color:#5a3d8a;}
+  .rt-session.closed{background:rgba(200,191,175,0.3);color:var(--text-dim);}
+  .rt-price{font-family:var(--font-mono);font-size:28px;font-weight:500;line-height:1;margin-bottom:4px;}
+  .rt-change{font-family:var(--font-mono);font-size:13px;color:var(--text-muted);}
+  .rt-sub{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+  .rt-sub-item span:first-child{color:var(--text-dim);font-size:10px;}
+  .rt-fx-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(224,216,200,.4);}
+  .rt-fx-row:last-child{border-bottom:none;}
+  .rt-fx-name{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
+  .rt-fx-val{font-family:var(--font-mono);font-size:14px;font-weight:500;}
+  .rt-fx-chg{font-family:var(--font-mono);font-size:11px;}
+  .rt-updated{font-family:var(--font-mono);font-size:9px;color:var(--text-dim);text-align:right;margin-top:6px;}
+  @media(max-width:640px){
+    .rt-grid{grid-template-columns:1fr;}
+    .rt-price{font-size:24px;}
+  }
 </style>
 </head>
 <body>
@@ -151,6 +170,46 @@
   <header>
     <div class="logo">shixianba看板</div>
   </header>
+
+  <!-- ── 台指期即時 + 匯率即時 ── -->
+  <div class="history-card" style="margin-bottom:14px;" id="rtCard">
+    <div class="section-header" style="margin-bottom:12px;">
+      <div class="section-title">▪ 台指期即時　／　匯率即時</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
+        <span class="spinner" id="rtSpinner" style="display:none;"></span>
+        <span id="rtUpdated">—</span>
+      </div>
+    </div>
+    <div class="rt-grid">
+      <!-- 台指期 -->
+      <div class="rt-block">
+        <div class="rt-label">
+          台指期　TXF
+          <span class="rt-session" id="rtSession">—</span>
+        </div>
+        <div class="rt-price up" id="rtPrice">—</div>
+        <div class="rt-change" id="rtChange">—</div>
+        <div class="rt-sub">
+          <div class="rt-sub-item"><span>開</span> <span id="rtOpen">—</span></div>
+          <div class="rt-sub-item"><span>高</span> <span id="rtHigh">—</span></div>
+          <div class="rt-sub-item"><span>前收</span> <span id="rtPrev">—</span></div>
+          <div class="rt-sub-item"><span>低</span> <span id="rtLow">—</span></div>
+        </div>
+      </div>
+      <!-- 匯率 -->
+      <div class="rt-block">
+        <div class="rt-label">即時匯率　（15分延遲）</div>
+        <div class="rt-fx-row">
+          <span class="rt-fx-name">USD/TWD</span>
+          <div style="text-align:right;">
+            <div class="rt-fx-val" id="fxUSD">—</div>
+            <div class="rt-fx-chg" id="fxUSDchg" style="color:var(--text-dim);">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rt-updated">資料來源：Yahoo Finance（15分延遲）・每30秒更新</div>
+  </div>
 
   <!-- 近5根週K線（最新視覺） -->
   <div class="history-card" style="margin-bottom:14px;">
@@ -160,13 +219,13 @@
         <span id="s5DateRange">—</span>
       </div>
     </div>
-    <div class="skline-canvas-wrap" id="s5Wrap" style="height:420px;">
+    <div class="skline-canvas-wrap" id="s5Wrap" style="height:320px;">
       <div class="skline-loader" id="s5Loader">
         <span class="spinner"></span>
       </div>
       <canvas id="s5Canvas"></canvas>
     </div>
-    <div class="skline-vol-wrap" id="s5VolWrap" style="height:64px;margin-top:4px;">
+    <div class="skline-vol-wrap" id="s5VolWrap" style="height:52px;margin-top:4px;">
       <canvas id="s5VolCanvas"></canvas>
     </div>
     <div class="wk-toolbar">
@@ -181,10 +240,10 @@
   <!-- 週K資料表（近10週，Thu-Wed） -->
   <div class="history-card" style="margin-bottom:14px;" id="wkTableCard">
     <div class="section-header" style="margin-bottom:10px;">
-      <div class="section-title">▪ 台指期　週K資料（近20週）</div>
+      <div class="section-title">▪ 台指期　週K資料（近10週）</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">週期：星期四 ～ 次週三</div>
     </div>
-    <div class="wkt-scroll" id="wkTableWrap"></div>
+    <div id="wkTableWrap"></div>
     <div class="skline-src">資料來源：台指期歷史試算表（手動維護）</div>
   </div>
 
@@ -360,8 +419,6 @@ let _wkBars=[], _wkCtx=null, _wvCtx=null;
 // 手繪線相關
 let _userLines=[], _wkMode=null, _wkDrawing=false, _wkStart=null, _wkPrev=null;
 let _wkMn=0, _wkMx=0, _wkN=0, _wkW=0, _wkH=0;
-let _wkZoom=24; // 顯示筆數
-let _wkOffset=0; // 往前偏移筆數（0=最新）
 let _s5Bars=[], _s5Ctx=null;
 let _s5UserLines=[], _s5Mode=null, _s5Drawing=false, _s5Start=null, _s5Prev=null, _s5SnapPoint=null;
 let _s5Mn=0, _s5Mx=0, _s5N=0, _s5W=0, _s5H=0;
@@ -371,24 +428,18 @@ let _s5Mn=0, _s5Mx=0, _s5N=0, _s5W=0, _s5H=0;
 
 let _wkSnapPoint=null; // 目前吸附點
 
-function snapToChart(cx,cy,bars,N,W,H,Mn,Mx,mode){
-  // mode='hl'只吸高低（趨勢線），'ohlcm'吸開高低收中（水平線/三線）
+function snapToChart(cx,cy,bars,N,W,H,Mn,Mx){
   const threshold=22;
   let best=threshold, snap=null;
   for(let i=0;i<N;i++){
     const b=bars[i];
     const bx=sk_i2x(i,N,W);
-    const pts=mode==='ohlcm'
-      ?[{v:b.h,type:'high'},{v:b.l,type:'low'},{v:b.o,type:'open'},{v:b.c,type:'close'},{v:(b.h+b.l)/2,type:'mid'}]
-      :[{v:b.h,type:'high'},{v:b.l,type:'low'}];
-    for(const p of pts){
-      const py=sk_p2y(p.v,H,Mn,Mx);
-      // 水平線/三線：只看X距離是否在K棒中心附近，Y距離吸附
-      const d=mode==='ohlcm'
-        ?Math.hypot((cx-bx)*0.4, cy-py) // 降低X權重，讓Y方向更容易吸附
-        :Math.hypot(cx-bx, cy-py);
-      if(d<best){best=d;snap={i,v:p.v,x:bx,y:py,type:p.type};}
-    }
+    const hy=sk_p2y(b.h,H,Mn,Mx);
+    const ly=sk_p2y(b.l,H,Mn,Mx);
+    const dH=Math.hypot(cx-bx,cy-hy);
+    const dL=Math.hypot(cx-bx,cy-ly);
+    if(dH<best){best=dH;snap={i,v:b.h,x:bx,y:hy,type:'high'};}
+    if(dL<best){best=dL;snap={i,v:b.l,x:bx,y:ly,type:'low'};}
   }
   return snap;
 }
@@ -443,10 +494,9 @@ function loadLines(){
 }
 function redrawWK(){
   if(!_wkBars.length||!_wkCtx) return;
-  const viewBars=getWkViewBars();
-  const allH=Math.max(...viewBars.map(b=>b.h));
-  const allL=Math.min(...viewBars.map(b=>b.l));
-  drawSK(_wkCtx,_wkW,_wkH,viewBars,allH,allL);
+  const allH=Math.max(..._wkBars.map(b=>b.h));
+  const allL=Math.min(..._wkBars.map(b=>b.l));
+  drawSK(_wkCtx,_wkW,_wkH,_wkBars,allH,allL);
 }
 
 function sk_p2y(p,h,mn,mx){return SKP.top+(1-(p-mn)/(mx-mn))*(h-SKP.top-SKP.bottom);}
@@ -597,7 +647,7 @@ function drawSK(ctx,w,h,bars,allH,allL){
   }
 
   // 吸附指示圈
-  if((_am==='draw'||_am==='drawH'||_am==='drawB')&&_asn){
+  if((_am==='draw'||_am==='drawH')&&_asn){
     ctx.save();ctx.strokeStyle='rgba(44,95,138,0.9)';ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(_asn.x,_asn.y,7,0,Math.PI*2);ctx.stroke();
     ctx.fillStyle='rgba(44,95,138,0.25)';ctx.fill();ctx.restore();
@@ -766,23 +816,19 @@ function setupS5Hover(allH,allL){
     let tx=ex+16,ty=ey-10;if(tx+185>window.innerWidth)tx=ex-190;
     tip.style.left=tx+'px';tip.style.top=ty+'px';
   }
-  function s5Snap(cx,cy){return snapToChart(cx,cy,_s5Bars,_s5N,_s5W,_s5H,_s5Mn,_s5Mx,'ohlcm');}
   canvas.onmousedown=e=>{
     if(_s5Mode==='drawB'){
       if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XY(e);
-      const snap=s5Snap(cx,cy);
-      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};_s5Prev=null;
-      _s5SnapPoint=snap||null;
+      _s5Start={i:0,v:s5CdV(cy)};_s5Prev=null;
       _s5Drawing=true;canvas.style.cursor='crosshair';
       redrawS5();
     }else if(_s5Mode==='draw'){
       if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XY(e);
-      const snap=s5Snap(cx,cy);
-      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};
-      _s5SnapPoint=snap||null;_s5Drawing=true;canvas.style.cursor='crosshair';
-      redrawS5();
+      _s5Start={i:0,v:s5CdV(cy)};
+      _s5SnapPoint=null;_s5Drawing=true;canvas.style.cursor='crosshair';
+      redrawS5(); // 立即顯示預覽線
     }else if(_s5Mode==='delete'){
       const {cx,cy}=s5XY(e);let minDist=15,delIdx=-1;
       _s5UserLines.forEach((l,i)=>{
@@ -813,18 +859,14 @@ function setupS5Hover(allH,allL){
     const {cx,cy}=s5XY(e);
     if(_s5Mode==='drawB'){
       canvas.style.cursor='crosshair';
-      const snap=s5Snap(cx,cy);
-      _s5SnapPoint=snap||null;
-      if(_s5Drawing){_s5Prev={i:0,v:snap?snap.v:s5CdV(cy)};redrawS5();}
-      else redrawS5();
+      if(_s5Drawing){_s5Prev={i:0,v:s5CdV(cy)};redrawS5();}
       tip.style.display='none';return;
     }
     if(_s5Mode==='draw'){
       canvas.style.cursor='crosshair';
-      const snap=s5Snap(cx,cy);
-      _s5SnapPoint=snap||null;
-      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};
-      redrawS5();
+      _s5SnapPoint=null;
+      _s5Start={i:0,v:s5CdV(cy)};
+      if(_s5Drawing) redrawS5();
       tip.style.display='none';return;
     }
     if(_s5Mode==='delete'){canvas.style.cursor='pointer';tip.style.display='none';return;}
@@ -837,30 +879,23 @@ function setupS5Hover(allH,allL){
     if(_s5Mode==='drawB'){
       e.preventDefault();if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XYT(e.touches[0]);
-      const snap=s5Snap(cx,cy);
-      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};_s5Prev=null;
-      _s5SnapPoint=snap||null;_s5Drawing=true;
+      _s5Start={i:0,v:s5CdV(cy)};_s5Prev=null;_s5Drawing=true;
       redrawS5();
     }else if(_s5Mode==='draw'){
       e.preventDefault();if(_s5UserLines.length>=5)return;
       const {cx,cy}=s5XYT(e.touches[0]);
-      const snap=s5Snap(cx,cy);
-      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};
-      _s5SnapPoint=snap||null;_s5Drawing=true;
+      _s5Start={i:0,v:s5CdV(cy)};
+      _s5SnapPoint=null;_s5Drawing=true;
       redrawS5();
     }
   },{passive:false});
   canvas.addEventListener('touchmove',e=>{
     if(_s5Mode==='drawB'&&_s5Drawing){
       e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);
-      const snap=s5Snap(cx,cy);
-      _s5SnapPoint=snap||null;
-      _s5Prev={i:0,v:snap?snap.v:s5CdV(cy)};redrawS5();
+      _s5Prev={i:0,v:s5CdV(cy)};redrawS5();
     }else if(_s5Mode==='draw'&&_s5Drawing){
       e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);
-      const snap=s5Snap(cx,cy);
-      _s5SnapPoint=snap||null;
-      _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};redrawS5();
+      _s5Start={i:0,v:s5CdV(cy)};_s5SnapPoint=null;redrawS5();
     }else if(!_s5Mode){
       e.preventDefault();const t=e.touches[0];const {cx}=s5XYT(t);
       const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
@@ -894,14 +929,13 @@ window.addEventListener('resize',()=>{if(_s5Bars.length)renderS5Charts();});
 function renderWkTable(bars){
   const wrap=document.getElementById('wkTableWrap');
   if(!wrap||!bars||!bars.length) return;
-  const rows=bars.slice(-20);
+  const rows=bars.slice(-15);
   const fmt=v=>v==null?'—':fmtI(v);
   const fmtD=v=>v||'—';
   let html='<table class="wkt"><thead><tr>'
     +'<th>週期</th>'
     +'<th>開盤</th><th>收盤</th>'
     +'<th>收-開</th><th>高-開</th><th>低-開</th>'
-    +'<th>匯率買入</th><th>匯率賣出</th>'
     +'</tr></thead><tbody>';
   rows.forEach((b,i)=>{
     const oc=b.c-b.o;
@@ -911,8 +945,6 @@ function renderWkTable(bars){
     const hcCls=hc>0?'up':'neu';
     const lcCls=lc<0?'dn':lc>0?'up':'neu';
     const sign=v=>v>0?'+':'';
-    const fxBuy=b.fxBuy!=null?b.fxBuy:'—';
-    const fxSell=b.fxSell!=null?b.fxSell:'—';
     html+=`<tr>`
       +`<td><span class="wkt-date">${fmtD(b.startDate)}<br>${fmtD(b.endDate)}</span></td>`
       +`<td>${fmt(b.o)}</td>`
@@ -920,76 +952,28 @@ function renderWkTable(bars){
       +`<td class="${ocCls}">${sign(oc)}${fmt(oc)}</td>`
       +`<td class="${hcCls}">${sign(hc)}${fmt(hc)}</td>`
       +`<td class="${lcCls}">${sign(lc)}${fmt(lc)}</td>`
-      +`<td class="wkt-fx">${fxBuy}</td>`
-      +`<td class="wkt-fx">${fxSell}</td>`
       +`</tr>`;
   });
   html+='</tbody></table>';
   wrap.innerHTML=html;
 }
 
-function getWkViewBars(){
-  const total=_wkBars.length;
-  const n=Math.min(_wkZoom,total);
-  if(_wkOffset<=0) return _wkBars.slice(-n);
-  const end=total-_wkOffset;
-  const start=Math.max(0,end-n);
-  return _wkBars.slice(start,end);
-}
-
 function renderWeeklyCharts(){
   if(!_wkBars.length) return;
   resizeWK();
-  const viewBars=getWkViewBars();
-  const allH=Math.max(...viewBars.map(b=>b.h));
-  const allL=Math.min(...viewBars.map(b=>b.l));
+  const allH=Math.max(..._wkBars.map(b=>b.h));
+  const allL=Math.min(..._wkBars.map(b=>b.l));
   _wkCtx=document.getElementById('wkCanvas').getContext('2d');
   _wvCtx=document.getElementById('wvCanvas').getContext('2d');
-  drawSK(_wkCtx,document.getElementById('wkCanvas').width,document.getElementById('wkCanvas').height,viewBars,allH,allL);
-  drawSV(_wvCtx,document.getElementById('wvCanvas').width,document.getElementById('wvCanvas').height,viewBars);
-  setupWKHover(allH,allL,viewBars);
+  drawSK(_wkCtx,document.getElementById('wkCanvas').width,document.getElementById('wkCanvas').height,_wkBars,allH,allL);
+  drawSV(_wvCtx,document.getElementById('wvCanvas').width,document.getElementById('wvCanvas').height,_wkBars);
+  setupWKHover(allH,allL);
 }
 
-function setupWKHover(allH,allL,viewBars){
+function setupWKHover(allH,allL){
   const canvas=document.getElementById('wkCanvas');
   const tip=document.getElementById('wkTip');
-  const bars=viewBars||_wkBars;
-  const n=bars.length;
-
-  // 滾輪：縮放（上下）/ 平移（Shift+滾輪 或 左右滾輪）
-  canvas.onwheel=e=>{
-    e.preventDefault();
-    const total=_wkBars.length;
-    if(e.shiftKey||Math.abs(e.deltaX)>Math.abs(e.deltaY)){
-      // 左右平移
-      const dx=e.deltaX||e.deltaY;
-      _wkOffset=Math.max(0,Math.min(total-_wkZoom,_wkOffset+(dx>0?-1:1)));
-    }else{
-      // 縮放
-      const delta=e.deltaY>0?1:-1;
-      _wkZoom=Math.max(5,Math.min(total,_wkZoom+delta));
-      _wkOffset=Math.max(0,Math.min(total-_wkZoom,_wkOffset));
-    }
-    renderWeeklyCharts();
-  };
-
-  // 滑鼠拖曳平移（非畫線模式）
-  let _dragX=null;
-  canvas.addEventListener('mousedown',e=>{
-    if(!_wkMode){_dragX=e.clientX;}
-  },{capture:true});
-  window.addEventListener('mousemove',e=>{
-    if(_dragX===null||_wkMode) return;
-    const diff=e.clientX-_dragX;
-    if(Math.abs(diff)>8){
-      const total=_wkBars.length;
-      const dir=diff>0?1:-1;
-      _wkOffset=Math.max(0,Math.min(total-_wkZoom,_wkOffset+dir));
-      _dragX=e.clientX;
-      renderWeeklyCharts();
-    }
-  });
-  window.addEventListener('mouseup',()=>{_dragX=null;});
+  const n=_wkBars.length;
 
   // 電腦座標轉換
   function mouseToCanvasXY(e){
@@ -1093,10 +1077,10 @@ function setupWKHover(allH,allL,viewBars){
     const w=canvas.width;
     const area=w-SKP.left-SKP.right;
     const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/(area/n))));
-    const b=bars[idx];
+    const b=_wkBars[idx];
     const chg=b.c-b.o, pct=(chg/b.o*100).toFixed(2);
 
-    drawSK(_wkCtx,w,canvas.height,bars,allH,allL);
+    drawSK(_wkCtx,w,canvas.height,_wkBars,allH,allL);
     const bx=sk_i2x(idx,n,w);
     _wkCtx.strokeStyle='rgba(44,95,138,0.35)';_wkCtx.lineWidth=1;_wkCtx.setLineDash([3,3]);
     _wkCtx.beginPath();_wkCtx.moveTo(bx,SKP.top);_wkCtx.lineTo(bx,canvas.height-SKP.bottom);_wkCtx.stroke();
@@ -1128,16 +1112,9 @@ function setupWKHover(allH,allL,viewBars){
   };
 
   canvas.onmouseleave=()=>{
-    if(_wkMode){
-      // drawH：滑鼠離開時若正在畫，先保存再清除
-      if(_wkMode==='drawH'&&_wkDrawing&&_wkStart){
-        _userLines.push({type:'h',v:_wkStart.v,color:'rgba(44,95,138,0.9)'});
-        updateLineCount();saveLines();
-      }
-      _wkDrawing=false;_wkStart=null;_wkPrev=null;_wkSnapPoint=null;redrawWK();return;
-    }
+    if(_wkMode){_wkDrawing=false;_wkStart=null;_wkPrev=null;_wkSnapPoint=null;redrawWK();return;}
     tip.style.display='none';
-    drawSK(_wkCtx,canvas.width,canvas.height,bars,allH,allL);
+    drawSK(_wkCtx,canvas.width,canvas.height,_wkBars,allH,allL);
   };
 
   // ── 手機touch：畫線/刪線/tooltip三模式統一處理 ──
@@ -1197,9 +1174,9 @@ function setupWKHover(allH,allL,viewBars){
       const w=canvas.width;
       const area=w-SKP.left-SKP.right;
       const idx=Math.min(n-1,Math.max(0,Math.floor((x-SKP.left)/(area/n))));
-      const b=bars[idx];
+      const b=_wkBars[idx];
       const chg=b.c-b.o, pct=(chg/b.o*100).toFixed(2);
-      drawSK(_wkCtx,w,canvas.height,bars,allH,allL);
+      drawSK(_wkCtx,w,canvas.height,_wkBars,allH,allL);
       const bx=sk_i2x(idx,n,w);
       _wkCtx.strokeStyle='rgba(44,95,138,0.35)';_wkCtx.lineWidth=1;_wkCtx.setLineDash([3,3]);
       _wkCtx.beginPath();_wkCtx.moveTo(bx,SKP.top);_wkCtx.lineTo(bx,canvas.height-SKP.bottom);_wkCtx.stroke();
@@ -1225,14 +1202,7 @@ function setupWKHover(allH,allL,viewBars){
   },{passive:false});
 
   canvas.addEventListener('touchend',e=>{
-    if(_wkMode==='drawH'){
-      e.preventDefault();
-      if(_wkDrawing&&_wkStart){
-        _userLines.push({type:'h',v:_wkStart.v,color:'rgba(44,95,138,0.9)'});
-        updateLineCount();saveLines();
-      }
-      _wkDrawing=false;_wkStart=null;redrawWK();
-    }else if(_wkMode==='draw'){
+    if(_wkMode==='draw'){
       e.preventDefault();
       if(_wkDrawing&&_wkStart&&_wkPrev){
         const x1=sk_i2x(_wkStart.i,_wkN,_wkW),y1=sk_p2y(_wkStart.v,_wkH,_wkMn,_wkMx);
@@ -1268,44 +1238,6 @@ function setupWKHover(allH,allL,viewBars){
       setTimeout(()=>{tip.style.display='none';redrawWK();},1500);
     }
   },{passive:false});
-
-  // 雙指縮放 + 單指平移（非畫線模式）
-  let _pinchDist0=0, _pinchZoom0=24;
-  let _touchPanX=null, _touchPanOffset0=0;
-  canvas.addEventListener('touchstart',e=>{
-    if(e.touches.length===2&&!_wkMode){
-      e.preventDefault();
-      const dx=e.touches[0].clientX-e.touches[1].clientX;
-      const dy=e.touches[0].clientY-e.touches[1].clientY;
-      _pinchDist0=Math.hypot(dx,dy);
-      _pinchZoom0=_wkZoom;
-      _touchPanX=null;
-    }else if(e.touches.length===1&&!_wkMode){
-      _touchPanX=e.touches[0].clientX;
-      _touchPanOffset0=_wkOffset;
-    }
-  },{passive:false});
-  canvas.addEventListener('touchmove',e=>{
-    if(e.touches.length===2&&!_wkMode&&_pinchDist0>0){
-      e.preventDefault();
-      const dx=e.touches[0].clientX-e.touches[1].clientX;
-      const dy=e.touches[0].clientY-e.touches[1].clientY;
-      const dist=Math.hypot(dx,dy);
-      const ratio=_pinchDist0/dist;
-      const total=_wkBars.length;
-      const newZoom=Math.max(5,Math.min(total,Math.round(_pinchZoom0*ratio)));
-      if(newZoom!==_wkZoom){_wkZoom=newZoom;_wkOffset=Math.max(0,Math.min(total-_wkZoom,_wkOffset));renderWeeklyCharts();}
-    }else if(e.touches.length===1&&!_wkMode&&_touchPanX!==null){
-      e.preventDefault();
-      const diff=e.touches[0].clientX-_touchPanX;
-      const total=_wkBars.length;
-      // 每移動 canvas 寬度 / zoom 個像素 = 移動1根
-      const barPx=(canvas.getBoundingClientRect().width-62)/_wkZoom;
-      const steps=Math.round((_touchPanX-e.touches[0].clientX)/barPx);
-      const newOffset=Math.max(0,Math.min(total-_wkZoom,_touchPanOffset0+steps));
-      if(newOffset!==_wkOffset){_wkOffset=newOffset;renderWeeklyCharts();}
-    }
-  },{passive:false});
 }
 
 async function loadWeeklyKline(){
@@ -1328,18 +1260,19 @@ async function loadWeeklyKline(){
   }
 
   const allBars=buildWeeklySessionBars(rows);
-  _wkBars=allBars; // 保留全部資料
+  const bars=allBars.slice(-20); // 近20週
+  _wkBars=bars;
 
-  if(allBars.length<2){
+  if(bars.length<2){
     const loader=document.getElementById('wkLoader');
     if(loader) loader.innerHTML=`<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">⚠ 週線資料不足</span>`;
     return;
   }
 
-  const last=allBars[allBars.length-1], prev=allBars[allBars.length-2];
+  const last=bars[bars.length-1], prev=bars[bars.length-2];
   const chg=last.c-prev.c, pct=(chg/prev.c*100);
-  const allH=Math.max(...allBars.map(b=>b.h));
-  const allL=Math.min(...allBars.map(b=>b.l));
+  const allH=Math.max(...bars.map(b=>b.h));
+  const allL=Math.min(...bars.map(b=>b.l));
 
   document.getElementById('wkClose').textContent=fmtI(last.c);
   const ce=document.getElementById('wkChg');
@@ -1347,11 +1280,11 @@ async function loadWeeklyKline(){
   ce.className='skline-stat-val '+(chg>=0?'up':'down');
   document.getElementById('wkHigh').textContent=fmtI(allH);
   document.getElementById('wkLow').textContent=fmtI(allL);
-  document.getElementById('wkDateRange').textContent=`${allBars[0].startDate} ～ ${last.endDate}`;
+  document.getElementById('wkDateRange').textContent=`${bars[0].startDate} ～ ${last.endDate}`;
 
   document.getElementById('wkLoader').style.display='none';
   renderWeeklyCharts();
-  renderWkTable(allBars);
+  renderWkTable(bars);
 
   // 近5根K線圖
   _s5Bars=allBars.slice(-5);
@@ -1789,6 +1722,99 @@ function fmtM(n){return(n>=0?'+':'')+n.toLocaleString();}
 // 預設開啟兩個部位
 addOptRow();
 addOptRow();
+
+// ══════════════════════════════════════════════════════════════════
+// ██  台指期即時 + 匯率即時  ████████████████████████████████████████
+// ══════════════════════════════════════════════════════════════════
+const PROXY='/.netlify/functions/proxy?url=';
+
+function getTWSession(){
+  // 台灣時間
+  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const h=now.getHours(), m=now.getMinutes();
+  const mins=h*60+m;
+  const day=now.getDay(); // 0=Sun,1=Mon...6=Sat
+  // 台指期日盤：08:45–13:45（週一至週五）
+  if(day>=1&&day<=5&&mins>=525&&mins<=825) return 'day';
+  // 夜盤：15:00–05:00 (隔天)
+  if(day>=1&&day<=6&&mins>=900) return 'night';     // 15:00以後（週一~週六）
+  if(day>=0&&day<=5&&mins<300) return 'night';      // 凌晨0:00–05:00（週日~週五）
+  return 'closed';
+}
+
+function fmtChg(chg,pct){
+  if(chg==null) return '—';
+  const sign=chg>=0?'+':'';
+  const cls=chg>0?'up':chg<0?'down':'neutral';
+  return `<span class="${cls}">${sign}${chg.toFixed(0)} (${sign}${pct.toFixed(2)}%)</span>`;
+}
+
+function fmtFxChg(chg,pct){
+  if(chg==null) return '—';
+  const sign=chg>=0?'+':'';
+  const cls=chg>0?'up':chg<0?'down':'neutral';
+  return `<span class="${cls}">${sign}${chg.toFixed(4)} (${sign}${pct.toFixed(2)}%)</span>`;
+}
+
+async function loadRT(){
+  document.getElementById('rtSpinner').style.display='inline-block';
+  try{
+    // 台指期 + 4個匯率，一次抓
+    const symbols='TXF=F,USDTWD=X';
+    const url=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,regularMarketPreviousClose`;
+    const r=await fetch(PROXY+encodeURIComponent(url),{signal:AbortSignal.timeout(10000)});
+    const d=await r.json();
+    const results=d?.quoteResponse?.result||[];
+    const bySymbol={};
+    results.forEach(q=>{bySymbol[q.symbol]=q;});
+
+    // ── 台指期 ──
+    const txf=bySymbol['TXF=F'];
+    if(txf){
+      const price=txf.regularMarketPrice;
+      const chg=txf.regularMarketChange;
+      const pct=txf.regularMarketChangePercent;
+      const cls=chg>0?'up':chg<0?'down':'neutral';
+      document.getElementById('rtPrice').className=`rt-price ${cls}`;
+      document.getElementById('rtPrice').textContent=price!=null?price.toLocaleString():'—';
+      document.getElementById('rtChange').innerHTML=fmtChg(chg,pct);
+      document.getElementById('rtOpen').textContent=txf.regularMarketOpen!=null?txf.regularMarketOpen.toLocaleString():'—';
+      document.getElementById('rtHigh').textContent=txf.regularMarketDayHigh!=null?txf.regularMarketDayHigh.toLocaleString():'—';
+      document.getElementById('rtLow').textContent=txf.regularMarketDayLow!=null?txf.regularMarketDayLow.toLocaleString():'—';
+      document.getElementById('rtPrev').textContent=txf.regularMarketPreviousClose!=null?txf.regularMarketPreviousClose.toLocaleString():'—';
+    }
+
+    // ── 盤別 ──
+    const sess=getTWSession();
+    const sesEl=document.getElementById('rtSession');
+    if(sess==='day'){sesEl.textContent='日盤';sesEl.className='rt-session';}
+    else if(sess==='night'){sesEl.textContent='夜盤';sesEl.className='rt-session night';}
+    else{sesEl.textContent='休市';sesEl.className='rt-session closed';}
+
+    // ── 匯率 ──
+    function setFX(id,sym,decimals=4){
+      const q=bySymbol[sym];
+      if(!q) return;
+      const price=q.regularMarketPrice;
+      const chg=q.regularMarketChange;
+      const pct=q.regularMarketChangePercent;
+      document.getElementById(id).textContent=price!=null?price.toFixed(decimals):'—';
+      document.getElementById(id+'chg').innerHTML=fmtFxChg(chg,pct);
+    }
+    setFX('fxUSD','USDTWD=X',3);
+
+    // ── 更新時間 ──
+    const now=new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    document.getElementById('rtUpdated').textContent=`更新 ${now}`;
+  }catch(e){
+    console.warn('RT fetch failed:',e.message);
+    document.getElementById('rtUpdated').textContent='取得失敗，30秒後重試';
+  }
+  document.getElementById('rtSpinner').style.display='none';
+}
+
+loadRT();
+setInterval(loadRT,30000); // 每30秒更新
 </script>
 </body>
 </html>
