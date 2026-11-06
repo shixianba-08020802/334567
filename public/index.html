@@ -131,16 +131,19 @@
     .wk-toolbar button{font-size:12px;}
   }
   /* 週K資料表 */
-  .wkt{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11px;}
-  .wkt th{background:#f0ebe0;color:var(--text-muted);font-weight:400;padding:5px 8px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.05em;}
-  .wkt th:first-child,.wkt td:first-child{text-align:left;}
-  .wkt td{padding:5px 8px;text-align:right;border-bottom:1px solid rgba(224,216,200,.5);color:var(--text-primary);vertical-align:middle;}
+  .wkt-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .wkt{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11px;min-width:560px;}
+  .wkt th{background:#f0ebe0;color:var(--text-muted);font-weight:400;padding:5px 8px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.05em;white-space:nowrap;}
+  .wkt th:first-child,.wkt td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:2;}
+  .wkt th:first-child{background:#f0ebe0;z-index:3;}
+  .wkt td{padding:5px 8px;text-align:right;border-bottom:1px solid rgba(224,216,200,.5);color:var(--text-primary);vertical-align:middle;white-space:nowrap;}
   .wkt tr:last-child td{border-bottom:none;}
   .wkt .wkt-date{color:var(--text-muted);font-size:10px;}
   .wkt .up{color:#c0392b;}
   .wkt .dn{color:#1a7a5e;}
   .wkt .neu{color:var(--text-muted);}
   .wkt .wkt-sep{color:var(--text-dim);font-size:10px;padding:2px 8px;background:rgba(240,235,224,.4);}
+  .wkt .wkt-fx{color:var(--text-muted);font-size:10px;}
 </style>
 </head>
 <body>
@@ -157,13 +160,13 @@
         <span id="s5DateRange">—</span>
       </div>
     </div>
-    <div class="skline-canvas-wrap" id="s5Wrap" style="height:320px;">
+    <div class="skline-canvas-wrap" id="s5Wrap" style="height:420px;">
       <div class="skline-loader" id="s5Loader">
         <span class="spinner"></span>
       </div>
       <canvas id="s5Canvas"></canvas>
     </div>
-    <div class="skline-vol-wrap" id="s5VolWrap" style="height:52px;margin-top:4px;">
+    <div class="skline-vol-wrap" id="s5VolWrap" style="height:64px;margin-top:4px;">
       <canvas id="s5VolCanvas"></canvas>
     </div>
     <div class="wk-toolbar">
@@ -181,7 +184,7 @@
       <div class="section-title">▪ 台指期　週K資料（近20週）</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">週期：星期四 ～ 次週三</div>
     </div>
-    <div id="wkTableWrap"></div>
+    <div class="wkt-scroll" id="wkTableWrap"></div>
     <div class="skline-src">資料來源：台指期歷史試算表（手動維護）</div>
   </div>
 
@@ -877,6 +880,7 @@ function renderWkTable(bars){
     +'<th>週期</th>'
     +'<th>開盤</th><th>收盤</th>'
     +'<th>收-開</th><th>高-開</th><th>低-開</th>'
+    +'<th>匯率買入</th><th>匯率賣出</th>'
     +'</tr></thead><tbody>';
   rows.forEach((b,i)=>{
     const oc=b.c-b.o;
@@ -886,6 +890,8 @@ function renderWkTable(bars){
     const hcCls=hc>0?'up':'neu';
     const lcCls=lc<0?'dn':lc>0?'up':'neu';
     const sign=v=>v>0?'+':'';
+    const fxBuy=b.fxBuy!=null?b.fxBuy:'—';
+    const fxSell=b.fxSell!=null?b.fxSell:'—';
     html+=`<tr>`
       +`<td><span class="wkt-date">${fmtD(b.startDate)}<br>${fmtD(b.endDate)}</span></td>`
       +`<td>${fmt(b.o)}</td>`
@@ -893,6 +899,8 @@ function renderWkTable(bars){
       +`<td class="${ocCls}">${sign(oc)}${fmt(oc)}</td>`
       +`<td class="${hcCls}">${sign(hc)}${fmt(hc)}</td>`
       +`<td class="${lcCls}">${sign(lc)}${fmt(lc)}</td>`
+      +`<td class="wkt-fx">${fxBuy}</td>`
+      +`<td class="wkt-fx">${fxSell}</td>`
       +`</tr>`;
   });
   html+='</tbody></table>';
