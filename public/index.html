@@ -186,6 +186,7 @@
         <div class="rt-label">
           台指期　TXF
           <span class="rt-session" id="rtSession">—</span>
+          <span id="rtNightNote" style="display:none;font-size:9px;color:var(--text-dim);">顯示日盤收盤價</span>
         </div>
         <div class="rt-price up" id="rtPrice">—</div>
         <div class="rt-change" id="rtChange">—</div>
@@ -1804,9 +1805,10 @@ async function loadRT(){
     // ── 盤別 ──
     const sess=getTWSession();
     const sesEl=document.getElementById('rtSession');
-    if(sess==='day'){sesEl.textContent='日盤';sesEl.className='rt-session';}
-    else if(sess==='night'){sesEl.textContent='夜盤';sesEl.className='rt-session night';}
-    else{sesEl.textContent='休市';sesEl.className='rt-session closed';}
+    const nightNote=document.getElementById('rtNightNote');
+    if(sess==='day'){sesEl.textContent='日盤';sesEl.className='rt-session';nightNote.style.display='none';}
+    else if(sess==='night'){sesEl.textContent='夜盤';sesEl.className='rt-session night';nightNote.style.display='inline';}
+    else{sesEl.textContent='休市';sesEl.className='rt-session closed';nightNote.style.display='none';}
 
     // ── 匯率 USD/TWD ──
     if(usd && usd.price!=null){
