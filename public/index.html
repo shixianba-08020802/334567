@@ -104,7 +104,6 @@
     .opt-field input{font-size:16px;}
     .opt-table{font-size:13px;}
     .opt-table td,.opt-table th{padding:7px 8px;}
-  }
     body{padding:10px;}
     .container{padding:0;}
     header{margin-bottom:14px;padding-bottom:10px;}
@@ -122,12 +121,8 @@
     .skline-vol-wrap{height:52px;margin-top:4px;}
     .skline-src{font-size:9px;}
 
-    /* 週期文字換行 */
-    #wkDateRange{display:block;width:100%;margin-top:2px;}
-
     /* 個股清單：手機改卡片式 */
     .wl-table-wrap{display:none;}
-  @media(min-width:641px){
     .wk-toolbar button{font-size:12px;}
   }
   /* 週K資料表 */
@@ -1061,15 +1056,6 @@ function setupS5Hover(allH,allL){
 
   // ── 縮放 & 平移（非畫線模式）──
   // 滑鼠滾輪縮放
-  canvas.onwheel=e=>{
-    if(_s5Mode) return;
-    e.preventDefault();
-    const total=_s5Bars.length;
-    const delta=e.deltaY>0?1:-1;
-    _s5Zoom=Math.max(1,Math.min(total,_s5Zoom+delta));
-    _s5Offset=Math.max(0,Math.min(total-_s5Zoom,_s5Offset));
-    redrawS5();
-  },{passive:false};
   canvas.addEventListener('wheel',e=>{
     if(_s5Mode) return;
     e.preventDefault();
@@ -1485,15 +1471,14 @@ async function loadWeeklyKline(){
   const allH=Math.max(...bars.map(b=>b.h));
   const allL=Math.min(...bars.map(b=>b.l));
 
-  document.getElementById('wkClose').textContent=fmtI(last.c);
+  const _wkCloseEl=document.getElementById('wkClose');
+  if(_wkCloseEl) _wkCloseEl.textContent=fmtI(last.c);
   const ce=document.getElementById('wkChg');
-  ce.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${pct.toFixed(2)}%)`;
-  ce.className='skline-stat-val '+(chg>=0?'up':'down');
-  document.getElementById('wkHigh').textContent=fmtI(allH);
-  document.getElementById('wkLow').textContent=fmtI(allL);
-  document.getElementById('wkDateRange').textContent=`${bars[0].startDate} ～ ${last.endDate}`;
-
-  document.getElementById('wkLoader').style.display='none';
+  if(ce){ce.textContent=`${chg>=0?'+':''}${fmtI(chg)} (${pct.toFixed(2)}%)`;ce.className='skline-stat-val '+(chg>=0?'up':'down');}
+  const _wkHighEl=document.getElementById('wkHigh');if(_wkHighEl) _wkHighEl.textContent=fmtI(allH);
+  const _wkLowEl=document.getElementById('wkLow');if(_wkLowEl) _wkLowEl.textContent=fmtI(allL);
+  const _wkDREl=document.getElementById('wkDateRange');if(_wkDREl) _wkDREl.textContent=`${bars[0].startDate} ～ ${last.endDate}`;
+  const _wkLdrEl=document.getElementById('wkLoader');if(_wkLdrEl) _wkLdrEl.style.display='none';
   renderWeeklyCharts();
   renderWkTable(bars);
 
