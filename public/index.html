@@ -421,8 +421,18 @@ let _wkBars=[], _wkCtx=null, _wvCtx=null;
 let _userLines=[], _wkMode=null, _wkDrawing=false, _wkStart=null, _wkPrev=null;
 let _wkMn=0, _wkMx=0, _wkN=0, _wkW=0, _wkH=0;
 let _s5Bars=[], _s5Ctx=null;
+let _s5Zoom=5, _s5Offset=0; // 縮放/平移
 let _s5UserLines=[], _s5Mode=null, _s5Drawing=false, _s5Start=null, _s5Prev=null, _s5SnapPoint=null;
 let _s5Mn=0, _s5Mx=0, _s5N=0, _s5W=0, _s5H=0;
+
+function getS5ViewBars(){
+  const total=_s5Bars.length;
+  const n=Math.min(_s5Zoom,total);
+  if(_s5Offset<=0) return _s5Bars.slice(-n);
+  const end=total-_s5Offset;
+  const start=Math.max(0,end-n);
+  return _s5Bars.slice(start,end);
+}
 
 
 
@@ -772,9 +782,12 @@ function saveS5Lines(){try{localStorage.setItem('s5UserLines',JSON.stringify(_s5
 function loadS5Lines(){try{const d=localStorage.getItem('s5UserLines');if(d)_s5UserLines=JSON.parse(d);updateS5LineCount();}catch(e){_s5UserLines=[];}}
 function redrawS5(){
   if(!_s5Bars.length||!_s5Ctx)return;
-  const allH=Math.max(..._s5Bars.map(b=>b.h));
-  const allL=Math.min(..._s5Bars.map(b=>b.l));
-  drawSK(_s5Ctx,_s5W,_s5H,_s5Bars,allH,allL);
+  const vb=getS5ViewBars();
+  const allH=Math.max(...vb.map(b=>b.h));
+  const allL=Math.min(...vb.map(b=>b.l));
+  drawSK(_s5Ctx,_s5W,_s5H,vb,allH,allL);
+  // 更新日期範圍
+  if(vb.length){document.getElementById('s5DateRange').textContent=`${vb[0].startDate} ～ ${vb[vb.length-1].endDate}`;}
 }
 
 // ── 近5根週K線 ─────────────────────────────────────────────────────
@@ -787,25 +800,28 @@ function renderS5Charts(){
   vC.width=document.getElementById('s5VolWrap').offsetWidth;
   vC.height=document.getElementById('s5VolWrap').offsetHeight;
   _s5Ctx=kC.getContext('2d');
-  const allH=Math.max(..._s5Bars.map(b=>b.h));
-  const allL=Math.min(..._s5Bars.map(b=>b.l));
-  drawSK(_s5Ctx,kC.width,kC.height,_s5Bars,allH,allL);
-  drawSV(vC.getContext('2d'),vC.width,vC.height,_s5Bars);
+  const vb=getS5ViewBars();
+  const allH=Math.max(...vb.map(b=>b.h));
+  const allL=Math.min(...vb.map(b=>b.l));
+  drawSK(_s5Ctx,kC.width,kC.height,vb,allH,allL);
+  drawSV(vC.getContext('2d'),vC.width,vC.height,vb);
   setupS5Hover(allH,allL);
 }
 function setupS5Hover(allH,allL){
   const canvas=document.getElementById('s5Canvas');
   const tip=document.getElementById('wkTip');
-  const n=_s5Bars.length;
+  function vb(){return getS5ViewBars();}
   function s5XY(e){const r=canvas.getBoundingClientRect();return{cx:(e.clientX-r.left)*canvas.width/r.width,cy:(e.clientY-r.top)*canvas.height/r.height};}
   function s5XYT(t){const r=canvas.getBoundingClientRect();return{cx:(t.clientX-r.left)*canvas.width/r.width,cy:(t.clientY-r.top)*canvas.height/r.height};}
-  function s5Snap(cx,cy){return snapToChart(cx,cy,_s5Bars,_s5N,_s5W,_s5H,_s5Mn,_s5Mx,'ohlcm');}
+  function s5Snap(cx,cy){const bars=vb();return snapToChart(cx,cy,bars,bars.length,_s5W,_s5H,_s5Mn,_s5Mx,'ohlcm');}
   function s5CdV(cy){return _s5Mn+(1-(cy-SKP.top)/(_s5H-SKP.top-SKP.bottom))*(_s5Mx-_s5Mn);}
   function inRightAxis(cx){return cx>_s5W-SKP.right-2;}
   function s5ShowTip(idx,ex,ey){
-    const b=_s5Bars[idx];if(!b)return;
+    const bars=vb(),n=bars.length;
+    const b=bars[idx];if(!b)return;
     const chg=b.c-b.o,pct=(chg/b.o*100).toFixed(2);
-    drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);
+    const vh=Math.max(...bars.map(x=>x.h)),vl=Math.min(...bars.map(x=>x.l));
+    drawSK(_s5Ctx,canvas.width,canvas.height,bars,vh,vl);
     const bx=sk_i2x(idx,n,canvas.width);
     _s5Ctx.strokeStyle='rgba(44,95,138,0.35)';_s5Ctx.lineWidth=1;_s5Ctx.setLineDash([3,3]);
     _s5Ctx.beginPath();_s5Ctx.moveTo(bx,SKP.top);_s5Ctx.lineTo(bx,canvas.height-SKP.bottom);_s5Ctx.stroke();_s5Ctx.setLineDash([]);
@@ -884,10 +900,11 @@ function setupS5Hover(allH,allL){
     }
     if(_s5Mode==='delete'){canvas.style.cursor='pointer';tip.style.display='none';return;}
     canvas.style.cursor='default';
-    const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
+    const nv=vb().length;
+    const idx=Math.min(nv-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(nv+1)))));
     s5ShowTip(idx,e.clientX,e.clientY);
   };
-  canvas.onmouseleave=()=>{if(_s5Mode){_s5SnapPoint=null;_s5Start=null;redrawS5();return;}tip.style.display='none';drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);};
+  canvas.onmouseleave=()=>{if(_s5Mode){_s5SnapPoint=null;_s5Start=null;redrawS5();return;}tip.style.display='none';redrawS5();};
   canvas.addEventListener('touchstart',e=>{
     if(_s5Mode==='drawB'){
       e.preventDefault();if(_s5UserLines.length>=5)return;
@@ -918,7 +935,8 @@ function setupS5Hover(allH,allL){
       _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};redrawS5();
     }else if(!_s5Mode){
       e.preventDefault();const t=e.touches[0];const {cx}=s5XYT(t);
-      const idx=Math.min(n-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(n+1)))));
+      const nv=vb().length;
+      const idx=Math.min(nv-1,Math.max(0,Math.floor((cx-SKP.left)/((canvas.width-SKP.left-SKP.right)/(nv+1)))));
       s5ShowTip(idx,t.clientX,t.clientY);
     }
   },{passive:false});
@@ -940,8 +958,78 @@ function setupS5Hover(allH,allL){
       e.preventDefault();const {cx,cy}=s5XYT(e.changedTouches[0]);let minDist=20,delIdx=-1;
       _s5UserLines.forEach((l,i)=>{const d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));if(d<minDist){minDist=d;delIdx=i;}});
       if(delIdx>=0){_s5UserLines.splice(delIdx,1);updateS5LineCount();saveS5Lines();redrawS5();}
-    }else if(!_s5Mode){setTimeout(()=>{tip.style.display='none';drawSK(_s5Ctx,canvas.width,canvas.height,_s5Bars,allH,allL);},1500);}
+    }else if(!_s5Mode){setTimeout(()=>{tip.style.display='none';redrawS5();},1500);}
   },{passive:false});
+
+  // ── 縮放 & 平移（非畫線模式）──
+  // 滑鼠滾輪縮放
+  canvas.onwheel=e=>{
+    if(_s5Mode) return;
+    e.preventDefault();
+    const total=_s5Bars.length;
+    const delta=e.deltaY>0?1:-1;
+    _s5Zoom=Math.max(1,Math.min(total,_s5Zoom+delta));
+    _s5Offset=Math.max(0,Math.min(total-_s5Zoom,_s5Offset));
+    redrawS5();
+  },{passive:false};
+  canvas.addEventListener('wheel',e=>{
+    if(_s5Mode) return;
+    e.preventDefault();
+    const total=_s5Bars.length;
+    const delta=e.deltaY>0?1:-1;
+    _s5Zoom=Math.max(1,Math.min(total,_s5Zoom+delta));
+    _s5Offset=Math.max(0,Math.min(total-_s5Zoom,_s5Offset));
+    redrawS5();
+  },{passive:false});
+  // 滑鼠拖動平移
+  let _s5DragX=null;
+  canvas.addEventListener('mousedown',e=>{if(!_s5Mode)_s5DragX=e.clientX;},{capture:true});
+  window.addEventListener('mousemove',e=>{
+    if(_s5DragX===null||_s5Mode) return;
+    const diff=e.clientX-_s5DragX;
+    if(Math.abs(diff)>8){
+      const total=_s5Bars.length;
+      _s5Offset=Math.max(0,Math.min(total-_s5Zoom,_s5Offset+(diff>0?1:-1)));
+      _s5DragX=e.clientX;
+      redrawS5();
+    }
+  });
+  window.addEventListener('mouseup',()=>{_s5DragX=null;});
+  // 手機捏合縮放 + 單指平移
+  let _s5PinchDist=null,_s5PinchZoom0=0,_s5TouchPanX=null,_s5TouchOffset0=0;
+  canvas.addEventListener('touchstart',e=>{
+    if(_s5Mode) return;
+    if(e.touches.length===2){
+      _s5PinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      _s5PinchZoom0=_s5Zoom;
+    }else if(e.touches.length===1){
+      _s5TouchPanX=e.touches[0].clientX;_s5TouchOffset0=_s5Offset;
+    }
+  },{passive:true,capture:true});
+  canvas.addEventListener('touchmove',e=>{
+    if(_s5Mode) return;
+    if(e.touches.length===2&&_s5PinchDist){
+      e.preventDefault();
+      const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      const total=_s5Bars.length;
+      const ratio=_s5PinchDist/dist;
+      _s5Zoom=Math.max(1,Math.min(total,Math.round(_s5PinchZoom0*ratio)));
+      _s5Offset=Math.max(0,Math.min(total-_s5Zoom,_s5Offset));
+      redrawS5();
+    }else if(e.touches.length===1&&_s5TouchPanX!==null){
+      e.preventDefault();
+      const r=canvas.getBoundingClientRect();
+      const barPx=(r.width-SKP.left-SKP.right)/(_s5Zoom+1);
+      const diff=e.touches[0].clientX-_s5TouchPanX;
+      const total=_s5Bars.length;
+      const steps=Math.round(-diff/barPx);
+      _s5Offset=Math.max(0,Math.min(total-_s5Zoom,_s5TouchOffset0+steps));
+      redrawS5();
+    }
+  },{passive:false,capture:true});
+  canvas.addEventListener('touchend',e=>{
+    if(!_s5Mode){_s5PinchDist=null;_s5TouchPanX=null;}
+  },{passive:true,capture:true});
 }
 window.addEventListener('resize',()=>{if(_s5Bars.length)renderS5Charts();});
 
@@ -1306,11 +1394,11 @@ async function loadWeeklyKline(){
   renderWeeklyCharts();
   renderWkTable(bars);
 
-  // 近5根K線圖
-  _s5Bars=allBars.slice(-5);
+  // 近5根K線圖（保留全部，透過zoom控制顯示數量）
+  _s5Bars=allBars;
+  _s5Zoom=Math.min(5,_s5Bars.length);
+  _s5Offset=0;
   if(_s5Bars.length>=1){
-    const s5Last=_s5Bars[_s5Bars.length-1];
-    document.getElementById('s5DateRange').textContent=`${_s5Bars[0].startDate} ～ ${s5Last.endDate}`;
     document.getElementById('s5Loader').style.display='none';
     renderS5Charts();
   }
