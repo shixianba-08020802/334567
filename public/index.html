@@ -215,7 +215,7 @@
   <!-- 近5根週K線（最新視覺） -->
   <div class="history-card" style="margin-bottom:14px;">
     <div class="section-header">
-      <div class="section-title">▪ 台指期　近5根週K線</div>
+      <div class="section-title">▪ 台指期週K四~三</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
         <span id="s5DateRange">—</span>
       </div>
@@ -232,6 +232,7 @@
     <div class="wk-toolbar">
       <button class="wk-tool-btn" id="s5BtnDrawB" onclick="setS5Mode('drawB')">≡ 三線</button>
       <button class="wk-tool-btn" id="s5BtnDraw" onclick="setS5Mode('draw')">─ 水平線</button>
+      <button class="wk-tool-btn" id="s5BtnDrawT" onclick="setS5Mode('drawT')">↗ 趨勢線</button>
       <button class="wk-tool-btn" id="s5BtnDel" onclick="setS5Mode('delete')">✕ 刪線</button>
       <span class="wk-line-count" id="s5LineCount">0 / 5</span>
     </div>
@@ -246,42 +247,6 @@
     </div>
     <div id="wkTableWrap"></div>
     <div class="skline-src">資料來源：台指期歷史試算表（手動維護）</div>
-  </div>
-
-  <!-- 台指期 週K線（星期三盤後～次週三一般） -->
-  <div class="history-card" style="margin-bottom:14px;">
-    <div class="section-header">
-      <div class="section-title">▪ 台指期　週K線（近20週）</div>
-      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:10px;">
-        <span>週期：星期四 ～ 次週三</span>
-        <span id="wkDateRange" style="color:var(--text-dim)">—</span>
-      </div>
-    </div>
-    <div class="skline-stats">
-      <div class="skline-stat"><div class="skline-stat-label">最新收盤</div><div class="skline-stat-val neutral" id="wkClose">—</div></div>
-      <div class="skline-stat"><div class="skline-stat-label">本週漲跌</div><div class="skline-stat-val neutral" id="wkChg">—</div></div>
-      <div class="skline-stat"><div class="skline-stat-label">區間最高</div><div class="skline-stat-val up" id="wkHigh">—</div></div>
-      <div class="skline-stat"><div class="skline-stat-label">區間最低</div><div class="skline-stat-val down" id="wkLow">—</div></div>
-    </div>
-
-    <!-- 畫線工具列 -->
-    <div class="wk-toolbar">
-      <button class="wk-tool-btn" id="wkBtnDraw" onclick="setWKMode('draw')">↗ 趨勢線</button>
-      <button class="wk-tool-btn" id="wkBtnDrawH" onclick="setWKMode('drawH')">─ 水平線</button>
-      <button class="wk-tool-btn" id="wkBtnDel" onclick="setWKMode('delete')">✕ 刪線</button>
-      <span class="wk-line-count" id="wkLineCount">0 / 5</span>
-    </div>
-    <div class="skline-canvas-wrap" id="wkWrap">
-      <div class="skline-loader" id="wkLoader">
-        <span class="spinner"></span>
-        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)" id="wkLoaderMsg">載入資料…</span>
-      </div>
-      <canvas id="wkCanvas"></canvas>
-    </div>
-    <div class="skline-vol-wrap" id="wvWrap">
-      <canvas id="wvCanvas"></canvas>
-    </div>
-    <div class="skline-src" id="wkSrc">資料來源：台指期歷史試算表（手動維護）・每5分鐘同步試算表異動</div>
   </div>
 
   <!-- 選擇權損益試算 -->
@@ -586,6 +551,9 @@ function drawSK(ctx,w,h,bars,allH,allL){
       ctx.fillText(fmtI(vTop),rx,pyTop-2);
       ctx.fillText(fmtI(vMid),rx,pyMid-2);
       ctx.fillText(fmtI(vBot),rx,pyBot-2);
+    }else if(l.type==='t'){
+      // s5 趨勢線：由 redrawS5 → drawS5TrendLines 處理，此處略過
+      ctx.restore();return;
     }else if(l.type==='h'){
       // 水平線
       const py=sk_p2y(l.v,h,mn,mx);
@@ -617,7 +585,17 @@ function drawSK(ctx,w,h,bars,allH,allL){
   // 預覽線
   if(_ad&&_as){
     const _ap2=ctx===_mfCtx?_mfPrev:ctx===_s5Ctx?_s5Prev:_wkPrev;
-    if(_am==='drawB'){
+    if(_am==='drawT'&&ctx===_s5Ctx){
+      // s5 趨勢線預覽
+      const _ap2=_s5Prev;
+      if(_as&&_ap2){
+        ctx.save();ctx.strokeStyle='rgba(44,95,138,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+        ctx.beginPath();
+        ctx.moveTo(sk_i2x(_as.i,n,w),sk_p2y(_as.v,h,mn,mx));
+        ctx.lineTo(sk_i2x(_ap2.i,n,w),sk_p2y(_ap2.v,h,mn,mx));
+        ctx.stroke();ctx.setLineDash([]);ctx.restore();
+      }
+    }else if(_am==='drawB'){
       // 三線預覽
       const spread=_ap2?Math.abs(_ap2.v-_as.v):0;
       const vTop=_as.v+spread,vBot=_as.v-spread;
@@ -662,7 +640,7 @@ function drawSK(ctx,w,h,bars,allH,allL){
   }
 
   // 吸附指示圈
-  if((_am==='draw'||_am==='drawH'||_am==='drawB')&&_asn){
+  if((_am==='draw'||_am==='drawH'||_am==='drawB'||_am==='drawT')&&_asn){
     ctx.save();ctx.strokeStyle='rgba(44,95,138,0.9)';ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(_asn.x,_asn.y,7,0,Math.PI*2);ctx.stroke();
     ctx.fillStyle='rgba(44,95,138,0.25)';ctx.fill();ctx.restore();
@@ -775,17 +753,66 @@ function setS5Mode(mode){
   _s5Drawing=false;_s5Start=null;_s5Prev=null;_s5SnapPoint=null;
   document.getElementById('s5BtnDrawB').classList.toggle('active',_s5Mode==='drawB');
   document.getElementById('s5BtnDraw').classList.toggle('active',_s5Mode==='draw');
+  document.getElementById('s5BtnDrawT').classList.toggle('active',_s5Mode==='drawT');
   document.getElementById('s5BtnDel').classList.toggle('active',_s5Mode==='delete');
 }
 function updateS5LineCount(){document.getElementById('s5LineCount').textContent=`${_s5UserLines.length} / 5`;}
 function saveS5Lines(){try{localStorage.setItem('s5UserLines',JSON.stringify(_s5UserLines));}catch(e){}}
 function loadS5Lines(){try{const d=localStorage.getItem('s5UserLines');if(d)_s5UserLines=JSON.parse(d);updateS5LineCount();}catch(e){_s5UserLines=[];}}
+// 趨勢線：絕對index轉view x
+function s5AbsToX(ai,vb){
+  const n=vb.length,total=_s5Bars.length;
+  const viewStart=total-_s5Offset-n;
+  const vi=ai-viewStart;
+  return sk_i2x(vi,n,_s5W);
+}
+// 趨勢線：cx轉絕對index
+function s5CxToAbsIdx(cx,vb){
+  const n=vb.length,total=_s5Bars.length;
+  const barW=(_s5W-SKP.left-SKP.right)/(n+1);
+  const vi=Math.max(0,Math.min(n-1,Math.round((cx-SKP.left)/barW-0.5)));
+  const viewStart=total-_s5Offset-n;
+  return viewStart+vi;
+}
+// 趨勢線：cx轉view-relative index（預覽用）
+function s5CxToViewIdx(cx,vb){
+  const n=vb.length;
+  const barW=(_s5W-SKP.left-SKP.right)/(n+1);
+  return Math.max(0,Math.min(n-1,Math.round((cx-SKP.left)/barW-0.5)));
+}
+// 繪製 s5 趨勢線（絕對index）
+function drawS5TrendLines(vb){
+  if(!_s5Ctx) return;
+  _s5UserLines.forEach(l=>{
+    if(l.type!=='t') return;
+    const x1=s5AbsToX(l.ai1,vb),y1=sk_p2y(l.v1,_s5H,_s5Mn,_s5Mx);
+    const x2=s5AbsToX(l.ai2,vb),y2=sk_p2y(l.v2,_s5H,_s5Mn,_s5Mx);
+    _s5Ctx.save();
+    _s5Ctx.strokeStyle=l.color||'rgba(44,95,138,0.9)';_s5Ctx.lineWidth=2;
+    _s5Ctx.beginPath();_s5Ctx.moveTo(x1,y1);_s5Ctx.lineTo(x2,y2);_s5Ctx.stroke();
+    // 延伸虛線到右邊界
+    const xEdge=_s5W-SKP.right+2;
+    if(Math.abs(x2-x1)>1){
+      const slope=(y2-y1)/(x2-x1),yEdge=y2+slope*(xEdge-x2);
+      _s5Ctx.setLineDash([5,4]);_s5Ctx.globalAlpha=0.55;
+      _s5Ctx.beginPath();_s5Ctx.moveTo(x2,y2);_s5Ctx.lineTo(xEdge,yEdge);_s5Ctx.stroke();
+      _s5Ctx.setLineDash([]);_s5Ctx.globalAlpha=1;
+    }
+    _s5Ctx.fillStyle=l.color||'rgba(44,95,138,0.9)';
+    [[x1,y1],[x2,y2]].forEach(([px,py])=>{_s5Ctx.beginPath();_s5Ctx.arc(px,py,4,0,Math.PI*2);_s5Ctx.fill();});
+    _s5Ctx.restore();
+  });
+}
 function redrawS5(){
   if(!_s5Bars.length||!_s5Ctx)return;
   const vb=getS5ViewBars();
   const allH=Math.max(...vb.map(b=>b.h));
   const allL=Math.min(...vb.map(b=>b.l));
   drawSK(_s5Ctx,_s5W,_s5H,vb,allH,allL);
+  drawS5TrendLines(vb);
+  // 更新成交量
+  const vC=document.getElementById('s5VolCanvas');
+  if(vC) drawSV(vC.getContext('2d'),vC.width,vC.height,vb);
   // 更新日期範圍
   if(vb.length){document.getElementById('s5DateRange').textContent=`${vb[0].startDate} ～ ${vb[vb.length-1].endDate}`;}
 }
@@ -854,12 +881,28 @@ function setupS5Hover(allH,allL){
       _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};
       _s5SnapPoint=snap||null;_s5Drawing=true;canvas.style.cursor='crosshair';
       redrawS5();
+    }else if(_s5Mode==='drawT'){
+      if(_s5UserLines.length>=5)return;
+      const {cx,cy}=s5XY(e);const bars=vb();
+      const snap=inRightAxis(cx)?null:s5Snap(cx,cy);
+      const sv=snap?snap.v:s5CdV(cy);
+      const vi=s5CxToViewIdx(cx,bars);
+      const ai=s5CxToAbsIdx(cx,bars);
+      _s5Start={i:vi,ai,v:sv};_s5Prev=null;
+      _s5SnapPoint=snap||null;_s5Drawing=true;canvas.style.cursor='crosshair';
+      redrawS5();
     }else if(_s5Mode==='delete'){
-      const {cx,cy}=s5XY(e);let minDist=15,delIdx=-1;
+      const {cx,cy}=s5XY(e);let minDist=15,delIdx=-1;const bars=vb();
       _s5UserLines.forEach((l,i)=>{
         let d;
         if(l.type==='b'){d=Math.min(Math.abs(cy-sk_p2y(l.v+l.spread,_s5H,_s5Mn,_s5Mx)),Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx)),Math.abs(cy-sk_p2y(l.v-l.spread,_s5H,_s5Mn,_s5Mx)));}
-        else{d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));}
+        else if(l.type==='t'){
+          const x1=s5AbsToX(l.ai1,bars),y1=sk_p2y(l.v1,_s5H,_s5Mn,_s5Mx);
+          const x2=s5AbsToX(l.ai2,bars),y2=sk_p2y(l.v2,_s5H,_s5Mn,_s5Mx);
+          const dx=x2-x1,dy=y2-y1,len2=dx*dx+dy*dy;
+          if(len2<1)d=Math.hypot(cx-x1,cy-y1);
+          else{const t=Math.max(0,Math.min(1,((cx-x1)*dx+(cy-y1)*dy)/len2));d=Math.hypot(cx-x1-t*dx,cy-y1-t*dy);}
+        }else{d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));}
         if(d<minDist){minDist=d;delIdx=i;}
       });
       if(delIdx>=0){_s5UserLines.splice(delIdx,1);updateS5LineCount();saveS5Lines();redrawS5();}
@@ -877,9 +920,16 @@ function setupS5Hover(allH,allL){
       _s5UserLines.push({type:'h',v:_s5Start.v,color:'rgba(44,95,138,0.9)'});
       updateS5LineCount();saveS5Lines();
       _s5Drawing=false;_s5Start=null;_s5SnapPoint=null;redrawS5();
+    }else if(_s5Mode==='drawT'&&_s5Drawing&&_s5Start&&_s5Prev){
+      const dist=Math.abs(_s5Start.i-_s5Prev.i);
+      if(dist>=1){
+        _s5UserLines.push({type:'t',ai1:_s5Start.ai,v1:_s5Start.v,ai2:_s5Prev.ai,v2:_s5Prev.v,color:'rgba(44,95,138,0.9)'});
+        updateS5LineCount();saveS5Lines();
+      }
+      _s5Drawing=false;_s5Start=null;_s5Prev=null;_s5SnapPoint=null;redrawS5();
     }
   };
-  window.addEventListener('mouseup',()=>{if(_s5Drawing){_s5Drawing=false;_s5Start=null;_s5SnapPoint=null;redrawS5();}});
+  window.addEventListener('mouseup',()=>{if(_s5Drawing){_s5Drawing=false;_s5Start=null;_s5Prev=null;_s5SnapPoint=null;redrawS5();}});
   canvas.onmousemove=e=>{
     const {cx,cy}=s5XY(e);
     if(_s5Mode==='drawB'){
@@ -895,6 +945,19 @@ function setupS5Hover(allH,allL){
       const snap=inRightAxis(cx)?null:s5Snap(cx,cy);
       _s5SnapPoint=snap||null;
       _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};
+      redrawS5();
+      tip.style.display='none';return;
+    }
+    if(_s5Mode==='drawT'){
+      canvas.style.cursor='crosshair';
+      const bars=vb();
+      const snap=inRightAxis(cx)?null:s5Snap(cx,cy);
+      _s5SnapPoint=snap||null;
+      const pv=snap?snap.v:s5CdV(cy);
+      const vi=s5CxToViewIdx(cx,bars);
+      const ai=s5CxToAbsIdx(cx,bars);
+      if(_s5Drawing) _s5Prev={i:vi,ai,v:pv};
+      else { _s5Start={i:vi,ai,v:pv}; }
       redrawS5();
       tip.style.display='none';return;
     }
@@ -920,6 +983,15 @@ function setupS5Hover(allH,allL){
       _s5Start={i:0,v:snap?snap.v:s5CdV(cy)};
       _s5SnapPoint=snap||null;_s5Drawing=true;
       redrawS5();
+    }else if(_s5Mode==='drawT'){
+      e.preventDefault();if(_s5UserLines.length>=5)return;
+      const {cx,cy}=s5XYT(e.touches[0]);const bars=vb();
+      const snap=inRightAxis(cx)?null:s5Snap(cx,cy);
+      const sv=snap?snap.v:s5CdV(cy);
+      const vi=s5CxToViewIdx(cx,bars),ai=s5CxToAbsIdx(cx,bars);
+      _s5Start={i:vi,ai,v:sv};_s5Prev=null;
+      _s5SnapPoint=snap||null;_s5Drawing=true;
+      redrawS5();
     }
   },{passive:false});
   canvas.addEventListener('touchmove',e=>{
@@ -928,6 +1000,13 @@ function setupS5Hover(allH,allL){
       const snap=inRightAxis(cx)?null:s5Snap(cx,cy);
       _s5SnapPoint=snap||null;
       _s5Prev={i:0,v:snap?snap.v:s5CdV(cy)};redrawS5();
+    }else if(_s5Mode==='drawT'&&_s5Drawing){
+      e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);const bars=vb();
+      const snap=inRightAxis(cx)?null:s5Snap(cx,cy);
+      _s5SnapPoint=snap||null;
+      const pv=snap?snap.v:s5CdV(cy);
+      const vi=s5CxToViewIdx(cx,bars),ai=s5CxToAbsIdx(cx,bars);
+      _s5Prev={i:vi,ai,v:pv};redrawS5();
     }else if(_s5Mode==='draw'&&_s5Drawing){
       e.preventDefault();const {cx,cy}=s5XYT(e.touches[0]);
       const snap=inRightAxis(cx)?null:s5Snap(cx,cy);
@@ -954,9 +1033,28 @@ function setupS5Hover(allH,allL){
       _s5UserLines.push({type:'h',v:_s5Start.v,color:'rgba(44,95,138,0.9)'});
       updateS5LineCount();saveS5Lines();
       _s5Drawing=false;_s5Start=null;_s5SnapPoint=null;redrawS5();
+    }else if(_s5Mode==='drawT'&&_s5Drawing&&_s5Start&&_s5Prev){
+      e.preventDefault();
+      const dist=Math.abs(_s5Start.i-_s5Prev.i);
+      if(dist>=1){
+        _s5UserLines.push({type:'t',ai1:_s5Start.ai,v1:_s5Start.v,ai2:_s5Prev.ai,v2:_s5Prev.v,color:'rgba(44,95,138,0.9)'});
+        updateS5LineCount();saveS5Lines();
+      }
+      _s5Drawing=false;_s5Start=null;_s5Prev=null;_s5SnapPoint=null;redrawS5();
     }else if(_s5Mode==='delete'){
-      e.preventDefault();const {cx,cy}=s5XYT(e.changedTouches[0]);let minDist=20,delIdx=-1;
-      _s5UserLines.forEach((l,i)=>{const d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));if(d<minDist){minDist=d;delIdx=i;}});
+      e.preventDefault();const {cx,cy}=s5XYT(e.changedTouches[0]);let minDist=20,delIdx=-1;const bars=vb();
+      _s5UserLines.forEach((l,i)=>{
+        let d;
+        if(l.type==='b'){d=Math.min(Math.abs(cy-sk_p2y(l.v+l.spread,_s5H,_s5Mn,_s5Mx)),Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx)),Math.abs(cy-sk_p2y(l.v-l.spread,_s5H,_s5Mn,_s5Mx)));}
+        else if(l.type==='t'){
+          const x1=s5AbsToX(l.ai1,bars),y1=sk_p2y(l.v1,_s5H,_s5Mn,_s5Mx);
+          const x2=s5AbsToX(l.ai2,bars),y2=sk_p2y(l.v2,_s5H,_s5Mn,_s5Mx);
+          const dx=x2-x1,dy=y2-y1,len2=dx*dx+dy*dy;
+          if(len2<1)d=Math.hypot(cx-x1,cy-y1);
+          else{const t=Math.max(0,Math.min(1,((cx-x1)*dx+(cy-y1)*dy)/len2));d=Math.hypot(cx-x1-t*dx,cy-y1-t*dy);}
+        }else{d=Math.abs(cy-sk_p2y(l.v,_s5H,_s5Mn,_s5Mx));}
+        if(d<minDist){minDist=d;delIdx=i;}
+      });
       if(delIdx>=0){_s5UserLines.splice(delIdx,1);updateS5LineCount();saveS5Lines();redrawS5();}
     }else if(!_s5Mode){setTimeout(()=>{tip.style.display='none';redrawS5();},1500);}
   },{passive:false});
@@ -1040,10 +1138,11 @@ function renderWkTable(bars){
   const rows=bars.slice(-15);
   const fmt=v=>v==null?'—':fmtI(v);
   const fmtD=v=>v||'—';
-  let html='<table class="wkt"><thead><tr>'
+  let html='<div style="overflow-x:auto;"><table class="wkt"><thead><tr>'
     +'<th>週期</th>'
     +'<th>開盤</th><th>收盤</th>'
     +'<th>收-開</th><th>高-開</th><th>低-開</th>'
+    +'<th>匯率買入</th><th>匯率賣出</th>'
     +'</tr></thead><tbody>';
   rows.forEach((b,i)=>{
     const oc=b.c-b.o;
@@ -1053,6 +1152,7 @@ function renderWkTable(bars){
     const hcCls=hc>0?'up':'neu';
     const lcCls=lc<0?'dn':lc>0?'up':'neu';
     const sign=v=>v>0?'+':'';
+    const fmtFx=v=>v!=null?v.toFixed(3):'—';
     html+=`<tr>`
       +`<td><span class="wkt-date">${fmtD(b.startDate)}<br>${fmtD(b.endDate)}</span></td>`
       +`<td>${fmt(b.o)}</td>`
@@ -1060,14 +1160,17 @@ function renderWkTable(bars){
       +`<td class="${ocCls}">${sign(oc)}${fmt(oc)}</td>`
       +`<td class="${hcCls}">${sign(hc)}${fmt(hc)}</td>`
       +`<td class="${lcCls}">${sign(lc)}${fmt(lc)}</td>`
+      +`<td style="color:rgba(192,57,43,0.9)">${fmtFx(b.fxBuy)}</td>`
+      +`<td style="color:rgba(26,122,94,0.9)">${fmtFx(b.fxSell)}</td>`
       +`</tr>`;
   });
-  html+='</tbody></table>';
+  html+='</tbody></table></div>';
   wrap.innerHTML=html;
 }
 
 function renderWeeklyCharts(){
   if(!_wkBars.length) return;
+  if(!document.getElementById('wkCanvas')) return; // 已移除
   resizeWK();
   const allH=Math.max(..._wkBars.map(b=>b.h));
   const allL=Math.min(..._wkBars.map(b=>b.l));
