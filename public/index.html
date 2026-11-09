@@ -237,7 +237,7 @@
   <!-- 週K資料表（近10週，Thu-Wed） -->
   <div class="history-card" style="margin-bottom:14px;" id="wkTableCard">
     <div class="section-header" style="margin-bottom:10px;">
-      <div class="section-title">▪ 台指期　週K資料（近10週）</div>
+      <div class="section-title">▪ 台指期週K資料</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">週期：星期四 ～ 次週三</div>
     </div>
     <div id="wkTableWrap"></div>
@@ -1121,7 +1121,7 @@ window.addEventListener('resize',()=>{if(_s5Bars.length)renderS5Charts();});
 function renderWkTable(bars){
   const wrap=document.getElementById('wkTableWrap');
   if(!wrap||!bars||!bars.length) return;
-  const rows=bars.slice(-15);
+  const rows=bars.slice(-24);
   const fmt=v=>v==null?'—':fmtI(v);
   const fmtD=v=>v||'—';
   let html='<div style="overflow-x:auto;"><table class="wkt"><thead><tr>'
@@ -1457,7 +1457,7 @@ async function loadWeeklyKline(){
   }
 
   const allBars=buildWeeklySessionBars(rows);
-  const bars=allBars.slice(-20); // 近20週
+  const bars=allBars.slice(-24); // 近24週
   _wkBars=bars;
 
   if(bars.length<2){
@@ -1953,22 +1953,18 @@ function fmtFxChg(chg,pct){
 }
 
 async function fetchChart(sym){
-  // v8 chart endpoint，不需要 crumb
-  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1m&range=1d&includePrePost=true`;
+  // v7 quote endpoint：對期貨（TXF=F）和外匯（USDTWD=X）均穩定
+  const url=`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(sym)}&fields=regularMarketPrice,regularMarketPreviousClose,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow`;
   const r=await fetch(PROXY+encodeURIComponent(url),{signal:AbortSignal.timeout(10000)});
   const d=await r.json();
-  const res=d?.chart?.result?.[0];
+  const res=d?.quoteResponse?.result?.[0];
   if(!res) return null;
-  const meta=res.meta;
-  // 取最新收盤（最後一根1分K）
-  const closes=res.indicators?.quote?.[0]?.close||[];
-  const lastClose=closes.filter(v=>v!=null).at(-1);
   return{
-    price: lastClose??meta.regularMarketPrice,
-    prev:  meta.chartPreviousClose??meta.previousClose,
-    open:  meta.regularMarketOpen,
-    high:  res.indicators?.quote?.[0]?.high?.filter(v=>v!=null).reduce((a,b)=>Math.max(a,b),-Infinity)||null,
-    low:   res.indicators?.quote?.[0]?.low?.filter(v=>v!=null).reduce((a,b)=>Math.min(a,b),Infinity)||null,
+    price: res.regularMarketPrice,
+    prev:  res.regularMarketPreviousClose,
+    open:  res.regularMarketOpen,
+    high:  res.regularMarketDayHigh,
+    low:   res.regularMarketDayLow,
   };
 }
 
