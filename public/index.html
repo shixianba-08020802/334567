@@ -1953,8 +1953,26 @@ function fmtFxChg(chg,pct){
 }
 
 async function fetchChart(sym){
-  // v7 quote endpoint：對期貨（TXF=F）和外匯（USDTWD=X）均穩定
-  const url=`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(sym)}&fields=regularMarketPrice,regularMarketPreviousClose,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow`;
+  // v8 chart endpoint（外匯用，原本可用）
+  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1m&range=1d&includePrePost=true`;
+  const r=await fetch(PROXY+encodeURIComponent(url),{signal:AbortSignal.timeout(10000)});
+  const d=await r.json();
+  const res=d?.chart?.result?.[0];
+  if(!res) return null;
+  const meta=res.meta;
+  const closes=res.indicators?.quote?.[0]?.close||[];
+  const lastClose=closes.filter(v=>v!=null).at(-1);
+  return{
+    price: lastClose??meta.regularMarketPrice,
+    prev:  meta.chartPreviousClose??meta.previousClose,
+    open:  meta.regularMarketOpen,
+    high:  res.indicators?.quote?.[0]?.high?.filter(v=>v!=null).reduce((a,b)=>Math.max(a,b),-Infinity)||null,
+    low:   res.indicators?.quote?.[0]?.low?.filter(v=>v!=null).reduce((a,b)=>Math.min(a,b),Infinity)||null,
+  };
+}
+async function fetchQuote(sym){
+  // v7 quote endpoint（期貨用，query1）
+  const url=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(sym)}`;
   const r=await fetch(PROXY+encodeURIComponent(url),{signal:AbortSignal.timeout(10000)});
   const d=await r.json();
   const res=d?.quoteResponse?.result?.[0];
@@ -1973,8 +1991,8 @@ async function loadRT(){
   try{
     // 並行抓台指期 + USD/TWD
     const [txf, usd]=await Promise.all([
-      fetchChart('TXF=F'),
-      fetchChart('USDTWD=X'),
+      fetchQuote('TXF=F'),   // 期貨用 v7 quote
+      fetchChart('USDTWD=X'),// 外匯用 v8 chart（原本可用）
     ]);
 
     // ── 台指期 ──
