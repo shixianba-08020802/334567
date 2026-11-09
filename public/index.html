@@ -137,27 +137,13 @@
   .wkt .neu{color:var(--text-muted);}
   .wkt .wkt-sep{color:var(--text-dim);font-size:10px;padding:2px 8px;background:rgba(240,235,224,.4);}
 
-  /* ── 台指期即時 + 匯率 ── */
-  .rt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .rt-block{background:#f0ebe0;border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
-  .rt-label{font-family:var(--font-mono);font-size:9px;letter-spacing:.15em;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
-  .rt-session{font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(44,95,138,0.12);color:var(--accent-blue);}
-  .rt-session.night{background:rgba(60,40,100,0.12);color:#5a3d8a;}
-  .rt-session.closed{background:rgba(200,191,175,0.3);color:var(--text-dim);}
-  .rt-price{font-family:var(--font-mono);font-size:28px;font-weight:500;line-height:1;margin-bottom:4px;}
-  .rt-change{font-family:var(--font-mono);font-size:13px;color:var(--text-muted);}
-  .rt-sub{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:4px;}
-  .rt-sub-item span:first-child{color:var(--text-dim);font-size:10px;}
-  .rt-fx-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(224,216,200,.4);}
-  .rt-fx-row:last-child{border-bottom:none;}
-  .rt-fx-name{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
-  .rt-fx-val{font-family:var(--font-mono);font-size:14px;font-weight:500;}
-  .rt-fx-chg{font-family:var(--font-mono);font-size:11px;}
-  .rt-updated{font-family:var(--font-mono);font-size:9px;color:var(--text-dim);text-align:right;margin-top:6px;}
-  @media(max-width:640px){
-    .rt-grid{grid-template-columns:1fr;}
-    .rt-price{font-size:24px;}
-  }
+  /* ── 點差表 ── */
+  .sp-wrap{display:flex;align-items:flex-start;gap:0;overflow-x:auto;}
+  .sp-table{border-collapse:collapse;font-family:var(--font-mono);font-size:12px;white-space:nowrap;}
+  .sp-table th{padding:5px 18px;background:#e8e2d6;border:1px solid var(--border);font-weight:500;color:var(--text-muted);font-size:10px;letter-spacing:.1em;text-align:center;}
+  .sp-table td{padding:5px 18px;border:1px solid var(--border);text-align:center;background:var(--surface);}
+  .sp-table tr:hover td{background:#f0ebe0;}
+  .sp-updated{font-family:var(--font-mono);font-size:9px;color:var(--text-dim);margin-top:6px;text-align:right;}
 </style>
 </head>
 <body>
@@ -166,45 +152,18 @@
     <div class="logo">shixianba看板</div>
   </header>
 
-  <!-- ── 台指期即時 + 匯率即時 ── -->
-  <div class="history-card" style="margin-bottom:14px;" id="rtCard">
-    <div class="section-header" style="margin-bottom:12px;">
-      <div class="section-title">▪ 台指期即時　／　匯率即時</div>
+  <!-- ── 點差表 ── -->
+  <div class="history-card" style="margin-bottom:14px;" id="spCard">
+    <div class="section-header" style="margin-bottom:10px;">
+      <div class="section-title">▪ 點差</div>
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
-        <span class="spinner" id="rtSpinner" style="display:none;"></span>
-        <span id="rtUpdated">—</span>
+        <span class="spinner" id="spSpinner" style="display:none;"></span>
+        <span id="spUpdated">—</span>
       </div>
     </div>
-    <div class="rt-grid">
-      <!-- 台指期 -->
-      <div class="rt-block">
-        <div class="rt-label">
-          台指期　TXF
-          <span class="rt-session" id="rtSession">—</span>
-          <span id="rtNightNote" style="display:none;font-size:9px;color:var(--text-dim);">顯示日盤收盤價</span>
-        </div>
-        <div class="rt-price up" id="rtPrice">—</div>
-        <div class="rt-change" id="rtChange">—</div>
-        <div class="rt-sub">
-          <div class="rt-sub-item"><span>開</span> <span id="rtOpen">—</span></div>
-          <div class="rt-sub-item"><span>高</span> <span id="rtHigh">—</span></div>
-          <div class="rt-sub-item"><span>前收</span> <span id="rtPrev">—</span></div>
-          <div class="rt-sub-item"><span>低</span> <span id="rtLow">—</span></div>
-        </div>
-      </div>
-      <!-- 匯率 -->
-      <div class="rt-block">
-        <div class="rt-label">即時匯率　（15分延遲）</div>
-        <div class="rt-fx-row">
-          <span class="rt-fx-name">USD/TWD</span>
-          <div style="text-align:right;">
-            <div class="rt-fx-val" id="fxUSD">—</div>
-            <div class="rt-fx-chg" id="fxUSDchg" style="color:var(--text-dim);">—</div>
-          </div>
-        </div>
-      </div>
+    <div class="sp-wrap">
+      <table class="sp-table" id="spTable"><thead><tr><th>指數差</th><th>點差</th></tr></thead><tbody id="spBody"><tr><td colspan="2" style="color:var(--text-dim);">載入中…</td></tr></tbody></table>
     </div>
-    <div class="rt-updated">資料來源：Yahoo Finance（15分延遲）・每30秒更新</div>
   </div>
 
   <!-- 近5根週K線（最新視覺） -->
@@ -1920,127 +1879,40 @@ addOptRow();
 addOptRow();
 
 // ══════════════════════════════════════════════════════════════════
-// ██  台指期即時 + 匯率即時  ████████████████████████████████████████
+// ██  點差表（Google Sheet 點差頁籤）  ████████████████████████████
 // ══════════════════════════════════════════════════════════════════
+const SPREAD_CSV_URL='https://docs.google.com/spreadsheets/d/1IFA8S0aOafZTtMcSvx45AAtR8Q01aWxcV99xmn9qcrE/export?format=csv&sheet=%E9%BB%9E%E5%B7%AE';
 const PROXY='/.netlify/functions/proxy?url=';
 
-function getTWSession(){
-  // 台灣時間
-  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
-  const h=now.getHours(), m=now.getMinutes();
-  const mins=h*60+m;
-  const day=now.getDay(); // 0=Sun,1=Mon...6=Sat
-  // 台指期日盤：08:45–13:45（週一至週五）
-  if(day>=1&&day<=5&&mins>=525&&mins<=825) return 'day';
-  // 夜盤：15:00–05:00 (隔天)
-  if(day>=1&&day<=6&&mins>=900) return 'night';     // 15:00以後（週一~週六）
-  if(day>=0&&day<=5&&mins<300) return 'night';      // 凌晨0:00–05:00（週日~週五）
-  return 'closed';
-}
-
-function fmtChg(chg,pct){
-  if(chg==null) return '—';
-  const sign=chg>=0?'+':'';
-  const cls=chg>0?'up':chg<0?'down':'neutral';
-  return `<span class="${cls}">${sign}${chg.toFixed(0)} (${sign}${pct.toFixed(2)}%)</span>`;
-}
-
-function fmtFxChg(chg,pct){
-  if(chg==null) return '—';
-  const sign=chg>=0?'+':'';
-  const cls=chg>0?'up':chg<0?'down':'neutral';
-  return `<span class="${cls}">${sign}${chg.toFixed(4)} (${sign}${pct.toFixed(2)}%)</span>`;
-}
-
-async function fetchChart(sym){
-  // v8 chart endpoint（外匯用，原本可用）
-  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1m&range=1d&includePrePost=true`;
-  const r=await fetch(PROXY+encodeURIComponent(url),{signal:AbortSignal.timeout(10000)});
-  const d=await r.json();
-  const res=d?.chart?.result?.[0];
-  if(!res) return null;
-  const meta=res.meta;
-  const closes=res.indicators?.quote?.[0]?.close||[];
-  const lastClose=closes.filter(v=>v!=null).at(-1);
-  return{
-    price: lastClose??meta.regularMarketPrice,
-    prev:  meta.chartPreviousClose??meta.previousClose,
-    open:  meta.regularMarketOpen,
-    high:  res.indicators?.quote?.[0]?.high?.filter(v=>v!=null).reduce((a,b)=>Math.max(a,b),-Infinity)||null,
-    low:   res.indicators?.quote?.[0]?.low?.filter(v=>v!=null).reduce((a,b)=>Math.min(a,b),Infinity)||null,
-  };
-}
-async function fetchQuote(sym){
-  // v7 quote endpoint（期貨用，query1）
-  const url=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(sym)}`;
-  const r=await fetch(PROXY+encodeURIComponent(url),{signal:AbortSignal.timeout(10000)});
-  const d=await r.json();
-  const res=d?.quoteResponse?.result?.[0];
-  if(!res) return null;
-  return{
-    price: res.regularMarketPrice,
-    prev:  res.regularMarketPreviousClose,
-    open:  res.regularMarketOpen,
-    high:  res.regularMarketDayHigh,
-    low:   res.regularMarketDayLow,
-  };
-}
-
-async function loadRT(){
-  document.getElementById('rtSpinner').style.display='inline-block';
+async function loadSpread(){
+  document.getElementById('spSpinner').style.display='inline-block';
   try{
-    // 並行抓台指期 + USD/TWD
-    const [txf, usd]=await Promise.all([
-      fetchQuote('TXF=F'),   // 期貨用 v7 quote
-      fetchChart('USDTWD=X'),// 外匯用 v8 chart（原本可用）
-    ]);
-
-    // ── 台指期 ──
-    if(txf && txf.price!=null){
-      const price=txf.price;
-      const prev=txf.prev??price;
-      const chg=price-prev;
-      const pct=prev?chg/prev*100:0;
-      const cls=chg>0?'up':chg<0?'down':'neutral';
-      document.getElementById('rtPrice').className=`rt-price ${cls}`;
-      document.getElementById('rtPrice').textContent=price.toLocaleString();
-      document.getElementById('rtChange').innerHTML=fmtChg(chg,pct);
-      document.getElementById('rtOpen').textContent=txf.open!=null?Math.round(txf.open).toLocaleString():'—';
-      document.getElementById('rtHigh').textContent=txf.high&&isFinite(txf.high)?Math.round(txf.high).toLocaleString():'—';
-      document.getElementById('rtLow').textContent=txf.low&&isFinite(txf.low)?Math.round(txf.low).toLocaleString():'—';
-      document.getElementById('rtPrev').textContent=prev!=null?Math.round(prev).toLocaleString():'—';
-    }
-
-    // ── 盤別 ──
-    const sess=getTWSession();
-    const sesEl=document.getElementById('rtSession');
-    const nightNote=document.getElementById('rtNightNote');
-    if(sess==='day'){sesEl.textContent='日盤';sesEl.className='rt-session';nightNote.style.display='none';}
-    else if(sess==='night'){sesEl.textContent='夜盤';sesEl.className='rt-session night';nightNote.style.display='inline';}
-    else{sesEl.textContent='休市';sesEl.className='rt-session closed';nightNote.style.display='none';}
-
-    // ── 匯率 USD/TWD ──
-    if(usd && usd.price!=null){
-      const price=usd.price;
-      const prev=usd.prev??price;
-      const chg=price-prev;
-      const pct=prev?chg/prev*100:0;
-      document.getElementById('fxUSD').textContent=price.toFixed(3);
-      document.getElementById('fxUSDchg').innerHTML=fmtFxChg(chg,pct);
-    }
-
-    // ── 更新時間 ──
-    const now=new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    document.getElementById('rtUpdated').textContent=`更新 ${now}`;
+    const r=await fetch(PROXY+encodeURIComponent(SPREAD_CSV_URL),{signal:AbortSignal.timeout(10000)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const text=await r.text();
+    const lines=text.trim().split('\n').map(l=>l.split(',').map(c=>c.trim().replace(/^"|"$/g,'')));
+    // 第一行是 header，其餘是資料
+    if(lines.length<2){document.getElementById('spBody').innerHTML='<tr><td colspan="2">無資料</td></tr>';return;}
+    const headers=lines[0];
+    // 重新渲染 thead
+    document.querySelector('#spTable thead tr').innerHTML=headers.map(h=>`<th>${h}</th>`).join('');
+    // 渲染 tbody
+    const tbody=document.getElementById('spBody');
+    tbody.innerHTML=lines.slice(1).filter(r=>r.some(c=>c)).map(row=>
+      '<tr>'+row.map(c=>`<td>${c}</td>`).join('')+'</tr>'
+    ).join('');
+    const now=new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('spUpdated').textContent=`更新 ${now}`;
   }catch(e){
-    console.warn('RT fetch failed:',e.message);
-    document.getElementById('rtUpdated').textContent='取得失敗，30秒後重試';
+    console.warn('Spread fetch failed:',e.message);
+    document.getElementById('spBody').innerHTML='<tr><td colspan="2" style="color:var(--text-dim);">取得失敗</td></tr>';
+    document.getElementById('spUpdated').textContent='取得失敗';
   }
-  document.getElementById('rtSpinner').style.display='none';
+  document.getElementById('spSpinner').style.display='none';
 }
 
-loadRT();
-setInterval(loadRT,30000); // 每30秒更新
+loadSpread();
+setInterval(loadSpread,300000); // 每5分鐘更新
 </script>
 </body>
 </html>
