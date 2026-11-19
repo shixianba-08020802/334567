@@ -151,6 +151,19 @@ let store={attempts:[],corrections:[]};
 let sync='init'; // init | loading | ok | offline | nourl
 let flushing=false;
 let lastErr='';
+function jsonp(params){
+  return new Promise((resolve,reject)=>{
+    const cb='__g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const s=document.createElement('script');
+    const done=()=>{clearTimeout(tm);try{delete window[cb];}catch(_){window[cb]=undefined;}s.remove();};
+    const tm=setTimeout(()=>{done();reject(new Error('連線逾時'));},20000);
+    window[cb]=d=>{done();resolve(d);};
+    s.onerror=()=>{done();reject(new Error('連不到 Apps Script（請確認已部署新版本）'));};
+    const q=Object.entries(Object.assign({},params,{callback:cb,t:Date.now()})).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+    s.src=GAS_URL+'?'+q;
+    document.head.appendChild(s);
+  });
+}
 const gasReady=()=>/^https:\/\/script\.google(usercontent)?\.com\//.test(GAS_URL);
 
 function refreshStore(){
@@ -166,9 +179,7 @@ async function flush(){
   if(flushing)return; flushing=true;
   while(queue.length){
     try{
-      const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(queue[0])});
-      const txt=await r.text(); let j;
-      try{j=JSON.parse(txt);}catch(_){throw new Error('回應不是資料（HTTP '+r.status+'）：'+txt.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,120));}
+      const j=await jsonp({action:'add',data:JSON.stringify(queue[0])});
       if(!j.ok) throw new Error('試算表回報錯誤：'+(j.error||'未知'));
       queue.shift(); persist(); lastErr='';
     }catch(e){sync='offline';lastErr='上傳失敗：'+(e.message||e);break;}
@@ -181,9 +192,8 @@ async function pull(){
   if(!gasReady()){sync='nourl';updSync();return;}
   sync='loading';updSync();
   try{
-    const r=await fetch(GAS_URL+'?t='+Date.now());
-    const txt=await r.text(); let j;
-    try{j=JSON.parse(txt);}catch(_){throw new Error('回應不是資料（HTTP '+r.status+'）：'+txt.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,120));}
+    const j=await jsonp({});
+    if(!j||!j.ok) throw new Error('試算表回報錯誤：'+((j&&j.error)||'未知'));
     const merge=(srv,type)=>{
       const m=new Map(); (srv||[]).forEach(x=>x&&x.id&&m.set(x.id,x));
       queue.filter(q=>q.type===type).forEach(q=>m.set(q.rec.id,q.rec));
