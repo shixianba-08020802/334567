@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>喜羊羊測驗區</title>
+<style>
+:root{
+  --bg:#f6f5f1;--card:#fff;--ink:#1f2328;--sub:#5f6670;--line:#e3e1da;
+  --pri:#2f5bd3;--pri-soft:#e8eefc;--ok:#1e8a4c;--ok-soft:#e5f5ec;--bad:#c8372d;--bad-soft:#fbe9e7;
+  --c1:#c2571a;--c2:#2f5bd3;--c3:#7a3fc4;--c4:#1e8a4c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+  font-size:17px;line-height:1.6;-webkit-text-size-adjust:100%}
+body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.wrap{max-width:640px;margin:0 auto;padding:16px 14px 110px}
+h1{font-size:24px;margin:8px 0 4px}
+h2{font-size:20px;margin:22px 0 10px}
+.muted{color:var(--sub);font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0}
+.btn{display:block;width:100%;border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:600;
+  background:var(--pri);color:#fff;cursor:pointer;font-family:inherit;margin:8px 0}
+.btn.sec{background:var(--card);color:var(--pri);border:1.5px solid var(--pri)}
+.btn.ghost{background:transparent;color:var(--sub);border:1px solid var(--line);font-weight:500}
+.btn.okb{background:var(--ok)}
+.btn:disabled{opacity:.45}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.topbar{position:sticky;top:0;z-index:5;background:rgba(246,245,241,.96);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);padding:10px 14px 8px;margin:0 -14px}
+.prog{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px}
+.prog>i{display:block;height:100%;background:var(--pri);width:0;transition:width .2s}
+.tabs{display:flex;gap:6px;margin-top:8px;overflow-x:auto}
+.tabs a{flex:1;text-align:center;font-size:14px;padding:5px 6px;border-radius:8px;background:var(--card);
+  border:1px solid var(--line);color:var(--ink);text-decoration:none;white-space:nowrap}
+.subj{font-size:19px;font-weight:700;margin:26px 0 6px;padding-left:10px;border-left:5px solid var(--sc)}
+.q .qn{font-weight:700;color:var(--sub);font-size:14px}
+.q .qt{margin:4px 0 10px;white-space:pre-wrap}
+.opt{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:#fafaf8;border:1.5px solid var(--line);
+  border-radius:10px;padding:11px 12px;margin:7px 0;font-size:16px;font-family:inherit;color:var(--ink);cursor:pointer}
+.opt b{flex:0 0 24px;height:24px;border-radius:50%;border:1.5px solid var(--sub);display:flex;align-items:center;
+  justify-content:center;font-size:13px;color:var(--sub)}
+.opt.sel{border-color:var(--pri);background:var(--pri-soft)}
+.opt.sel b{background:var(--pri);border-color:var(--pri);color:#fff}
+.opt.right{border-color:var(--ok);background:var(--ok-soft)}
+.opt.right b{background:var(--ok);border-color:var(--ok);color:#fff}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opt.wrong b{background:var(--bad);border-color:var(--bad);color:#fff}
+.opt[disabled]{cursor:default}
+.q.unans{border-color:#e7b54a}
+.exp{background:#f4f2ec;border-radius:10px;padding:10px 12px;margin-top:10px;font-size:15px}
+.tag{display:inline-block;font-size:13px;padding:1px 8px;border-radius:20px;margin-right:4px}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}.tag.bad{background:var(--bad-soft);color:var(--bad)}
+.tag.pend{background:#fdf1d8;color:#9a6a00}
+.big{font-size:54px;font-weight:800;text-align:center;line-height:1.1;margin:6px 0}
+.grid4{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;border-top:4px solid var(--sc)}
+.tile .n{font-size:26px;font-weight:800}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{border-bottom:1px solid var(--line);padding:8px 4px;text-align:center}
+th{color:var(--sub);font-weight:600;font-size:13px}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;margin:10px 0}
+.seg button{flex:1;border:0;background:none;padding:8px;border-radius:8px;font-size:15px;font-family:inherit;color:var(--sub);cursor:pointer}
+.seg button.on{background:var(--pri);color:#fff}
+.bottombar{position:fixed;left:0;right:0;bottom:0;background:rgba(246,245,241,.97);border-top:1px solid var(--line);
+  padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
+.bottombar .inner{max-width:640px;margin:0 auto}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:20;padding:20px}
+.modal.on{display:flex}
+.modal .box{background:#fff;border-radius:16px;padding:20px;max-width:400px;width:100%}
+.note{font-size:13px;color:var(--sub);text-align:center;margin-top:16px}
+.link{color:var(--pri);background:none;border:0;font-size:15px;padding:0;cursor:pointer;font-family:inherit}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="bottombar hidden" id="bottom"><div class="inner" id="bottomInner"></div></div>
+<div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+
+<script>
+// ===== 題庫 =====
+const SUBJ=[
+  {k:'國文',c:'var(--c1)'},{k:'英文',c:'var(--c2)'},{k:'數學',c:'var(--c3)'},{k:'生物',c:'var(--c4)'}
+];
+const Q=[
+// 國文（翰林七上 L4～L6）
+{s:'國文',r:'L4 論語選',q:'《論語》是記錄孔子和弟子言行的書，它屬於哪一種體裁？',o:['語錄體','章回小說','近體詩','書信體'],a:0,e:'《論語》由孔子弟子及再傳弟子編纂，記錄孔子與弟子的言行對話，屬於語錄體。'},
+{s:'國文',r:'L4 論語選',q:'「學而時習之，不亦說乎？」句中的「說」是什麼意思？',o:['說話','高興、喜悅','解說','說服'],a:1,e:'「說」通「悅」，讀 ㄩㄝˋ，意思是高興。'},
+{s:'國文',r:'L4 論語選',q:'「學而不思則罔，思而不學則殆。」這句話的意思是什麼？',o:['學習一定要背誦，不必思考','只學習不思考會迷惑無所得；只思考不學習會疑惑不安','學習和思考只要做好一項就夠了','思考比學習重要'],a:1,e:'罔：迷惘、無所得；殆：疑惑不安。學習和思考要並重。'},
+{s:'國文',r:'L4 論語選',q:'「三人行，必有我師焉：擇其善者而從之，其不善者而改之。」這段話勉勵我們什麼？',o:['出門要結伴同行才安全','向別人的優點學習，看到別人的缺點就反省改正自己','只能向老師學習','朋友越多越好'],a:1,e:'別人的優點要學習（從之）；別人的缺點拿來檢討自己，有就改正（改之）。'},
+{s:'國文',r:'L5 背影',q:'朱自清〈背影〉中，讓作者最感動、流下眼淚的父親背影，是父親在做什麼的時候？',o:['離家去找工作','在車站送行，越過月臺去買橘子','在祖母的喪禮上','在家中寫信'],a:1,e:'父親身材肥胖，仍吃力地爬上月臺為兒子買橘子，那個背影讓作者落淚。'},
+{s:'國文',r:'L5 背影',q:'〈背影〉中，父親原本說不送了，後來為什麼還是決定親自送作者去車站？',o:['想順便去買橘子','不放心託茶房送，怕他照顧不周','要搭同一班火車去南京','祖母生前交代的'],a:1,e:'父親不放心交給茶房（旅館服務人員），躊躇之後決定自己送，表現父親的關愛。'},
+{s:'國文',r:'L5 背影',q:'下列哪一項最符合〈背影〉的主旨？',o:['描寫火車站熱鬧的景象','透過父親的背影，寫出父親深厚的愛和作者的思念','說明買橘子的方法','批評父親做事拖拉'],a:1,e:'全文以「背影」為線索，寫父愛，以及作者事後體會父愛的感動與懷念。'},
+{s:'國文',r:'L6 心囚',q:'關於〈心囚〉作者杏林子的敘述，哪一項正確？',o:['本名劉俠，因類風濕性關節炎行動不便，仍努力寫作，並創辦伊甸基金會','清代著名的詩人','大學中文系教授，一生身體健康','以寫武俠小說聞名'],a:0,e:'杏林子（劉俠）少年時罹患類風濕性關節炎，仍以寫作鼓勵人心，創辦伊甸社會福利基金會。'},
+{s:'國文',r:'L6 心囚',q:'〈心囚〉這個題目最想告訴讀者什麼？',o:['監獄的生活很辛苦','真正困住人的，往往是自己的心；心靈要自由，不要自我設限','不要隨便出門','身體健康最重要，其他都不重要'],a:1,e:'「心囚」指被自己的心囚禁。作者身體受限，卻強調心靈不能被困住。'},
+{s:'國文',r:'L6 心囚',q:'「她的身體雖然被病痛困住，心靈卻比誰都自由。」這句話用了哪一種修辭？',o:['譬喻','映襯','誇飾','轉化'],a:1,e:'把「身體受困」和「心靈自由」兩種相反的情況並列對照，是映襯法。'},
+// 英文（翰林七上 Unit 3～Review 2）
+{s:'英文',r:'U3',q:'____ quiet in the library, please.',o:['Be','Is','Are','Don\'t'],a:0,e:'祈使句用原形動詞開頭，be 動詞的原形是 Be。'},
+{s:'英文',r:'U3',q:'____ run in the hallway. It\'s dangerous.',o:['Not','Don\'t','Doesn\'t','No'],a:1,e:'否定祈使句：Don\'t + 原形動詞。'},
+{s:'英文',r:'U3',q:'Tom can ____ the guitar very well.',o:['plays','play','playing','to play'],a:1,e:'助動詞 can 後面接原形動詞，不加 s。'},
+{s:'英文',r:'U3',q:'My brother and I can\'t do it. Please help ____.',o:['we','our','us','ours'],a:2,e:'help 是動詞，後面接受格；we 的受格是 us。'},
+{s:'英文',r:'U4',q:'Look! The children ____ basketball in the park now.',o:['play','plays','are playing','is playing'],a:2,e:'Look! 和 now 表示正在進行；children 是複數 → are playing。'},
+{s:'英文',r:'U4',q:'A: What day is it today?\nB: ____',o:['It\'s May 5th.','It\'s Friday.','It\'s two o\'clock.','It\'s sunny.'],a:1,e:'What day 問「星期幾」；May 5th 是日期，two o\'clock 是時間。'},
+{s:'英文',r:'U4',q:'A: What time is it?\nB: ____',o:['It\'s Monday.','It\'s seven thirty.','It\'s June 1st.','It\'s hot.'],a:1,e:'What time 問「幾點」，回答時間 seven thirty（7:30）。'},
+{s:'英文',r:'U5',q:'A: ____ is the school concert?\nB: It\'s on December 20th.',o:['What','When','Where','Who'],a:1,e:'回答是日期，問「什麼時候」用 When。'},
+{s:'英文',r:'U6',q:'There ____ some milk in the glass.',o:['is','are','am','be'],a:0,e:'milk 是不可數名詞，就算前面有 some，There 後面仍用 is。'},
+{s:'英文',r:'U6',q:'A: Are there any lions in the zoo?\nB: Yes, ____.',o:['there is','there are','they are','it is'],a:1,e:'用 Are there 問，簡答也用 there：Yes, there are. / No, there aren\'t.'},
+// 數學（康軒七上 第2章）
+{s:'數學',r:'2-1',q:'下列哪一個數是質數？',o:['51','57','59','91'],a:2,e:'51 = 3×17，57 = 3×19，91 = 7×13，只有 59 除了 1 和自己沒有其他因數。'},
+{s:'數學',r:'2-1',q:'下列哪一個數是 3 的倍數？',o:['1234','4185','5207','7001'],a:1,e:'各位數字和是 3 的倍數，這個數就是 3 的倍數：4+1+8+5 = 18 ✓。其他：10、14、8 都不是。'},
+{s:'數學',r:'2-1',q:'84 的標準分解式是哪一個？',o:['2 × 42','2² × 3 × 7','2³ × 3 × 7','4 × 21'],a:1,e:'84 = 2×2×3×7 = 2²×3×7。標準分解式要全部是質數，並由小到大用指數寫。'},
+{s:'數學',r:'2-2',q:'12 和 18 的最大公因數是多少？',o:['3','6','36','216'],a:1,e:'12 = 2²×3，18 = 2×3²，共同部分取次方小的：2×3 = 6。（36 是最小公倍數）'},
+{s:'數學',r:'2-2',q:'6、8、12 三個數的最小公倍數是多少？',o:['2','24','48','96'],a:1,e:'6 = 2×3，8 = 2³，12 = 2²×3，每個質因數取次方最大的：2³×3 = 24。'},
+{s:'數學',r:'2-3',q:'計算：2/3 + (−5/6) = ？',o:['−1/6','1/6','−3/9','7/6'],a:0,e:'通分：4/6 + (−5/6) = −1/6。'},
+{s:'數學',r:'2-3',q:'計算：(−3/4) × 8/9 = ？',o:['2/3','−2/3','−24/36','−27/32'],a:1,e:'負 × 正 = 負；先約分：3 和 9 約成 1 和 3，4 和 8 約成 1 和 2 → −2/3。'},
+{s:'數學',r:'2-3',q:'計算：(−5/6) ÷ (−10/3) = ？',o:['1/4','−1/4','25/9','−25/9'],a:0,e:'除以一個數＝乘以它的倒數：(−5/6) × (−3/10) = 15/60 = 1/4。負負得正。'},
+{s:'數學',r:'2-4',q:'2³ × 2⁴ = ？',o:['2⁷','2¹²','4⁷','4¹²'],a:0,e:'指數律：底數相同相乘，指數相加 → 2³⁺⁴ = 2⁷。'},
+{s:'數學',r:'2-4',q:'計算：(−3)⁴ ÷ 3² = ？',o:['9','−9','3','−3'],a:0,e:'(−3)⁴ = 81（負數的偶數次方為正），3² = 9，81 ÷ 9 = 9。'},
+// 自然・生物（康軒七上 2-3～3-4）
+{s:'生物',r:'2-3',q:'光合作用的主要產物是什麼？',o:['二氧化碳和水','葡萄糖和氧氣','葡萄糖和二氧化碳','氧氣和水'],a:1,e:'二氧化碳 + 水 →（光、葉綠素）→ 葡萄糖 + 氧氣。二氧化碳和水是原料。'},
+{s:'生物',r:'2-3',q:'把植物放暗處一天後，用鋁箔遮住一片葉子的一部分，照光數小時，再去除葉綠素並滴碘液。結果會如何？',o:['整片葉子都變藍黑色','照光部分變藍黑色，遮光部分不變','遮光部分變藍黑色，照光部分不變','整片葉子都不變色'],a:1,e:'照光部分進行光合作用產生澱粉，遇碘液變藍黑色；遮光部分沒有光合作用，不產生澱粉。'},
+{s:'生物',r:'2-4',q:'食物中的澱粉最早在哪個部位開始被消化？',o:['口腔','胃','小腸','大腸'],a:0,e:'口腔中的唾液含澱粉酶，澱粉在口腔就開始被分解。'},
+{s:'生物',r:'2-4',q:'人體吸收養分最主要的器官是哪一個？',o:['胃','小腸','大腸','食道'],a:1,e:'小腸內壁有許多絨毛，表面積大，是消化和吸收養分的主要場所。大腸主要吸收水分。'},
+{s:'生物',r:'2-4',q:'關於膽汁的敘述，哪一項正確？',o:['由膽囊製造','含有消化酵素','可以使脂肪乳化，幫助消化','負責消化蛋白質'],a:2,e:'膽汁由肝臟製造、儲存在膽囊；不含酵素，能把脂肪乳化成小油滴，幫助消化。'},
+{s:'生物',r:'3-1～3-2',q:'植物體中負責把根吸收的水分往上運送的構造是什麼？',o:['韌皮部','木質部','形成層','氣孔'],a:1,e:'木質部運送水分和礦物質（由下往上）；韌皮部運送葉子製造的養分。'},
+{s:'生物',r:'3-3',q:'人體心臟中，把含氧量高的血液送往全身的是哪一個腔室？',o:['右心房','右心室','左心房','左心室'],a:3,e:'左心室壁最厚，收縮時把充氧血經主動脈送往全身（體循環）。'},
+{s:'生物',r:'3-3',q:'血液中負責運送氧氣的是哪一種成分？',o:['白血球','紅血球','血小板','血漿'],a:1,e:'紅血球含血紅素，可攜帶氧氣。白血球負責防禦，血小板幫助凝血。'},
+{s:'生物',r:'3-4',q:'人體防禦病原體的第一道防線是什麼？',o:['白血球','抗體','皮膚和黏膜','淋巴結'],a:2,e:'皮膚和黏膜阻擋病原體進入人體，是第一道防線；白血球、抗體屬於後面的防線。'},
+{s:'生物',r:'3-4',q:'接種疫苗主要能讓人體產生什麼效果？',o:['直接殺死體內所有細菌','讓身體預先產生抗體與記憶，日後遇到同種病原體能快速抵抗','讓血液循環變快','增加紅血球數量'],a:1,e:'疫苗是減毒或不活化的病原體（或其成分），刺激身體產生抗體與記憶細胞。'},
+];
+Q.forEach((x,i)=>{x.id=i;});
+const L='ABCD';
+
+// ===== 設定 =====
+// ↓↓↓ 把 Apps Script「網頁應用程式」網址貼在引號裡 ↓↓↓
+const GAS_URL='https://script.google.com/macros/s/AKfycbxxg7dcRkr8JB1NGS1214o8X-ZAA36Go8ATeg3SIxyIi-Vimu0L9r4_xaWBrTpRan_B/exec';
+// ↑↑↑
+const QVER='115上-段考2';            // 卷別：換題目時改這裡
+const USERS=['白豬緁','花豬縈'];
+
+// ===== 儲存：Google 試算表（離線時先存手機，連線後自動上傳）=====
+const LS={user:'g7_user',cache:'g7_cache',queue:'g7_queue'};
+function lsGet(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+let user=lsGet(LS.user,null); if(!USERS.includes(user)) user=null;
+let all=lsGet(LS.cache,{attempts:[],corrections:[]});
+let queue=lsGet(LS.queue,[]);
+let store={attempts:[],corrections:[]};
+let sync='init'; // init | loading | ok | offline | nourl
+let flushing=false;
+const gasReady=()=>/^https:\/\/script\.google(usercontent)?\.com\//.test(GAS_URL);
+
+function refreshStore(){
+  const by=(p,q)=>q.ts-p.ts;
+  store={attempts:all.attempts.filter(a=>a.user===user).sort(by),
+         corrections:all.corrections.filter(c=>c.user===user).sort(by)};
+}
+function persist(){lsSet(LS.cache,all);lsSet(LS.queue,queue);}
+refreshStore();
+
+async function flush(){
+  if(!gasReady()){sync='nourl';updSync();return;}
+  if(flushing)return; flushing=true;
+  while(queue.length){
+    try{
+      const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(queue[0])});
+      const j=await r.json(); if(!j.ok) throw new Error(j.error||'fail');
+      queue.shift(); persist();
+    }catch(e){sync='offline';break;}
+  }
+  flushing=false;
+  if(!queue.length&&sync!=='loading') sync='ok';
+  updSync();
+}
+async function pull(){
+  if(!gasReady()){sync='nourl';updSync();return;}
+  sync='loading';updSync();
+  try{
+    const r=await fetch(GAS_URL+'?t='+Date.now());
+    const j=await r.json();
+    const merge=(srv,type)=>{
+      const m=new Map(); (srv||[]).forEach(x=>x&&x.id&&m.set(x.id,x));
+      queue.filter(q=>q.type===type).forEach(q=>m.set(q.rec.id,q.rec));
+      return [...m.values()];
+    };
+    all={attempts:merge(j.attempts,'attempt'),corrections:merge(j.corrections,'correction')};
+    persist(); refreshStore();
+    sync=queue.length?'offline':'ok';
+    if(['home','records'].includes(view.name)) render(); else updSync();
+  }catch(e){sync='offline';updSync();}
+}
+function syncText(){
+  if(sync==='nourl')return '⚠️ 尚未設定試算表網址，紀錄只存在這支手機';
+  if(sync==='loading'||sync==='init')return '⏳ 正在讀取試算表紀錄…';
+  if(queue.length)return `⚠️ 有 ${queue.length} 筆紀錄還沒上傳，連上網路會自動補傳`;
+  if(sync==='offline')return '⚠️ 連不到試算表，目前顯示手機裡的紀錄';
+  return '✅ 紀錄已同步到 Google 試算表';
+}
+function updSync(){const el=document.getElementById('sync');if(el)el.textContent=syncText();}
+
+async function saveDoc(col,obj){
+  obj.user=user; obj.ver=QVER;
+  all[col].unshift(obj);
+  queue.push({type:col==='attempts'?'attempt':'correction',rec:obj});
+  persist(); refreshStore(); flush();
+}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+
+// ===== 工具 =====
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fmtTime(ts){const d=new Date(ts);const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
+function fmtDur(s){const m=Math.floor(s/60),r=s%60;return m?`${m} 分 ${r} 秒`:`${r} 秒`;}
+function subjColor(k){return SUBJ.find(x=>x.k===k).c;}
+function fixedSet(attemptId){ // 已訂正成功的題目
+  const s=new Set();
+  store.corrections.filter(c=>c.attemptId===attemptId).forEach(c=>c.items.forEach(it=>{if(it.ok)s.add(it.qid);}));
+  return s;}
+function pendingOf(att){if(att.ver!==QVER)return [];const f=fixedSet(att.id);return att.wrong.filter(q=>!f.has(q));}
+function modal(html){$('#modalBox').innerHTML=html;$('#modal').classList.add('on');}
+function closeModal(){$('#modal').classList.remove('on');}
+function bottom(html){if(html){$('#bottomInner').innerHTML=html;$('#bottom').classList.remove('hidden');}else $('#bottom').classList.add('hidden');}
+
+// ===== 狀態 =====
+let view={name:'home'};
+let exam=null; // {answers:[], start}
+let corr=null; // {attemptId, qids, answers:{}, done}
+
+function go(name,extra){view=Object.assign({name},extra||{});render();window.scrollTo(0,0);}
+
+function render(){
+  const f={home,exam:examView,result,review,correct:correctView,records}[view.name];
+  f();
+}
+
+// ===== 首頁 =====
+function home(){
+  bottom(null);
+  if(!user){
+    $('#app').innerHTML=`<h1>喜羊羊測驗區</h1><div style="font-weight:700;margin-bottom:4px">國一第二次段考模擬</div><div class="muted">請先選擇作答者</div>
+    ${USERS.map(u=>`<button class="btn" style="padding:20px;font-size:20px" onclick="setUser('${u}')">${u}</button>`).join('')}
+    <div class="note" id="sync">${syncText()}</div>`;
+    return;
+  }
+  const last=store.attempts[0];
+  const pend=store.attempts.reduce((n,a)=>n+pendingOf(a).length,0);
+  $('#app').innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+    <div style="font-size:18px">作答者：<b>${esc(user)}</b></div>
+    <button class="link" onclick="askSwitch()">切換作答者</button></div>
+  <h1>喜羊羊測驗區</h1><div style="font-weight:700;margin-bottom:4px">國一第二次段考模擬</div>
+  <div class="muted">國文（翰林）、英文（翰林）、數學（康軒）、生物（康軒）<br>第二次段考範圍：國文 L4～L6、英語 U3～Review2、數學第 2 章、自然 2-3～3-4<br>各 10 題，共 40 題選擇題<br>每題 2.5 分，滿分 100 分。全部作答完才交卷。</div>
+  ${exam?`<div class="card">還有一份考卷作答到一半（已答 ${exam.answers.filter(x=>x!=null).length}/40）
+    <button class="btn" onclick="go('exam')">繼續作答</button></div>`:''}
+  <button class="btn" onclick="startExam()">${exam?'重新開始一份':'開始考試'}</button>
+  <button class="btn sec" onclick="go('records',{tab:'att'})">作答紀錄（${store.attempts.length} 次）</button>
+  <button class="btn sec" onclick="go('records',{tab:'cor'})">訂正紀錄（${store.corrections.length} 次）</button>
+  ${last?`<div class="card"><div class="muted">上一次：${fmtTime(last.ts)}</div>
+    <div style="font-size:22px;font-weight:800">${last.score} 分</div>
+    <div class="muted">${SUBJ.map(s=>`${s.k} ${last.per[s.k]}/10`).join('　')}</div>
+    ${pend?`<div style="margin-top:8px"><span class="tag pend">待訂正共 ${pend} 題</span></div>`:''}</div>`:''}
+  <div class="note" id="sync">${syncText()}</div>`;
+}
+function setUser(u){user=u;lsSet(LS.user,u);exam=null;corr=null;refreshStore();go('home');}
+function askSwitch(){
+  modal(`<h2 style="margin-top:0">切換作答者</h2>
+    ${exam?'<div class="muted" style="margin-bottom:8px">目前作答到一半的考卷會清除。</div>':''}
+    ${USERS.map(u=>`<button class="btn ${u===user?'ghost':''}" onclick="closeModal();setUser('${u}')">${u}${u===user?'（目前）':''}</button>`).join('')}
+    <button class="btn ghost" onclick="closeModal()">取消</button>`);
+}
+
+function startExam(){
+  exam={answers:Array(40).fill(null),start:Date.now()};
+  go('exam');
+}
+
+// ===== 作答 =====
+function examView(){
+  const ans=exam.answers;
+  let h=`<div class="topbar"><div style="display:flex;justify-content:space-between;align-items:center">
+    <b>作答中</b><span class="muted" id="cnt"></span></div>
+    <div class="prog"><i id="pbar"></i></div>
+    <div class="tabs">${SUBJ.map(s=>`<a href="#" onclick="jump('${s.k}');return false" style="border-color:${s.c}">${s.k}</a>`).join('')}</div></div>`;
+  SUBJ.forEach(s=>{
+    h+=`<div class="subj" id="sec-${s.k}" style="--sc:${s.c}">${s.k}</div>`;
+    Q.filter(q=>q.s===s.k).forEach(q=>{
+      h+=`<div class="card q" id="q${q.id}"><div class="qn">第 ${q.id+1} 題　<span class="tag" style="background:#f0eee8">${q.r}</span></div><div class="qt">${esc(q.q)}</div>
+      ${q.o.map((o,i)=>`<button class="opt ${ans[q.id]===i?'sel':''}" onclick="pick(${q.id},${i})"><b>${L[i]}</b><span>${esc(o)}</span></button>`).join('')}</div>`;
+    });
+  });
+  h+=`<button class="btn ghost" onclick="go('home')">回首頁（作答會保留）</button>`;
+  $('#app').innerHTML=h;
+  bottom(`<button class="btn" style="margin:0" onclick="trySubmit()">交卷</button>`);
+  updProg();
+}
+function jump(k){const el=document.getElementById('sec-'+k);if(el)window.scrollTo({top:el.offsetTop-120,behavior:'smooth'});}
+function pick(qid,i){
+  exam.answers[qid]=i;
+  const card=document.getElementById('q'+qid);
+  card.classList.remove('unans');
+  card.querySelectorAll('.opt').forEach((b,j)=>b.classList.toggle('sel',j===i));
+  updProg();
+}
+function updProg(){
+  const n=exam.answers.filter(x=>x!=null).length;
+  $('#cnt').textContent=`已答 ${n} / 40`;$('#pbar').style.width=(n/40*100)+'%';
+}
+function trySubmit(){
+  const miss=exam.answers.map((a,i)=>a==null?i:-1).filter(i=>i>=0);
+  if(miss.length){
+    miss.forEach(i=>document.getElementById('q'+i).classList.add('unans'));
+    modal(`<h2 style="margin-top:0">還有 ${miss.length} 題沒作答</h2>
+      <div class="muted">第 ${miss.map(i=>i+1).join('、')} 題</div>
+      <button class="btn" onclick="closeModal();toQ(${miss[0]})">回去作答</button>
+      <button class="btn ghost" onclick="closeModal();submitExam()">直接交卷（未答算錯）</button>`);
+  }else{
+    modal(`<h2 style="margin-top:0">確定要交卷嗎？</h2><div class="muted">交卷後就不能修改答案。</div>
+      <div class="row"><button class="btn ghost" onclick="closeModal()">再檢查</button>
+      <button class="btn" onclick="closeModal();submitExam()">交卷</button></div>`);
+  }
+}
+function toQ(i){const el=document.getElementById('q'+i);window.scrollTo({top:el.offsetTop-130,behavior:'smooth'});}
+async function submitExam(){
+  const ans=exam.answers.slice();
+  const per={};SUBJ.forEach(s=>per[s.k]=0);
+  const wrong=[];
+  Q.forEach(q=>{if(ans[q.id]===q.a)per[q.s]++;else wrong.push(q.id);});
+  const correct=40-wrong.length;
+  const att={id:uid(),ts:Date.now(),dur:Math.round((Date.now()-exam.start)/1000),
+    answers:ans.map(x=>x==null?-1:x),per,correct,score:Math.round(correct*2.5*10)/10,wrong};
+  exam=null;
+  await saveDoc('attempts',att);
+  go('result',{id:att.id});
+}
+
+// ===== 成績 =====
+function getAtt(id){return store.attempts.find(a=>a.id===id);}
+function result(){
+  const a=getAtt(view.id);if(!a)return go('home');
+  bottom(null);
+  const pend=pendingOf(a);
+  $('#app').innerHTML=`
+  <h1>成績</h1><div class="muted">${fmtTime(a.ts)}・作答時間 ${fmtDur(a.dur)}</div>
+  <div class="card"><div class="big">${a.score}<span style="font-size:22px"> 分</span></div>
+  <div style="text-align:center" class="muted">答對 ${a.correct} 題・答錯 ${a.wrong.length} 題</div></div>
+  <div class="grid4">${SUBJ.map(s=>`<div class="tile" style="--sc:${s.c}"><div class="muted">${s.k}</div>
+    <div class="n">${a.per[s.k]*10}<span style="font-size:14px"> 分</span></div><div class="muted">${a.per[s.k]}/10 題</div></div>`).join('')}</div>
+  ${a.wrong.length?`<button class="btn" onclick="go('review',{id:'${a.id}',f:'wrong'})">檢視錯題（${a.wrong.length} 題）</button>
+    ${pend.length?`<button class="btn okb" onclick="startCorr('${a.id}')">開始訂正（待訂正 ${pend.length} 題）</button>`:'<div class="card" style="text-align:center"><span class="tag ok">錯題已全部訂正完成</span></div>'}`
+   :'<div class="card" style="text-align:center">全對！太厲害了 🎉</div>'}
+  <button class="btn sec" onclick="go('review',{id:'${a.id}',f:'all'})">看全部 40 題詳解</button>
+  <button class="btn ghost" onclick="go('home')">回首頁</button>`;
+}
+
+// ===== 檢視 =====
+function review(){
+  const a=getAtt(view.id);if(!a)return go('home');
+  bottom(null);
+  const fixed=fixedSet(a.id);
+  const f=view.f||'wrong';
+  const list=Q.filter(q=>f==='all'||a.wrong.includes(q.id));
+  let h=`<h1>${f==='all'?'全部詳解':'錯題檢視'}</h1><div class="muted">${fmtTime(a.ts)}・${a.score} 分</div>
+  <div class="seg"><button class="${f==='wrong'?'on':''}" onclick="go('review',{id:'${a.id}',f:'wrong'})">只看錯題 (${a.wrong.length})</button>
+  <button class="${f==='all'?'on':''}" onclick="go('review',{id:'${a.id}',f:'all'})">全部 40 題</button></div>`;
+  let cur='';
+  list.forEach(q=>{
+    if(q.s!==cur){cur=q.s;h+=`<div class="subj" style="--sc:${subjColor(q.s)}">${q.s}</div>`;}
+    const my=a.answers[q.id],ok=my===q.a;
+    h+=`<div class="card q"><div class="qn">第 ${q.id+1} 題　<span class="tag" style="background:#f0eee8">${q.r}</span>
+      ${ok?'<span class="tag ok">答對</span>':`<span class="tag bad">${my<0?'未作答':'答錯'}</span>${fixed.has(q.id)?'<span class="tag ok">已訂正</span>':'<span class="tag pend">待訂正</span>'}`}</div>
+      <div class="qt">${esc(q.q)}</div>
+      ${q.o.map((o,i)=>`<button class="opt ${i===q.a?'right':(i===my?'wrong':'')}" disabled><b>${L[i]}</b><span>${esc(o)}${i===my&&!ok?'　← 你的答案':''}${i===q.a?'　✓ 正確答案':''}</span></button>`).join('')}
+      <div class="exp">💡 ${esc(q.e)}</div></div>`;
+  });
+  if(!list.length)h+='<div class="card">沒有錯題 🎉</div>';
+  const pend=pendingOf(a);
+  if(pend.length)h+=`<button class="btn okb" onclick="startCorr('${a.id}')">開始訂正（${pend.length} 題）</button>`;
+  h+=`<button class="btn sec" onclick="go('result',{id:'${a.id}'})">回成績</button><button class="btn ghost" onclick="go('home')">回首頁</button>`;
+  $('#app').innerHTML=h;
+}
+
+// ===== 訂正 =====
+function startCorr(attId){
+  const a=getAtt(attId);const qids=pendingOf(a);
+  if(!qids.length)return go('result',{id:attId});
+  corr={attemptId:attId,qids,answers:{},done:false,start:Date.now()};
+  go('correct');
+}
+function correctView(){
+  const a=getAtt(corr.attemptId);
+  let h=`<h1>訂正</h1><div class="muted">${fmtTime(a.ts)} 那次的錯題，共 ${corr.qids.length} 題。<br>先不看答案，重新作答一次。</div>`;
+  corr.qids.forEach(id=>{
+    const q=Q[id],my=corr.answers[id],old=a.answers[id];
+    let opts;
+    if(!corr.done){
+      opts=q.o.map((o,i)=>`<button class="opt ${my===i?'sel':''}" onclick="cpick(${id},${i})"><b>${L[i]}</b><span>${esc(o)}</span></button>`).join('');
+    }else{
+      opts=q.o.map((o,i)=>`<button class="opt ${i===q.a?'right':(i===my?'wrong':'')}" disabled><b>${L[i]}</b><span>${esc(o)}${i===q.a?'　✓':''}</span></button>`).join('')
+        +`<div class="exp">原本答 ${old<0?'未作答':L[old]}，訂正答 ${my==null?'未作答':L[my]}<br>💡 ${esc(q.e)}</div>`;
+    }
+    h+=`<div class="card q" id="c${id}"><div class="qn"><span class="tag" style="background:#f0eee8">${q.s}</span>第 ${id+1} 題　<span class="tag" style="background:#f0eee8">${q.r}</span>
+      ${corr.done?(my===q.a?'<span class="tag ok">訂正成功</span>':'<span class="tag bad">還是錯</span>'):''}</div>
+      <div class="qt">${esc(q.q)}</div>${opts}</div>`;
+  });
+  if(corr.done){
+    const okN=corr.qids.filter(id=>corr.answers[id]===Q[id].a).length;
+    const left=pendingOf(a).length;
+    h+=`<div class="card" style="text-align:center"><b>訂正成功 ${okN} / ${corr.qids.length} 題</b><br>
+      <span class="muted">${left?`還有 ${left} 題待訂正`:'這次考試的錯題全部訂正完成 🎉'}</span></div>
+      ${left?`<button class="btn okb" onclick="startCorr('${a.id}')">再訂正剩下的 ${left} 題</button>`:''}
+      <button class="btn sec" onclick="go('records',{tab:'cor'})">看訂正紀錄</button>
+      <button class="btn ghost" onclick="corr=null;go('home')">回首頁</button>`;
+    bottom(null);
+  }else{
+    h+=`<button class="btn ghost" onclick="corr=null;go('result',{id:'${a.id}'})">先不訂正，回成績</button>`;
+    bottom(`<button class="btn okb" style="margin:0" id="csub" onclick="submitCorr()">送出訂正</button>`);
+  }
+  $('#app').innerHTML=h;
+}
+function cpick(id,i){corr.answers[id]=i;
+  document.querySelectorAll('#c'+id+' .opt').forEach((b,j)=>b.classList.toggle('sel',j===i));}
+async function submitCorr(){
+  const miss=corr.qids.filter(id=>corr.answers[id]==null);
+  if(miss.length){modal(`<h2 style="margin-top:0">還有 ${miss.length} 題沒作答</h2>
+    <button class="btn" onclick="closeModal()">回去作答</button>`);return;}
+  const items=corr.qids.map(id=>({qid:id,ans:corr.answers[id],ok:corr.answers[id]===Q[id].a}));
+  const rec={id:uid(),ts:Date.now(),attemptId:corr.attemptId,attemptTs:getAtt(corr.attemptId).ts,dur:Math.round((Date.now()-corr.start)/1000),
+    items,okCount:items.filter(x=>x.ok).length,total:items.length};
+  corr.done=true;
+  await saveDoc('corrections',rec);
+  render();window.scrollTo(0,0);
+}
+
+// ===== 紀錄 =====
+function records(){
+  bottom(null);
+  const tab=view.tab||'att';
+  let h=`<h1>紀錄</h1><div class="seg">
+    <button class="${tab==='att'?'on':''}" onclick="go('records',{tab:'att'})">作答紀錄</button>
+    <button class="${tab==='cor'?'on':''}" onclick="go('records',{tab:'cor'})">訂正紀錄</button>
+    <button class="${tab==='stat'?'on':''}" onclick="go('records',{tab:'stat'})">錯題統計</button></div>`;
+  if(tab==='att'){
+    if(!store.attempts.length)h+='<div class="card muted">還沒有作答紀錄</div>';
+    else{
+      h+=`<div class="card" style="padding:8px 10px;overflow-x:auto"><table><tr><th>日期</th><th>總分</th>${SUBJ.map(s=>`<th>${s.k}</th>`).join('')}<th>待訂正</th></tr>
+      ${store.attempts.map(a=>{const p=pendingOf(a).length;const old=a.ver!==QVER;return `<tr ${old?'style="opacity:.55"':`onclick="go('result',{id:'${a.id}'})" style="cursor:pointer"`}>
+        <td style="font-size:13px">${fmtTime(a.ts).slice(5)}</td><td><b>${a.score}</b></td>
+        ${SUBJ.map(s=>`<td>${a.per[s.k]*10}</td>`).join('')}
+        <td>${old?'<span class="tag">舊卷</span>':p?`<span class="tag pend">${p}</span>`:(a.wrong.length?'<span class="tag ok">完成</span>':'—')}</td></tr>`;}).join('')}
+      </table></div><div class="muted" style="text-align:center">點任一列可看成績、錯題和訂正</div>`;
+    }
+  }else if(tab==='cor'){
+    if(!store.corrections.length)h+='<div class="card muted">還沒有訂正紀錄</div>';
+    store.corrections.filter(c=>c.ver===QVER).forEach(c=>{
+      const a=getAtt(c.attemptId);
+      h+=`<div class="card"><div style="display:flex;justify-content:space-between"><b>${fmtTime(c.ts)}</b>
+        <span class="tag ${c.okCount===c.total?'ok':'pend'}">成功 ${c.okCount}/${c.total}</span></div>
+        <div class="muted">訂正的是 ${a?fmtTime(a.ts)+'（'+a.score+' 分）':'已刪除的考試'}・用時 ${fmtDur(c.dur||0)}</div>
+        <div style="margin-top:6px;font-size:15px">${c.items.map(it=>{const q=Q[it.qid];
+          return `<div>${it.ok?'✅':'❌'} 第 ${it.qid+1} 題（${q.s}）答 ${L[it.ans]}${it.ok?'':`，正解 ${L[q.a]}`}</div>`;}).join('')}</div>
+        ${a?`<button class="link" style="margin-top:6px" onclick="go('review',{id:'${a.id}',f:'wrong'})">看這次考試的錯題 →</button>`:''}</div>`;
+    });
+  }else{
+    const cnt={};store.attempts.filter(a=>a.ver===QVER).forEach(a=>a.wrong.forEach(id=>cnt[id]=(cnt[id]||0)+1));
+    const arr=Object.entries(cnt).sort((x,y)=>y[1]-x[1]);
+    if(!arr.length)h+='<div class="card muted">還沒有錯題</div>';
+    else{
+      h+=`<div class="muted">所有考試中，最常錯的題目（共考 ${store.attempts.length} 次）</div>`;
+      arr.forEach(([id,n])=>{const q=Q[id];
+        h+=`<div class="card q"><div class="qn"><span class="tag" style="background:#f0eee8">${q.s}</span>第 ${+id+1} 題　<span class="tag bad">錯 ${n} 次</span></div>
+        <div class="qt">${esc(q.q)}</div><div class="exp">正解 ${L[q.a]}. ${esc(q.o[q.a])}<br>💡 ${esc(q.e)}</div></div>`;});
+    }
+  }
+  h+=`<button class="btn ghost" onclick="go('home')">回首頁</button>`;
+  $('#app').innerHTML=h;
+}
+
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+render();
+flush().then(pull);
+window.addEventListener('online',()=>flush().then(pull));
+</script>
+</body>
+</html>
