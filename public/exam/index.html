@@ -150,6 +150,7 @@ let queue=lsGet(LS.queue,[]);
 let store={attempts:[],corrections:[]};
 let sync='init'; // init | loading | ok | offline | nourl
 let flushing=false;
+let lastErr='';
 const gasReady=()=>/^https:\/\/script\.google(usercontent)?\.com\//.test(GAS_URL);
 
 function refreshStore(){
@@ -166,9 +167,11 @@ async function flush(){
   while(queue.length){
     try{
       const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(queue[0])});
-      const j=await r.json(); if(!j.ok) throw new Error(j.error||'fail');
-      queue.shift(); persist();
-    }catch(e){sync='offline';break;}
+      const txt=await r.text(); let j;
+      try{j=JSON.parse(txt);}catch(_){throw new Error('回應不是資料（HTTP '+r.status+'）：'+txt.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,120));}
+      if(!j.ok) throw new Error('試算表回報錯誤：'+(j.error||'未知'));
+      queue.shift(); persist(); lastErr='';
+    }catch(e){sync='offline';lastErr='上傳失敗：'+(e.message||e);break;}
   }
   flushing=false;
   if(!queue.length&&sync!=='loading') sync='ok';
@@ -179,7 +182,8 @@ async function pull(){
   sync='loading';updSync();
   try{
     const r=await fetch(GAS_URL+'?t='+Date.now());
-    const j=await r.json();
+    const txt=await r.text(); let j;
+    try{j=JSON.parse(txt);}catch(_){throw new Error('回應不是資料（HTTP '+r.status+'）：'+txt.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,120));}
     const merge=(srv,type)=>{
       const m=new Map(); (srv||[]).forEach(x=>x&&x.id&&m.set(x.id,x));
       queue.filter(q=>q.type===type).forEach(q=>m.set(q.rec.id,q.rec));
@@ -189,7 +193,7 @@ async function pull(){
     persist(); refreshStore();
     sync=queue.length?'offline':'ok';
     if(['home','records'].includes(view.name)) render(); else updSync();
-  }catch(e){sync='offline';updSync();}
+  }catch(e){sync='offline';lastErr='讀取失敗：'+(e.message||e);updSync();}
 }
 function syncText(){
   if(sync==='nourl')return '⚠️ 尚未設定試算表網址，紀錄只存在這支手機';
@@ -198,7 +202,10 @@ function syncText(){
   if(sync==='offline')return '⚠️ 連不到試算表，目前顯示手機裡的紀錄';
   return '✅ 紀錄已同步到 Google 試算表';
 }
-function updSync(){const el=document.getElementById('sync');if(el)el.textContent=syncText();}
+function updSync(){const el=document.getElementById('sync');if(!el)return;
+  el.innerHTML=esc(syncText())+((queue.length||sync==='offline')&&gasReady()?
+    `<br><button class="link" onclick="retrySync()">重新上傳</button>${lastErr?`<div style="margin-top:6px;color:#c8372d;font-size:12px;word-break:break-all">${esc(lastErr)}</div>`:''}`:'');}
+function retrySync(){lastErr='';sync='loading';updSync();flush().then(pull);}
 
 async function saveDoc(col,obj){
   obj.user=user; obj.ver=QVER;
@@ -242,8 +249,8 @@ function home(){
   if(!user){
     $('#app').innerHTML=`<h1>喜羊羊測驗區</h1><div style="font-weight:700;margin-bottom:4px">國一第二次段考模擬</div><div class="muted">請先選擇作答者</div>
     ${USERS.map(u=>`<button class="btn" style="padding:20px;font-size:20px" onclick="setUser('${u}')">${u}</button>`).join('')}
-    <div class="note" id="sync">${syncText()}</div>`;
-    return;
+    <div class="note" id="sync"></div>`;
+    updSync();return;
   }
   const last=store.attempts[0];
   const pend=store.attempts.reduce((n,a)=>n+pendingOf(a).length,0);
@@ -262,7 +269,8 @@ function home(){
     <div style="font-size:22px;font-weight:800">${last.score} 分</div>
     <div class="muted">${SUBJ.map(s=>`${s.k} ${last.per[s.k]}/10`).join('　')}</div>
     ${pend?`<div style="margin-top:8px"><span class="tag pend">待訂正共 ${pend} 題</span></div>`:''}</div>`:''}
-  <div class="note" id="sync">${syncText()}</div>`;
+  <div class="note" id="sync"></div>`;
+  updSync();
 }
 function setUser(u){user=u;lsSet(LS.user,u);exam=null;corr=null;refreshStore();go('home');}
 function askSwitch(){
