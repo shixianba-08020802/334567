@@ -144,6 +144,20 @@
   .sp-table td{padding:5px 18px;border:1px solid var(--border);text-align:center;background:var(--surface);}
   .sp-table tr:hover td{background:#f0ebe0;}
   .sp-updated{font-family:var(--font-mono);font-size:9px;color:var(--text-dim);margin-top:6px;text-align:right;}
+
+  /* ── 三大法人選擇權持倉 ── */
+  .oi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .oi-block{background:#f0ebe0;border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+  .oi-block-title{font-family:var(--font-mono);font-size:9px;letter-spacing:.15em;color:var(--text-muted);margin-bottom:8px;}
+  .oi-tbl{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11px;}
+  .oi-tbl th{font-size:9px;color:var(--text-dim);font-weight:400;padding:2px 6px;text-align:right;border-bottom:1px solid var(--border);}
+  .oi-tbl th:first-child{text-align:left;}
+  .oi-tbl td{padding:3px 6px;text-align:right;border-bottom:1px solid rgba(224,216,200,.4);}
+  .oi-tbl td:first-child{text-align:left;color:var(--text-muted);}
+  .oi-tbl tr:last-child td{border-bottom:none;}
+  .oi-net-pos{color:#c0392b;}
+  .oi-net-neg{color:#1a7a5e;}
+  @media(max-width:640px){.oi-grid{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
