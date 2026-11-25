@@ -22,6 +22,7 @@ exports.handler = async (event) => {
     'www.taifex.com.tw',
     'docs.google.com',
     'spreadsheets.google.com',
+    'www.wantgoo.com',
   ];
   const host = new URL(decoded).hostname;
   if (!allowed.some(h => host === h || host.endsWith('.' + h))) {
