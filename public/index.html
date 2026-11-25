@@ -1958,91 +1958,161 @@ setInterval(loadSpread,300000); // 每5分鐘更新
 // ══════════════════════════════════════════════════════════════════
 // ██  三大法人選擇權未平倉  ████████████████████████████████████████
 // ══════════════════════════════════════════════════════════════════
-// TAIFEX Open API：三大法人選擇權各買賣方未平倉口數
-const OI_URL='https://openapi.taifex.com.tw/v1/OptionMarketInfo';
+// 三大法人選擇權各買賣方未平倉口數
+// 資料來源：TAIFEX 網站 HTML（主要）
+const OI_HTML_URL='https://www.taifex.com.tw/cht/3/callsAndPutsDate';
+const OI_API_URL='https://openapi.taifex.com.tw/v1/OptionMarketInfo';
 
-function fmtOI(n){
-  if(n==null||n==='') return '—';
-  const v=parseInt(n);
-  if(isNaN(v)) return n;
-  return v.toLocaleString();
+// 解析 TAIFEX callsAndPutsDate 網頁 HTML
+function parseOIHtml(html){
+  const doc=new DOMParser().parseFromString(html,'text/html');
+
+  // 取日期（民國年格式 XXX/MM/DD）
+  let dateStr='—';
+  const bodyText=doc.body?.textContent||'';
+  const dm=bodyText.match(/(\d{3})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if(dm){
+    const y=parseInt(dm[1])+1911;
+    dateStr=`${y}/${dm[2].padStart(2,'0')}/${dm[3].padStart(2,'0')}`;
+  }
+
+  // 找含有 Call/Put 資料的 table
+  const tables=[...doc.querySelectorAll('table')];
+  for(const tbl of tables){
+    const txt=tbl.textContent;
+    if(!txt.includes('自營')||!(/買權|Call/i.test(txt))) continue;
+
+    const rows=[...tbl.querySelectorAll('tr')];
+    let callCells=null,putCells=null;
+    for(const row of rows){
+      const cells=[...row.querySelectorAll('td')];
+      if(!cells.length) continue;
+      const ft=cells[0].textContent.trim();
+      if(/買權|CALL/i.test(ft)) callCells=cells;
+      else if(/賣權|PUT/i.test(ft)) putCells=cells;
+    }
+    if(!callCells&&!putCells) continue;
+
+    // 從一行 td 中提取 [自營買,自營賣,自營淨, 外資買,外資賣,外資淨, 投信買,投信賣,投信淨]
+    function buildGroup(cells){
+      if(!cells) return[];
+      const nums=cells.slice(1).map(c=>{
+        const n=parseInt((c.textContent||'').replace(/,/g,'').trim());
+        return isNaN(n)?null:n;
+      }).filter(n=>n!==null);
+      if(nums.length<6) return[];
+      // 每組3個數字（買、賣、淨），取買賣
+      return[
+        {name:'自營商',buy:nums[0],sell:nums[1]},
+        {name:'外資',  buy:nums[3],sell:nums[4]},
+        {name:'投信',  buy:nums[6]??0,sell:nums[7]??0},
+      ];
+    }
+
+    const call=buildGroup(callCells);
+    const put=buildGroup(putCells);
+    if(call.length||put.length) return{date:dateStr,call,put};
+  }
+  return null;
 }
-function netCls(n){
-  const v=parseInt(n);
-  if(isNaN(v)) return '';
-  return v>0?'oi-net-pos':v<0?'oi-net-neg':'';
+
+// 解析 TAIFEX Open API JSON（備援）
+function parseOIJson(data){
+  if(!Array.isArray(data)||!data.length) return null;
+  const s=data[0];
+  const kDate=Object.keys(s).find(k=>/date|日期/i.test(k))||'Date';
+  const kPC=Object.keys(s).find(k=>/putcall|買賣/i.test(k))||'PutCall';
+  const kIdent=Object.keys(s).find(k=>/identity|身份|法人/i.test(k))||'IdentityType';
+  const kBuy=Object.keys(s).find(k=>/buy.*open|買.*未|多.*未/i.test(k))||'BuyOpenInterest';
+  const kSell=Object.keys(s).find(k=>/sell.*open|賣.*未|空.*未/i.test(k))||'SellOpenInterest';
+
+  const txo=data.filter(d=>(d.ContractCode||d.contractCode||d['契約代碼']||d['商品代號']||'').includes('TXO'));
+  if(!txo.length) return null;
+  const latestDate=txo.map(d=>d[kDate]).sort().at(-1);
+  const rows=txo.filter(d=>d[kDate]===latestDate);
+  const pcVals=[...new Set(rows.map(d=>d[kPC]))];
+  const callVal=pcVals.find(v=>/^c|call|買/i.test(v||''))||pcVals[0];
+  const putVal=pcVals.find(v=>/^p|put|賣/i.test(v||''))||pcVals[1];
+  const identVals=[...new Set(rows.map(d=>d[kIdent]))];
+  const nameMap={};
+  identVals.forEach(v=>{
+    if(/自營/.test(v)) nameMap[v]='自營商';
+    else if(/外資|陸資|foreign/i.test(v)) nameMap[v]='外資';
+    else if(/投信/.test(v)) nameMap[v]='投信';
+    else nameMap[v]=v;
+  });
+  function extractRows(pcVal){
+    return identVals.map(p=>{
+      const d=rows.find(x=>x[kPC]===pcVal&&x[kIdent]===p);
+      return{name:nameMap[p]||p,buy:parseInt(d?.[kBuy]||0),sell:parseInt(d?.[kSell]||0)};
+    });
+  }
+  const dateStr=String(latestDate).replace(/(\d{4})(\d{2})(\d{2})/,'$1/$2/$3');
+  return{date:dateStr,call:extractRows(callVal),put:extractRows(putVal)};
 }
 
 async function loadOI(){
   document.getElementById('oiSpinner').style.display='inline-block';
   try{
-    const r=await fetch(PROXY+encodeURIComponent(OI_URL),{signal:AbortSignal.timeout(12000)});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const data=await r.json();
-    // debug：印出前兩筆看欄位名稱
-    console.log('[OI] sample rows:',JSON.stringify(data.slice(0,2)));
-    // 篩選 TXO（台指選擇權）當日資料
-    // 嘗試常見欄位名稱變體
-    const txo=data.filter(d=>(d.ContractCode||d.contractCode||d['契約代碼']||d['商品代號']||'').includes('TXO'));
-    if(!txo.length) throw new Error('no TXO data, keys:'+Object.keys(data[0]||{}).join(','));
+    let parsed=null;
 
-    // 取欄位名稱（相容多種格式）
-    const sample=txo[0];
-    const kDate=Object.keys(sample).find(k=>/date|日期/i.test(k))||'Date';
-    const kPC=Object.keys(sample).find(k=>/putcall|買賣權/i.test(k))||'PutCall';
-    const kIdent=Object.keys(sample).find(k=>/identity|身份|法人/i.test(k))||'IdentityType';
-    const kBuy=Object.keys(sample).find(k=>/buy.*open|買.*未平|多方.*未平/i.test(k))||'BuyOpenInterest';
-    const kSell=Object.keys(sample).find(k=>/sell.*open|賣.*未平|空方.*未平/i.test(k))||'SellOpenInterest';
-    console.log('[OI] fields:',kDate,kPC,kIdent,kBuy,kSell);
+    // 方案A：TAIFEX 網站 HTML（主要，不需特殊 header）
+    try{
+      const r=await fetch(PROXY+encodeURIComponent(OI_HTML_URL),{signal:AbortSignal.timeout(12000)});
+      if(r.ok){
+        const html=await r.text();
+        parsed=parseOIHtml(html);
+        if(parsed) console.log('[OI] HTML parse OK, date:',parsed.date);
+        else console.warn('[OI] HTML parse: table not found');
+      }
+    }catch(e){console.warn('[OI] HTML fetch fail:',e.message);}
 
-    // 取最新日期
-    const latestDate=txo.map(d=>d[kDate]).sort().at(-1);
-    const rows=txo.filter(d=>d[kDate]===latestDate);
+    // 方案B：Open API JSON（備援）
+    if(!parsed){
+      try{
+        const r=await fetch(PROXY+encodeURIComponent(OI_API_URL),{
+          signal:AbortSignal.timeout(10000),
+          headers:{'Accept':'application/json'}
+        });
+        const text=await r.text();
+        const trim=text.trim();
+        if(trim.startsWith('[')||trim.startsWith('{')){
+          parsed=parseOIJson(JSON.parse(text));
+          if(parsed) console.log('[OI] API JSON OK');
+        }else{
+          console.warn('[OI] API not JSON, starts:',trim.slice(0,80));
+        }
+      }catch(e){console.warn('[OI] API fail:',e.message);}
+    }
+
+    if(!parsed) throw new Error('資料解析失敗');
 
     // 顯示日期
-    document.getElementById('oiDate').textContent=latestDate?String(latestDate).replace(/(\d{4})(\d{2})(\d{2})/,'$1/$2/$3'):'—';
+    document.getElementById('oiDate').textContent=parsed.date;
 
-    // PutCall 值偵測（C/P 或 買權/賣權）
-    const pcVals=[...new Set(rows.map(d=>d[kPC]))];
-    console.log('[OI] PutCall values:',pcVals);
-    const isCallVal=pcVals.find(v=>/^c|call|買/i.test(v||''))||pcVals[0];
-    const isPutVal=pcVals.find(v=>/^p|put|賣/i.test(v||''))||pcVals[1];
-
-    // 法人名稱偵測
-    const identVals=[...new Set(rows.map(d=>d[kIdent]))];
-    console.log('[OI] IdentityType values:',identVals);
-    const nameMap={};
-    identVals.forEach(v=>{
-      if(/自營/.test(v)) nameMap[v]='自營商';
-      else if(/外資|陸資|foreign/i.test(v)) nameMap[v]='外資';
-      else if(/投信/.test(v)) nameMap[v]='投信';
-      else nameMap[v]=v;
-    });
-
-    function buildBody(pcVal,bodyId){
+    // 渲染表格
+    function renderBody(rows,bodyId){
       const tbody=document.getElementById(bodyId);
-      const filtered=rows.filter(d=>d[kPC]===pcVal);
-      if(!filtered.length){tbody.innerHTML='<tr><td colspan="4" style="color:var(--text-dim);">無資料</td></tr>';return;}
-      tbody.innerHTML=identVals.map(p=>{
-        const d=filtered.find(x=>x[kIdent]===p);
-        if(!d) return '';
-        const buy=parseInt(d[kBuy]||0);
-        const sell=parseInt(d[kSell]||0);
+      if(!rows||!rows.length){
+        tbody.innerHTML='<tr><td colspan="4" style="color:var(--text-dim);text-align:center;">無資料</td></tr>';
+        return;
+      }
+      tbody.innerHTML=rows.map(({name,buy,sell})=>{
         const net=buy-sell;
         const nc=net>0?'oi-net-pos':net<0?'oi-net-neg':'';
-        return `<tr>
-          <td>${nameMap[p]||p}</td>
+        return`<tr>
+          <td>${name}</td>
           <td>${buy.toLocaleString()}</td>
           <td>${sell.toLocaleString()}</td>
           <td class="${nc}">${net>0?'+':''}${net.toLocaleString()}</td>
         </tr>`;
       }).join('');
     }
-    buildBody(isCallVal,'oiCallBody');
-    buildBody(isPutVal,'oiPutBody');
+    renderBody(parsed.call,'oiCallBody');
+    renderBody(parsed.put,'oiPutBody');
 
   }catch(e){
-    console.warn('OI fetch failed:',e.message);
+    console.warn('OI load failed:',e.message);
     ['oiCallBody','oiPutBody'].forEach(id=>{
       document.getElementById(id).innerHTML=`<tr><td colspan="4" style="color:var(--text-dim);text-align:center;">取得失敗：${e.message}</td></tr>`;
     });
