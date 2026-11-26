@@ -195,8 +195,8 @@
     </div>
     <div class="calc-top">
       <input type="number" id="calcBase" value="0" placeholder="行情" oninput="calcPrices()">
-      <input type="number" id="calcSmall" value="0" placeholder="小" oninput="calcPrices()">
-      <input type="number" id="calcLarge" value="0" placeholder="大" oninput="calcPrices()">
+      <input type="number" id="calcSmall" value="0" min="0" placeholder="小" oninput="calcPrices()">
+      <input type="number" id="calcLarge" value="0" min="0" placeholder="大" oninput="calcPrices()">
     </div>
     <div class="calc-row">
       <div class="calc-price resist" id="calcR2">0</div>
@@ -1972,8 +1972,8 @@ const PROXY='/.netlify/functions/proxy?url=';
 
 function calcPrices(){
   const base=parseFloat(document.getElementById('calcBase').value)||0;
-  const sm=parseFloat(document.getElementById('calcSmall').value)||0;
-  const lg=parseFloat(document.getElementById('calcLarge').value)||0;
+  const sm=Math.abs(parseFloat(document.getElementById('calcSmall').value)||0);
+  const lg=Math.abs(parseFloat(document.getElementById('calcLarge').value)||0);
   const fmt=v=>v.toLocaleString('zh-TW');
   document.getElementById('calcR2').textContent=fmt(base+lg+sm);
   document.getElementById('calcR1').textContent=fmt(base+lg);
