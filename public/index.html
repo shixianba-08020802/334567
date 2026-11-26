@@ -498,15 +498,15 @@ function drawSK(ctx,w,h,bars,allH,allL){
 
   // ── OI 壓力/支撐線（週K 專用）──────────────────────────────────
   if(ctx===_wkCtx){
-    const srBars=bars.filter(b=>b.oi>0);
+    const srBars=bars; // 所有週K都畫線
     if(srBars.length>0){
-      const maxOI=Math.max(...srBars.map(b=>b.oi));
+      const maxOI=Math.max(...srBars.map(b=>b.oi||0),1);
       const xEnd=w-SKP.right+2;
       ctx.save();
       srBars.forEach(b=>{
-        const ratio=b.oi/maxOI;
-        const alpha=0.12+0.55*ratio;
-        const lw=0.5+2*ratio;
+        const ratio=(b.oi||0)/maxOI;
+        const alpha=0.18+0.5*ratio;  // OI=0時仍有最低透明度
+        const lw=0.8+1.5*ratio;
         // 壓力（高點）淺綠
         const rY=sk_p2y(b.h,h,mn,mx);
         if(rY>=SKP.top-2&&rY<=h-SKP.bottom+2){
