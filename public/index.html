@@ -200,11 +200,11 @@
     </div>
     <div class="calc-row">
       <div class="calc-price resist" id="calcR2">0</div>
-      <input class="calc-manual" type="number" value="0" placeholder="">
+      <input class="calc-manual" id="calcR2i" type="number" value="0" oninput="syncLeft('calcR2i','calcR2')">
     </div>
     <div class="calc-row">
       <div class="calc-price resist" id="calcR1">0</div>
-      <input class="calc-manual" type="number" value="0" placeholder="">
+      <input class="calc-manual" id="calcR1i" type="number" value="0" oninput="syncLeft('calcR1i','calcR1')">
     </div>
     <hr class="calc-divider">
     <div class="calc-row" style="grid-template-columns:1fr;">
@@ -213,11 +213,11 @@
     <hr class="calc-divider">
     <div class="calc-row">
       <div class="calc-price support" id="calcS1">0</div>
-      <input class="calc-manual" type="number" value="0" placeholder="">
+      <input class="calc-manual" id="calcS1i" type="number" value="0" oninput="syncLeft('calcS1i','calcS1')">
     </div>
     <div class="calc-row">
       <div class="calc-price support" id="calcS2">0</div>
-      <input class="calc-manual" type="number" value="0" placeholder="">
+      <input class="calc-manual" id="calcS2i" type="number" value="0" oninput="syncLeft('calcS2i','calcS2')">
     </div>
   </div>
 
@@ -1970,16 +1970,22 @@ addOptRow();
 // ══════════════════════════════════════════════════════════════════
 const PROXY='/.netlify/functions/proxy?url=';
 
+function fmt(v){return v===0?'0':v.toLocaleString('zh-TW');}
+function syncLeft(inputId,dispId){
+  const v=parseFloat(document.getElementById(inputId).value)||0;
+  document.getElementById(dispId).textContent=fmt(v);
+}
 function calcPrices(){
   const base=parseFloat(document.getElementById('calcBase').value)||0;
   const sm=Math.abs(parseFloat(document.getElementById('calcSmall').value)||0);
   const lg=Math.abs(parseFloat(document.getElementById('calcLarge').value)||0);
-  const fmt=v=>v.toLocaleString('zh-TW');
-  document.getElementById('calcR2').textContent=fmt(base+lg+sm);
-  document.getElementById('calcR1').textContent=fmt(base+lg);
+  const pairs=[['calcR2i','calcR2',base+lg+sm],['calcR1i','calcR1',base+lg],
+               ['calcS1i','calcS1',base-sm],['calcS2i','calcS2',base-lg-sm]];
+  pairs.forEach(([iid,did,v])=>{
+    document.getElementById(iid).value=v;
+    document.getElementById(did).textContent=fmt(v);
+  });
   document.getElementById('calcMid').textContent=fmt(base);
-  document.getElementById('calcS1').textContent=fmt(base-sm);
-  document.getElementById('calcS2').textContent=fmt(base-lg-sm);
 }
 calcPrices();
 
