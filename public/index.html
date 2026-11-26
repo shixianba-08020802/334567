@@ -138,9 +138,6 @@
   .wkt .wkt-sep{color:var(--text-dim);font-size:10px;padding:2px 8px;background:rgba(240,235,224,.4);}
 
   /* ── 價位計算機 ── */
-  .calc-top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;}
-  .calc-top input{font-family:var(--font-mono);font-size:16px;border:1px solid var(--border);border-radius:8px;padding:9px 8px;background:#f0ebe0;color:var(--text-primary);outline:none;text-align:center;width:100%;}
-  .calc-top input:focus{border-color:var(--accent-blue);}
   .calc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:7px;}
   .calc-row:last-child{margin-bottom:0;}
   .calc-price{font-family:var(--font-mono);font-size:20px;font-weight:500;padding:11px 10px;border-radius:8px;text-align:center;}
@@ -193,31 +190,17 @@
     <div class="section-header" style="margin-bottom:12px;">
       <div class="section-title">▪ 價位計算</div>
     </div>
-    <div class="calc-top">
-      <input type="number" id="calcBase" value="0" placeholder="行情" oninput="calcPrices()">
-      <input type="number" id="calcSmall" value="0" min="0" placeholder="小" oninput="calcPrices()">
-      <input type="number" id="calcLarge" value="0" min="0" placeholder="大" oninput="calcPrices()">
-    </div>
     <div class="calc-row">
-      <div class="calc-price resist" id="calcR2">0</div>
-      <input class="calc-manual" id="calcR2i" type="number" value="0" oninput="syncLeft('calcR2i','calcR2')">
+      <div class="calc-price resist" id="calcTop">0</div>
+      <input class="calc-manual" id="calcUpInp" type="number" value="0" min="0" oninput="calcPrices()">
     </div>
-    <div class="calc-row">
-      <div class="calc-price resist" id="calcR1">0</div>
-      <input class="calc-manual" id="calcR1i" type="number" value="0" oninput="syncLeft('calcR1i','calcR1')">
-    </div>
-    <hr class="calc-divider">
-    <div class="calc-row" style="grid-template-columns:1fr;">
+    <div class="calc-row" style="margin:7px 0;">
       <div class="calc-price base" id="calcMid">0</div>
-    </div>
-    <hr class="calc-divider">
-    <div class="calc-row">
-      <div class="calc-price support" id="calcS1">0</div>
-      <input class="calc-manual" id="calcS1i" type="number" value="0" oninput="syncLeft('calcS1i','calcS1')">
+      <input class="calc-manual" id="calcBaseInp" type="number" value="0" oninput="calcPrices()">
     </div>
     <div class="calc-row">
-      <div class="calc-price support" id="calcS2">0</div>
-      <input class="calc-manual" id="calcS2i" type="number" value="0" oninput="syncLeft('calcS2i','calcS2')">
+      <div class="calc-price support" id="calcBot">0</div>
+      <input class="calc-manual" id="calcDnInp" type="number" value="0" min="0" oninput="calcPrices()">
     </div>
   </div>
 
@@ -1971,21 +1954,13 @@ addOptRow();
 const PROXY='/.netlify/functions/proxy?url=';
 
 function fmt(v){return v===0?'0':v.toLocaleString('zh-TW');}
-function syncLeft(inputId,dispId){
-  const v=parseFloat(document.getElementById(inputId).value)||0;
-  document.getElementById(dispId).textContent=fmt(v);
-}
 function calcPrices(){
-  const base=parseFloat(document.getElementById('calcBase').value)||0;
-  const sm=Math.abs(parseFloat(document.getElementById('calcSmall').value)||0);
-  const lg=Math.abs(parseFloat(document.getElementById('calcLarge').value)||0);
-  const pairs=[['calcR2i','calcR2',base+lg+sm],['calcR1i','calcR1',base+lg],
-               ['calcS1i','calcS1',base-sm],['calcS2i','calcS2',base-lg-sm]];
-  pairs.forEach(([iid,did,v])=>{
-    document.getElementById(iid).value=v;
-    document.getElementById(did).textContent=fmt(v);
-  });
+  const base=parseFloat(document.getElementById('calcBaseInp').value)||0;
+  const up=Math.abs(parseFloat(document.getElementById('calcUpInp').value)||0);
+  const dn=Math.abs(parseFloat(document.getElementById('calcDnInp').value)||0);
+  document.getElementById('calcTop').textContent=fmt(base+up);
   document.getElementById('calcMid').textContent=fmt(base);
+  document.getElementById('calcBot').textContent=fmt(base-dn);
 }
 calcPrices();
 
