@@ -138,20 +138,17 @@
   .wkt .wkt-sep{color:var(--text-dim);font-size:10px;padding:2px 8px;background:rgba(240,235,224,.4);}
 
   /* ── 價位計算機 ── */
-  .calc-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:center;}
-  .calc-price{font-family:var(--font-mono);font-size:19px;font-weight:500;padding:9px 14px;border-radius:8px;text-align:center;}
+  .calc-top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;}
+  .calc-top input{font-family:var(--font-mono);font-size:16px;border:1px solid var(--border);border-radius:8px;padding:9px 8px;background:#f0ebe0;color:var(--text-primary);outline:none;text-align:center;width:100%;}
+  .calc-top input:focus{border-color:var(--accent-blue);}
+  .calc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:7px;}
+  .calc-row:last-child{margin-bottom:0;}
+  .calc-price{font-family:var(--font-mono);font-size:20px;font-weight:500;padding:11px 10px;border-radius:8px;text-align:center;}
   .calc-price.resist{background:#e8f5ec;color:#1a7a5e;}
   .calc-price.base{background:#e8eff7;color:#2c5f8a;font-size:22px;font-weight:600;}
   .calc-price.support{background:#fdf0ee;color:#c0392b;}
-  .calc-label{font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;color:var(--text-muted);text-align:center;margin-bottom:3px;}
-  .calc-diff{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);padding:0 10px;text-align:center;}
-  .calc-row{display:flex;flex-direction:column;margin-bottom:7px;}
-  .calc-row:last-child{margin-bottom:0;}
-  .calc-inputs{display:flex;gap:12px;margin-bottom:14px;align-items:flex-end;}
-  .calc-inp-grp{display:flex;flex-direction:column;gap:4px;}
-  .calc-inp-grp label{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:.1em;}
-  .calc-inp-grp input{font-family:var(--font-mono);font-size:15px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;background:#f0ebe0;color:var(--text-primary);width:120px;outline:none;text-align:center;}
-  .calc-inp-grp input:focus{border-color:var(--accent-blue);}
+  .calc-manual{font-family:var(--font-mono);font-size:18px;border:1px solid var(--border);border-radius:8px;padding:10px 8px;background:#fdfaf4;color:var(--text-primary);outline:none;text-align:center;width:100%;}
+  .calc-manual:focus{border-color:var(--accent-blue);}
   .calc-divider{border:none;border-top:1px dashed var(--border);margin:8px 0;}
 
   /* ── 三大法人選擇權持倉 ── */
@@ -196,41 +193,31 @@
     <div class="section-header" style="margin-bottom:12px;">
       <div class="section-title">▪ 價位計算</div>
     </div>
-    <div class="calc-inputs">
-      <div class="calc-inp-grp">
-        <label>行情</label>
-        <input type="number" id="calcBase" value="0" oninput="calcPrices()">
-      </div>
-      <div class="calc-inp-grp">
-        <label>小增量</label>
-        <input type="number" id="calcSmall" value="100" oninput="calcPrices()">
-      </div>
-      <div class="calc-inp-grp">
-        <label>大增量</label>
-        <input type="number" id="calcLarge" value="1000" oninput="calcPrices()">
-      </div>
+    <div class="calc-top">
+      <input type="number" id="calcBase" value="0" placeholder="行情" oninput="calcPrices()">
+      <input type="number" id="calcSmall" value="0" placeholder="小" oninput="calcPrices()">
+      <input type="number" id="calcLarge" value="0" placeholder="大" oninput="calcPrices()">
     </div>
     <div class="calc-row">
-      <div class="calc-label">壓力②</div>
-      <div class="calc-price resist" id="calcR2">—</div>
+      <div class="calc-price resist" id="calcR2">0</div>
+      <input class="calc-manual" type="number" value="0" placeholder="">
     </div>
     <div class="calc-row">
-      <div class="calc-label">壓力①</div>
-      <div class="calc-price resist" id="calcR1">—</div>
+      <div class="calc-price resist" id="calcR1">0</div>
+      <input class="calc-manual" type="number" value="0" placeholder="">
+    </div>
+    <hr class="calc-divider">
+    <div class="calc-row" style="grid-template-columns:1fr;">
+      <div class="calc-price base" id="calcMid">0</div>
     </div>
     <hr class="calc-divider">
     <div class="calc-row">
-      <div class="calc-label">行情</div>
-      <div class="calc-price base" id="calcMid">—</div>
-    </div>
-    <hr class="calc-divider">
-    <div class="calc-row">
-      <div class="calc-label">支撐①</div>
-      <div class="calc-price support" id="calcS1">—</div>
+      <div class="calc-price support" id="calcS1">0</div>
+      <input class="calc-manual" type="number" value="0" placeholder="">
     </div>
     <div class="calc-row">
-      <div class="calc-label">支撐②</div>
-      <div class="calc-price support" id="calcS2">—</div>
+      <div class="calc-price support" id="calcS2">0</div>
+      <input class="calc-manual" type="number" value="0" placeholder="">
     </div>
   </div>
 
