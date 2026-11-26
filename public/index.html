@@ -167,6 +167,21 @@
     <div class="logo">shixianba看板</div>
   </header>
 
+  <!-- ── 交易筆記 ── -->
+  <div class="history-card" style="margin-bottom:14px;" id="notesCard">
+    <div class="section-header" style="margin-bottom:10px;">
+      <div class="section-title">▪ 交易筆記</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
+        <span class="spinner" id="notesSpinner" style="display:none;"></span>
+        <span id="notesSaved">—</span>
+      </div>
+    </div>
+    <textarea id="notesArea" style="width:100%;min-height:120px;font-family:var(--font-mono);font-size:13px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:#f0ebe0;color:var(--text-primary);resize:vertical;outline:none;line-height:1.7;" placeholder="輸入交易記錄…"></textarea>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+      <button onclick="saveNotes()" style="font-family:var(--font-mono);font-size:12px;padding:7px 20px;border:none;border-radius:7px;background:var(--accent-blue);color:#fff;cursor:pointer;letter-spacing:.05em;">儲存</button>
+    </div>
+  </div>
+
   <!-- ── 點差表 ── -->
   <div class="history-card" style="margin-bottom:14px;" id="spCard">
     <div class="section-header" style="margin-bottom:10px;">
@@ -1963,6 +1978,53 @@ setInterval(loadSpread,300000); // 每5分鐘更新
 
 
 
+// ══════════════════════════════════════════════════════════════════
+// ██  交易筆記（Netlify Blobs 同步）  ██████████████████████████████
+// ══════════════════════════════════════════════════════════════════
+async function loadNotes(){
+  const sp=document.getElementById('notesSpinner');
+  sp.style.display='inline-block';
+  try{
+    const r=await fetch('/.netlify/functions/notes',{signal:AbortSignal.timeout(8000)});
+    if(r.ok){
+      const text=await r.text();
+      document.getElementById('notesArea').value=text;
+      document.getElementById('notesSaved').textContent=text.trim()?'已載入':'（空白）';
+    }
+  }catch(e){
+    document.getElementById('notesSaved').textContent='載入失敗';
+    console.warn('[Notes] load:',e);
+  }
+  sp.style.display='none';
+}
+
+async function saveNotes(){
+  const sp=document.getElementById('notesSpinner');
+  const savedEl=document.getElementById('notesSaved');
+  const text=document.getElementById('notesArea').value;
+  sp.style.display='inline-block';
+  savedEl.textContent='儲存中…';
+  try{
+    const r=await fetch('/.netlify/functions/notes',{
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body:text,
+      signal:AbortSignal.timeout(8000)
+    });
+    if(r.ok){
+      const now=new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit'});
+      savedEl.textContent=`已儲存 ${now}`;
+    }else{
+      savedEl.textContent='儲存失敗';
+    }
+  }catch(e){
+    savedEl.textContent='儲存失敗';
+    console.warn('[Notes] save:',e);
+  }
+  sp.style.display='none';
+}
+
+loadNotes();
 </script>
 </body>
 </html>
